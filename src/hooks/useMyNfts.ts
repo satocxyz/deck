@@ -1,70 +1,76 @@
 // src/hooks/useMyNfts.ts
-import { useEffect, useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 
-export type Chain = 'base' | 'ethereum'
+export type Chain = "base" | "ethereum";
 
-type OpenSeaNft = {
-  identifier: string
-  name?: string
-  image_url?: string
+export type OpenSeaNft = {
+  identifier: string;
+  name?: string;
+  image_url?: string;
+  description?: string;
+  // OpenSea v2 includes collection metadata
   collection?: {
-    name?: string
-    slug?: string
-  }
-}
+    name?: string;
+    slug?: string;
+  };
+  // We don’t rely on contract address yet for safety;
+  // you can extend this when implementing trading.
+  // contract?: string;
+};
 
 type OpenSeaResponse = {
-  nfts: OpenSeaNft[]
-  next?: string | null
-}
+  nfts: OpenSeaNft[];
+  next?: string | null;
+};
 
-export function useMyNfts(chain: Chain = 'base') {
-  const { address, isConnected } = useAccount()
-  const [data, setData] = useState<OpenSeaResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function useMyNfts(chain: Chain = "base") {
+  const { address, isConnected } = useAccount();
+  const [data, setData] = useState<OpenSeaResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isConnected || !address) {
-      setData(null)
-      setError(null)
-      return
+      setData(null);
+      setError(null);
+      return;
     }
 
-    let cancelled = false
+    let cancelled = false;
 
     const load = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
+
       try {
         const params = new URLSearchParams({
           address,
           chain,
-        })
+        });
 
-        const res = await fetch(`/api/opensea/my-nfts?${params.toString()}`)
+        const res = await fetch(`/api/opensea/my-nfts?${params.toString()}`);
 
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
-          throw new Error(body.error || 'Failed to load NFTs')
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || "Failed to load NFTs");
         }
 
-        const json = (await res.json()) as OpenSeaResponse
-        if (!cancelled) setData(json)
+        const json = (await res.json()) as OpenSeaResponse;
+        if (!cancelled) setData(json);
       } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Unknown error')
+        if (!cancelled) setError(e.message || "Unknown error");
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
-    }
+    };
 
-    load()
+    load();
 
     return () => {
-      cancelled = true
-    }
-  }, [isConnected, address, chain])
+      cancelled = true;
+    };
+  }, [isConnected, address, chain]);
 
-  return { data, loading, error }
+  return { data, loading, error };
 }
