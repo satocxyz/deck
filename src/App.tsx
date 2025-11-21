@@ -1,9 +1,11 @@
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useConnect } from "wagmi";
-import { useMyNfts } from "./hooks/useMyNfts";
+import { useMyNfts, type Chain } from "./hooks/useMyNfts";
 
 function App() {
+  const [chain, setChain] = useState<Chain>("base");
+
   useEffect(() => {
     (async () => {
       try {
@@ -15,7 +17,7 @@ function App() {
   }, []);
 
   const { isConnected } = useAccount();
-  const { data, loading, error } = useMyNfts("base");
+  const { data, loading, error } = useMyNfts(chain);
 
   return (
     <div
@@ -45,6 +47,8 @@ function App() {
 
       <ConnectMenu />
 
+      <ChainSelector chain={chain} onChange={setChain} />
+
       <main style={{ marginTop: "16px" }}>
         {!isConnected && (
           <p style={{ fontSize: "13px", opacity: 0.7 }}>
@@ -54,7 +58,7 @@ function App() {
 
         {isConnected && loading && (
           <p style={{ fontSize: "13px", opacity: 0.7 }}>
-            Loading your NFTs…
+            Loading your NFTs on {prettyChain(chain)}…
           </p>
         )}
 
@@ -64,7 +68,7 @@ function App() {
 
         {isConnected && data && data.nfts?.length === 0 && !loading && !error && (
           <p style={{ fontSize: "13px", opacity: 0.7 }}>
-            No NFTs found on this chain.
+            No NFTs found on {prettyChain(chain)} for this wallet.
           </p>
         )}
 
@@ -218,6 +222,63 @@ function ConnectMenu() {
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
     </button>
   );
+}
+
+function ChainSelector({
+  chain,
+  onChange,
+}: {
+  chain: Chain;
+  onChange: (c: Chain) => void;
+}) {
+  const options: { label: string; value: Chain }[] = [
+    { label: "Base", value: "base" },
+    { label: "Ethereum", value: "ethereum" },
+  ];
+
+  return (
+    <div
+      style={{
+        marginTop: "10px",
+        padding: "4px",
+        borderRadius: "999px",
+        background: "#090910",
+        border: "1px solid #27272f",
+        display: "flex",
+        gap: "4px",
+        fontSize: "11px",
+      }}
+    >
+      {options.map((opt) => {
+        const active = opt.value === chain;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            style={{
+              flex: 1,
+              borderRadius: "999px",
+              border: "none",
+              padding: "6px 0",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: active ? 600 : 500,
+              background: active ? "#f9fafb" : "transparent",
+              color: active ? "#020617" : "#e5e7eb",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function prettyChain(chain: Chain): string {
+  if (chain === "base") return "Base";
+  return "Ethereum";
 }
 
 export default App;

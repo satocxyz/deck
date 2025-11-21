@@ -9,7 +9,7 @@ const querySchema = z.object({
     .toLowerCase()
     .regex(/^0x[a-f0-9]{40}$/, 'Invalid address'),
   chain: z
-    .enum(['ethereum', 'base', 'polygon', 'arbitrum', 'optimism'])
+    .enum(['ethereum', 'base'])
     .default('base'),
 })
 

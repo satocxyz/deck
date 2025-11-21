@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 
+export type Chain = 'base' | 'ethereum'
+
 type OpenSeaNft = {
   identifier: string
   name?: string
@@ -17,7 +19,7 @@ type OpenSeaResponse = {
   next?: string | null
 }
 
-export function useMyNfts(chain: 'base' | 'ethereum' = 'base') {
+export function useMyNfts(chain: Chain = 'base') {
   const { address, isConnected } = useAccount()
   const [data, setData] = useState<OpenSeaResponse | null>(null)
   const [loading, setLoading] = useState(false)
