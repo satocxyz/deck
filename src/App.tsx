@@ -3,15 +3,35 @@ import { useEffect, useState } from "react";
 import { useAccount, useConnect } from "wagmi";
 import { useMyNfts, type Chain } from "./hooks/useMyNfts";
 
+type SafeArea = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
+
 function App() {
   const [chain, setChain] = useState<Chain>("base");
+  const [safeArea, setSafeArea] = useState<SafeArea>({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  });
 
   useEffect(() => {
     (async () => {
       try {
+        // Get mini app context so we can respect safe-area insets
+        const context = await sdk.context.getContext();
+        if (context?.client?.safeAreaInsets) {
+          setSafeArea(context.client.safeAreaInsets);
+        }
+
+        // Tell the host the app is ready (hides splash screen)
         await sdk.actions.ready();
       } catch (err) {
-        console.error("sdk.ready failed", err);
+        console.error("sdk.ready or context failed", err);
       }
     })();
   }, []);
@@ -25,7 +45,10 @@ function App() {
         minHeight: "100vh",
         backgroundColor: "#050508",
         color: "#fff",
-        padding: "16px",
+        paddingTop: 16 + safeArea.top,
+        paddingBottom: 16 + safeArea.bottom,
+        paddingLeft: 16 + safeArea.left,
+        paddingRight: 16 + safeArea.right,
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
@@ -38,8 +61,8 @@ function App() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "20px", fontWeight: 700 }}>Deck</h1>
-          <p style={{ fontSize: "11px", opacity: 0.7 }}>
+          <h1 className="text-xl font-semibold tracking-tight">Deck</h1>
+          <p className="text-[11px] text-neutral-400">
             NFTs from your Farcaster wallet
           </p>
         </div>
@@ -167,30 +190,9 @@ function ConnectMenu() {
 
   if (isConnected) {
     return (
-      <div
-        style={{
-          marginTop: "8px",
-          padding: "10px 12px",
-          borderRadius: "14px",
-          border: "1px solid #27272f",
-          background: "#090910",
-          fontSize: "11px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        <span style={{ opacity: 0.8 }}>Wallet connected</span>
-        <span
-          style={{
-            maxWidth: "140px",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            opacity: 0.7,
-          }}
-        >
+      <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-[11px]">
+        <span className="text-neutral-200">Wallet connected</span>
+        <span className="max-w-[160px] truncate text-neutral-400">
           {address}
         </span>
       </div>
@@ -204,25 +206,13 @@ function ConnectMenu() {
       type="button"
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
-      style={{
-        marginTop: "8px",
-        width: "100%",
-        padding: "11px 14px",
-        borderRadius: "16px",
-        border: "1px solid #7c3aed",
-        background:
-          "linear-gradient(135deg, #7c3aed, #4f46e5, #0f172a)",
-        color: "#fff",
-        fontWeight: 600,
-        fontSize: "13px",
-        cursor: "pointer",
-        opacity: !connector || isPending ? 0.6 : 1,
-      }}
+      className="mt-2 w-full rounded-2xl border border-purple-500/60 bg-gradient-to-tr from-purple-600 via-indigo-500 to-slate-900 px-4 py-3 text-sm font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
     </button>
   );
 }
+
 
 function ChainSelector({
   chain,
@@ -237,18 +227,7 @@ function ChainSelector({
   ];
 
   return (
-    <div
-      style={{
-        marginTop: "10px",
-        padding: "4px",
-        borderRadius: "999px",
-        background: "#090910",
-        border: "1px solid #27272f",
-        display: "flex",
-        gap: "4px",
-        fontSize: "11px",
-      }}
-    >
+    <div className="mt-2 flex gap-1 rounded-full border border-neutral-800 bg-neutral-900/80 p-1 text-[11px]">
       {options.map((opt) => {
         const active = opt.value === chain;
         return (
@@ -256,17 +235,12 @@ function ChainSelector({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            style={{
-              flex: 1,
-              borderRadius: "999px",
-              border: "none",
-              padding: "6px 0",
-              cursor: "pointer",
-              fontSize: "11px",
-              fontWeight: active ? 600 : 500,
-              background: active ? "#f9fafb" : "transparent",
-              color: active ? "#020617" : "#e5e7eb",
-            }}
+            className={[
+              "flex-1 rounded-full px-3 py-1 transition-colors",
+              active
+                ? "bg-neutral-50 text-neutral-900 font-semibold"
+                : "text-neutral-300 hover:bg-neutral-800/70",
+            ].join(" ")}
           >
             {opt.label}
           </button>
@@ -275,6 +249,7 @@ function ChainSelector({
     </div>
   );
 }
+
 
 function prettyChain(chain: Chain): string {
   if (chain === "base") return "Base";
