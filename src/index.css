@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
-/* Optional: your own global styles after Tailwind */
-
+/* Your root body styling */
 body {
   @apply bg-neutral-950 text-white;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Global transitions on all interactive elements */
+button,
+a {
+  @apply transition-colors duration-150;
+}
+
+/* Optional mobile tap feedback */
+button:active,
+a:active {
+  @apply opacity-80;
 }
