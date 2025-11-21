@@ -136,7 +136,11 @@ function App() {
                     <button
                       key={`${group.key}-${nft.identifier}`}
                       type="button"
-                      onClick={() => setSelectedNft(nft)}
+                      onClick={() => {
+                      console.log("NFT object:", nft);
+                      setSelectedNft(nft);
+                    }}
+
                       className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/80 text-left shadow-sm transition hover:border-purple-500/60 hover:bg-neutral-900"
                     >
                       <div className="relative w-full pb-[100%] bg-neutral-950">
@@ -365,7 +369,7 @@ if (collectionSlug && collectionSlug.length > 0) {
               href={collectionUrl}
               target="_blank"
               rel="noreferrer"
-              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-[12px] text-neutral-200 hover:border-purple-500/60 hover:text-purple-100"
+              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover:border-purple-500/60 hover:text-purple-100"
             >
               View collection on OpenSea
             </a>
