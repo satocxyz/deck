@@ -22,8 +22,8 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // Get mini app context so we can respect safe-area insets
-        const context = await sdk.context.getContext();
+        // sdk.context is already a Promise<MiniAppContext>
+        const context = await sdk.context;
         if (context?.client?.safeAreaInsets) {
           setSafeArea(context.client.safeAreaInsets);
         }
@@ -41,10 +41,8 @@ function App() {
 
   return (
     <div
+      className="min-h-screen bg-neutral-950 text-white"
       style={{
-        minHeight: "100vh",
-        backgroundColor: "#050508",
-        color: "#fff",
         paddingTop: 16 + safeArea.top,
         paddingBottom: 16 + safeArea.bottom,
         paddingLeft: 16 + safeArea.left,
@@ -89,11 +87,15 @@ function App() {
           <p style={{ fontSize: "13px", color: "#f97373" }}>Error: {error}</p>
         )}
 
-        {isConnected && data && data.nfts?.length === 0 && !loading && !error && (
-          <p style={{ fontSize: "13px", opacity: 0.7 }}>
-            No NFTs found on {prettyChain(chain)} for this wallet.
-          </p>
-        )}
+        {isConnected &&
+          data &&
+          data.nfts?.length === 0 &&
+          !loading &&
+          !error && (
+            <p style={{ fontSize: "13px", opacity: 0.7 }}>
+              No NFTs found on {prettyChain(chain)} for this wallet.
+            </p>
+          )}
 
         {isConnected && data && data.nfts?.length > 0 && (
           <div
@@ -213,7 +215,6 @@ function ConnectMenu() {
   );
 }
 
-
 function ChainSelector({
   chain,
   onChange,
@@ -249,7 +250,6 @@ function ChainSelector({
     </div>
   );
 }
-
 
 function prettyChain(chain: Chain): string {
   if (chain === "base") return "Base";
