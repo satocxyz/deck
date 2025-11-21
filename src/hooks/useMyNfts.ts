@@ -9,14 +9,14 @@ export type OpenSeaNft = {
   name?: string;
   image_url?: string;
   description?: string;
-  collection?: {
-    name?: string;
-    slug?: string;
-  };
-  contract?: {
-    address?: string;
-  };
+  // OpenSea v2 gives either:
+  // - collection: "slug-string"
+  // - or an object with { name, slug }
+  collection?: string | { name?: string; slug?: string };
+  contract?: string;
+  opensea_url?: string;
 };
+
 
 
 type OpenSeaResponse = {

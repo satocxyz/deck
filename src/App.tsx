@@ -23,7 +23,6 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        // sdk.context is a Promise<MiniAppContext>
         const context = await sdk.context;
         if (context?.client?.safeAreaInsets) {
           setSafeArea(context.client.safeAreaInsets);
@@ -52,11 +51,11 @@ function App() {
     const map = new Map<string, { label: string; nfts: OpenSeaNft[] }>();
 
     for (const nft of data.nfts) {
-      const slug = nft.collection?.slug || "unknown";
-      const name = nft.collection?.name || "Unknown collection";
+      const slug = getCollectionSlug(nft) || "unknown";
+      const label = getCollectionLabel(nft);
 
       if (!map.has(slug)) {
-        map.set(slug, { label: name, nfts: [] });
+        map.set(slug, { label, nfts: [] });
       }
       map.get(slug)!.nfts.push(nft);
     }
@@ -65,7 +64,6 @@ function App() {
       groups.push({ key, label: value.label, nfts: value.nfts });
     }
 
-    // Optional: sort by collection name
     groups.sort((a, b) => a.label.localeCompare(b.label));
 
     return groups;
@@ -137,10 +135,9 @@ function App() {
                       key={`${group.key}-${nft.identifier}`}
                       type="button"
                       onClick={() => {
-                      console.log("NFT object:", nft);
-                      setSelectedNft(nft);
-                    }}
-
+                        console.log("NFT object:", nft);
+                        setSelectedNft(nft);
+                      }}
                       className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/80 text-left shadow-sm transition hover:border-purple-500/60 hover:bg-neutral-900"
                     >
                       <div className="relative w-full pb-[100%] bg-neutral-950">
@@ -162,7 +159,7 @@ function App() {
                           {nft.name || `#${nft.identifier}`}
                         </div>
                         <div className="truncate text-[10px] text-neutral-500">
-                          {nft.collection?.name ?? "Unknown collection"}
+                          {getCollectionLabel(nft)}
                         </div>
                       </div>
                     </button>
@@ -292,36 +289,40 @@ function NftDetailModal({
 }) {
   if (!nft) return null;
 
-const collectionName = nft.collection?.name ?? "Unknown collection";
-const chainLabel = prettyChain(chain);
-const collectionSlug = nft.collection?.slug;
-const contractAddress = nft.contract?.address;
+  const collectionName = getCollectionLabel(nft);
+  const chainLabel = prettyChain(chain);
+  const collectionSlug = getCollectionSlug(nft);
+  const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
 
-const baseSearchQuery =
-  nft.collection?.name ||
-  nft.name ||
-  nft.identifier ||
-  "";
+  const baseSearchQuery =
+    (typeof nft.collection === "string" && nft.collection) ||
+    nft.name ||
+    nft.identifier ||
+    "";
 
-const chainSlug = openSeaChainSlug(chain);
+  const chainSlug = openSeaChainSlug(chain);
 
-let collectionUrl: string | null = null;
+  // Exact NFT link if OpenSea provides it
+  const nftUrl =
+    nft.opensea_url ??
+    (contractAddress
+      ? `https://opensea.io/assets/${chainSlug}/${contractAddress}/${nft.identifier}`
+      : null);
 
-if (collectionSlug && collectionSlug.length > 0) {
-  // Best case: OpenSea gave us a proper collection slug
-  collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
-} else if (contractAddress) {
-  // No slug, but we do have a contract address: show all assets for this contract
-  collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
-} else if (baseSearchQuery) {
-  // Last resort: search by name / id
-  collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
-    baseSearchQuery,
-  )}`;
-} else {
-  collectionUrl = null;
-}
+  let collectionUrl: string | null = null;
 
+  if (collectionSlug && collectionSlug.length > 0) {
+    collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
+  } else if (contractAddress) {
+    // Show all assets for this contract as collection view
+    collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
+  } else if (baseSearchQuery) {
+    collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
+      baseSearchQuery,
+    )}`;
+  } else {
+    collectionUrl = null;
+  }
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-sm">
@@ -364,12 +365,23 @@ if (collectionSlug && collectionSlug.length > 0) {
         )}
 
         <div className="mt-4 space-y-2">
+          {nftUrl && (
+            <a
+              href={nftUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover:border-purple-500/60 hover:text-purple-100"
+            >
+              View this NFT on OpenSea
+            </a>
+          )}
+
           {collectionUrl && (
             <a
               href={collectionUrl}
               target="_blank"
               rel="noreferrer"
-              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover:border-purple-500/60 hover:text-purple-100"
+              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover;border-purple-500/60 hover:text-purple-100"
             >
               View collection on OpenSea
             </a>
@@ -403,8 +415,36 @@ if (collectionSlug && collectionSlug.length > 0) {
   );
 }
 
+/**
+ * Helpers
+ */
+
+function getCollectionSlug(nft: OpenSeaNft): string | undefined {
+  if (!nft.collection) return undefined;
+  if (typeof nft.collection === "string") return nft.collection;
+  return nft.collection.slug ?? undefined;
+}
+
+function getCollectionLabel(nft: OpenSeaNft): string {
+  if (!nft.collection) return "Unknown collection";
+
+  if (typeof nft.collection === "string") {
+    // Convert slug ("cloakies-collection") -> "Cloakies Collection"
+    const words = nft.collection.replace(/[-_]+/g, " ").trim().split(/\s+/);
+    if (words.length === 0) return "Unknown collection";
+    return words
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  return (
+    nft.collection.name ||
+    nft.collection.slug?.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
+    "Unknown collection"
+  );
+}
+
 function openSeaChainSlug(chain: Chain): string {
-  // For now we only support base + ethereum and both match OpenSea’s slugs
   if (chain === "base") return "base";
   return "ethereum";
 }
