@@ -366,25 +366,38 @@ function NftDetailModal({
 
         <div className="mt-4 space-y-2">
           {nftUrl && (
-            <a
-              href={nftUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover:border-purple-500/60 hover:text-purple-100"
-            >
-              View this NFT on OpenSea
-            </a>
+          <a
+            href={nftUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="
+              block w-full rounded-2xl border border-neutral-800
+              bg-neutral-900/80 px-3 py-2
+              text-center text-[12px] text-neutral-200
+              transition-colors duration-150
+              hover:border-purple-500/60 hover:text-purple-100
+            "
+          >
+            View this NFT on OpenSea
+          </a>
           )}
 
           {collectionUrl && (
-            <a
-              href={collectionUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="block w-full rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-center text-[12px] text-neutral-200 hover;border-purple-500/60 hover:text-purple-100"
-            >
-              View collection on OpenSea
-            </a>
+          <a
+            href={collectionUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="
+              block w-full rounded-2xl border border-neutral-800
+              bg-neutral-900/80 px-3 py-2
+              text-center text-[12px] text-neutral-200
+              transition-colors duration-150
+              hover:border-purple-500/60 hover:text-purple-100
+            "
+          >
+            View collection on OpenSea
+          </a>
+
           )}
 
           <button
