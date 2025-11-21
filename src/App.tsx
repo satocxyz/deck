@@ -291,6 +291,7 @@ function NftDetailModal({
 const collectionName = nft.collection?.name ?? "Unknown collection";
 const chainLabel = prettyChain(chain);
 const collectionSlug = nft.collection?.slug;
+const contractAddress = nft.contract?.address;
 
 const baseSearchQuery =
   nft.collection?.name ||
@@ -298,14 +299,25 @@ const baseSearchQuery =
   nft.identifier ||
   "";
 
-const collectionUrl =
-  collectionSlug && collectionSlug.length > 0
-    ? `https://opensea.io/collection/${collectionSlug}`
-    : baseSearchQuery
-    ? `https://opensea.io/assets?search[query]=${encodeURIComponent(
-        baseSearchQuery,
-      )}`
-    : null;
+const chainSlug = openSeaChainSlug(chain);
+
+let collectionUrl: string | null = null;
+
+if (collectionSlug && collectionSlug.length > 0) {
+  // Best case: OpenSea gave us a proper collection slug
+  collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
+} else if (contractAddress) {
+  // No slug, but we do have a contract address: show all assets for this contract
+  collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
+} else if (baseSearchQuery) {
+  // Last resort: search by name / id
+  collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
+    baseSearchQuery,
+  )}`;
+} else {
+  collectionUrl = null;
+}
+
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-sm">
@@ -385,6 +397,12 @@ const collectionUrl =
       </div>
     </div>
   );
+}
+
+function openSeaChainSlug(chain: Chain): string {
+  // For now we only support base + ethereum and both match OpenSea’s slugs
+  if (chain === "base") return "base";
+  return "ethereum";
 }
 
 function prettyChain(chain: Chain): string {

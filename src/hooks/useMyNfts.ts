@@ -9,15 +9,15 @@ export type OpenSeaNft = {
   name?: string;
   image_url?: string;
   description?: string;
-  // OpenSea v2 includes collection metadata
   collection?: {
     name?: string;
     slug?: string;
   };
-  // We don’t rely on contract address yet for safety;
-  // you can extend this when implementing trading.
-  // contract?: string;
+  contract?: {
+    address?: string;
+  };
 };
+
 
 type OpenSeaResponse = {
   nfts: OpenSeaNft[];
