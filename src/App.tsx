@@ -288,14 +288,24 @@ function NftDetailModal({
 }) {
   if (!nft) return null;
 
-  const collectionName = nft.collection?.name ?? "Unknown collection";
-  const chainLabel = prettyChain(chain);
-  const collectionSlug = nft.collection?.slug;
+const collectionName = nft.collection?.name ?? "Unknown collection";
+const chainLabel = prettyChain(chain);
+const collectionSlug = nft.collection?.slug;
 
-  const collectionUrl =
-    collectionSlug && collectionSlug.length > 0
-      ? `https://opensea.io/collection/${collectionSlug}`
-      : null;
+const baseSearchQuery =
+  nft.collection?.name ||
+  nft.name ||
+  nft.identifier ||
+  "";
+
+const collectionUrl =
+  collectionSlug && collectionSlug.length > 0
+    ? `https://opensea.io/collection/${collectionSlug}`
+    : baseSearchQuery
+    ? `https://opensea.io/assets?search[query]=${encodeURIComponent(
+        baseSearchQuery,
+      )}`
+    : null;
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-sm">
