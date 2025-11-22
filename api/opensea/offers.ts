@@ -1,226 +1,204 @@
-// api/offers.ts
-
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-type SimpleOfferSource = "item" | "collection";
+// api/opensea/offers.ts
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 type SimpleOffer = {
-  id: string;
-  priceEth: number;
-  priceFormatted: string;
-  maker: string | null;
-  expirationTime: number | null;
-  source: SimpleOfferSource;
-};
+  id: string
+  priceEth: number
+  priceFormatted: string
+  maker: string | null
+  expirationTime: number | null
+  source: 'item' | 'collection'
+}
 
 type FloorInfo = {
-  eth: number | null;
-  formatted: string | null;
-};
-
-type OffersResponse = {
-  bestOffer: SimpleOffer | null;
-  floor: FloorInfo;
-};
-
-const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY;
-
-async function fetchJson(url: string) {
-  const res = await fetch(url, {
-    headers: {
-      "x-api-key": OPENSEA_API_KEY || "",
-      accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    let body: any = null;
-    try {
-      body = await res.json();
-    } catch {
-      /* ignore */
-    }
-    console.error("OpenSea API error", res.status, url, body);
-    throw new Error(`OpenSea API error: ${res.status}`);
-  }
-
-  return res.json();
+  eth: number | null
+  formatted: string | null
 }
 
-function extractEthPrice(offer: any): number {
-  const price = offer?.price;
-
-  if (typeof price?.current?.eth === "number") {
-    return price.current.eth;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET')
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  if (price?.current?.value && typeof price.current.decimals === "number") {
-    const raw = Number(price.current.value);
-    if (!Number.isNaN(raw)) {
-      return raw / Math.pow(10, price.current.decimals);
-    }
+  const chain = req.query.chain as string | undefined
+  const collectionSlug = req.query.collection as string | undefined
+  const identifier = req.query.identifier as string | undefined
+  const contract = req.query.contract as string | undefined
+
+  if (!chain || (chain !== 'base' && chain !== 'ethereum')) {
+    return res
+      .status(400)
+      .json({ error: "Invalid or missing chain. Expected 'base' or 'ethereum'." })
   }
 
-  if (typeof price?.eth === "number") return price.eth;
-  if (typeof price === "number") return price;
-
-  return 0;
-}
-
-function extractMaker(offer: any): string | null {
-  return (
-    offer?.maker?.address ??
-    offer?.maker?.address_hash ??
-    offer?.maker ??
-    null
-  );
-}
-
-function extractExpiration(offer: any): number | null {
-  return (
-    offer?.expiration_time ??
-    offer?.end_time ??
-    offer?.closing_date ??
-    null
-  );
-}
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (!collectionSlug) {
+    return res.status(400).json({ error: 'Missing collection slug' })
   }
+
+  // identifier + contract are only needed for **item-level** offers
+  const hasItemContext = Boolean(identifier && contract)
+
+  const apiKey = process.env.OPENSEA_API_KEY
+  const baseUrl = process.env.OPENSEA_API_URL ?? 'https://api.opensea.io/api/v2'
+
+  if (!apiKey) {
+    console.error('Missing OPENSEA_API_KEY')
+    return res.status(500).json({ error: 'Server misconfigured' })
+  }
+
+  const osChain = chain === 'base' ? 'base' : 'ethereum'
+  const protocol = 'seaport'
+
+  let bestOffer: SimpleOffer | null = null
+  let floor: FloorInfo = { eth: null, formatted: null }
 
   try {
-    if (!OPENSEA_API_KEY) {
-      return res
-        .status(500)
-        .json({ error: "OpenSea API key is not configured" });
-    }
+    // ---------- 1) Collection stats (floor + maybe collection-level top offer) ----------
+    const statsUrl = `${baseUrl}/collections/${collectionSlug}/stats`
+    const statsRes = await fetch(statsUrl, {
+      headers: {
+        Accept: 'application/json',
+        'X-API-KEY': apiKey,
+      },
+    })
 
-    const { chain, collection: collectionSlug, identifier } = req.query as {
-      chain?: string;
-      collection?: string;
-      identifier?: string;
-    };
-
-    if (!chain) {
-      return res.status(400).json({ error: "Missing chain parameter" });
-    }
-    if (!collectionSlug) {
-      return res.status(400).json({ error: "Missing collection slug" });
-    }
-    if (!identifier) {
-      return res.status(400).json({ error: "Missing identifier (token id)" });
-    }
-
-    // 1) Collection floor
-    let floor: FloorInfo = { eth: null, formatted: null };
-    try {
-      const statsUrl = `https://api.opensea.io/api/v2/collections/${collectionSlug}/stats`;
-      const statsJson: any = await fetchJson(statsUrl);
-      const floorPrice =
-        statsJson?.stats?.floor_price ?? statsJson?.floor_price ?? null;
-
-      if (typeof floorPrice === "number") {
-        floor = {
-          eth: floorPrice,
-          formatted: floorPrice.toFixed(4),
-        };
+    if (statsRes.ok) {
+      const statsJson = (await statsRes.json()) as {
+        total?: Record<string, unknown>
       }
-    } catch (err) {
-      console.error("Error fetching collection floor", err);
-    }
 
-    // 2) Best offer for this NFT
-    let itemBest: SimpleOffer | null = null;
-    try {
-      const itemBestUrl = `https://api.opensea.io/api/v2/offers/collection/${collectionSlug}/nfts/${identifier}/best`;
-      const itemBestJson: any = await fetchJson(itemBestUrl);
+      const total = (statsJson.total ?? {}) as Record<string, unknown>
 
-      if (itemBestJson && Object.keys(itemBestJson).length > 0) {
-        const priceEth = extractEthPrice(itemBestJson);
-        itemBest = {
-          id: String(
-            itemBestJson.order_hash ??
-              itemBestJson.id ??
-              `${collectionSlug}-${identifier}-best`
-          ),
+      // Helpful once to see what fields exist (check Vercel logs)
+      console.log('OpenSea collection stats keys:', Object.keys(total))
+
+      // FLOOR: try floor_price (v2 docs)
+      const floorRaw = total['floor_price']
+      if (typeof floorRaw === 'number') {
+        floor.eth = floorRaw
+        floor.formatted =
+          floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4)
+      }
+
+      // Try to detect a collection-level top offer (if any)
+      const possibleTop =
+        typeof total['top_offer'] === 'number'
+          ? (total['top_offer'] as number)
+          : typeof total['top_bid'] === 'number'
+            ? (total['top_bid'] as number)
+            : typeof total['top_offer_price'] === 'number'
+              ? (total['top_offer_price'] as number)
+              : null
+
+      if (typeof possibleTop === 'number' && possibleTop > 0) {
+        const priceEth = possibleTop
+        const priceFormatted =
+          priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4)
+
+        // Only set this if we *never* find an item-specific offer later
+        bestOffer = {
+          id: 'collection-top-offer',
           priceEth,
-          priceFormatted: priceEth ? priceEth.toFixed(4) : "0.0000",
-          maker: extractMaker(itemBestJson),
-          expirationTime: extractExpiration(itemBestJson),
-          source: "item",
-        };
+          priceFormatted,
+          maker: null,
+          expirationTime: null,
+          source: 'collection',
+        }
       }
-    } catch (err) {
-      console.error("Error fetching best item offer", err);
+    } else {
+      const text = await statsRes.text()
+      console.error('OpenSea stats error', statsRes.status, text)
     }
 
-    // 3) Best offer on the collection
-    let collectionBest: SimpleOffer | null = null;
-    try {
-      const collectionOffersUrl = `https://api.opensea.io/api/v2/offers/collection/${collectionSlug}/all?limit=50`;
-      const collectionJson: any = await fetchJson(collectionOffersUrl);
+    // ---------- 2) Item-level best offer (overrides collection-level if valid) ----------
+    if (hasItemContext) {
+      const offersParams = new URLSearchParams({
+        asset_contract_address: contract as string,
+        token_ids: identifier as string,
+        order_by: 'eth_price',
+        order_direction: 'desc',
+        limit: '1',
+      })
 
-      const offers: any[] =
-        collectionJson?.offers ??
-        collectionJson?.orders ??
-        (Array.isArray(collectionJson) ? collectionJson : []);
+      const offersUrl = `${baseUrl}/orders/${osChain}/${protocol}/offers?${offersParams.toString()}`
 
-      if (offers.length > 0) {
-        let best: any = null;
-        let bestPrice = 0;
+      const offersRes = await fetch(offersUrl, {
+        headers: {
+          Accept: 'application/json',
+          'X-API-KEY': apiKey,
+        },
+      })
 
-        for (const offer of offers) {
-          const pe = extractEthPrice(offer);
-          if (pe > bestPrice) {
-            bestPrice = pe;
-            best = offer;
+      if (offersRes.ok) {
+        const offersJson = (await offersRes.json()) as { orders?: any[] }
+        const rawOrders = Array.isArray(offersJson.orders)
+          ? offersJson.orders
+          : []
+
+        if (rawOrders.length > 0) {
+          const order = rawOrders[0]
+
+          // current_price format is inconsistent; handle both ETH string / number and wei string
+          const raw = order.current_price
+          let priceEth: number | null = null
+
+          if (typeof raw === 'string') {
+            const numeric = Number(raw)
+            if (!Number.isNaN(numeric) && numeric > 0) {
+              // Heuristic:
+              // if it's a gigantic integer, assume wei -> convert to ETH
+              if (Number.isInteger(numeric) && numeric > 1e10) {
+                priceEth = numeric / 1e18
+              } else {
+                // assume already in ETH units
+                priceEth = numeric
+              }
+            }
+          } else if (typeof raw === 'number' && raw > 0) {
+            if (Number.isInteger(raw) && raw > 1e10) {
+              priceEth = raw / 1e18
+            } else {
+              priceEth = raw
+            }
+          }
+
+          // Only override bestOffer if we parsed a meaningful > 0 price
+          if (priceEth && priceEth > 0) {
+            const priceFormatted =
+              priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4)
+
+            const makerAddress: string | null =
+              order.maker?.address ?? order.maker?.account?.address ?? null
+
+            const expirationTime: number | null =
+              typeof order.expiration_time === 'number'
+                ? order.expiration_time
+                : null
+
+            bestOffer = {
+              id:
+                order.order_hash ??
+                order.id ??
+                `${makerAddress ?? 'unknown'}-${raw}`,
+              priceEth,
+              priceFormatted,
+              maker: makerAddress,
+              expirationTime,
+              source: 'item',
+            }
           }
         }
-
-        if (best) {
-          collectionBest = {
-            id: String(
-              best.order_hash ??
-                best.id ??
-                `${collectionSlug}-collection-best`
-            ),
-            priceEth: bestPrice,
-            priceFormatted: bestPrice ? bestPrice.toFixed(4) : "0.0000",
-            maker: extractMaker(best),
-            expirationTime: extractExpiration(best),
-            source: "collection",
-          };
-        }
+      } else {
+        const text = await offersRes.text()
+        console.error('OpenSea offers error', offersRes.status, text)
       }
-    } catch (err) {
-      console.error("Error fetching collection offers", err);
     }
 
-    // 4) Decide which one to use
-    let bestOffer: SimpleOffer | null = null;
-
-    if (itemBest && collectionBest) {
-      bestOffer =
-        itemBest.priceEth >= collectionBest.priceEth ? itemBest : collectionBest;
-    } else if (itemBest) {
-      bestOffer = itemBest;
-    } else if (collectionBest) {
-      bestOffer = collectionBest;
-    }
-
-    const payload: OffersResponse = {
-      bestOffer,
-      floor,
-    };
-
-    return res.status(200).json(payload);
+    // ---------- 3) Return combined result ----------
+    return res.status(200).json({ bestOffer, floor })
   } catch (err) {
-    console.error("Unhandled error in offers handler", err);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('Unexpected error in /api/opensea/offers', err)
+    return res.status(500).json({ error: 'Internal server error' })
   }
 }
