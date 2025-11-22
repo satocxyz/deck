@@ -139,31 +139,41 @@ export default async function handler(req: any, res: any) {
     // ----------------------------
     // Parse collection stats:
     //   - floor_price
-    //   - top_offer  (IMPORTANT)
+    //   - *try* to detect top offer field
     // ----------------------------
     if (statsRes.ok) {
       const statsJson = (await statsRes.json()) as {
-        total?: {
-          floor_price?: number | null;
-          top_offer?: number | null;
-        };
+        total?: Record<string, unknown>;
       };
 
-      const floorPrice = statsJson?.total?.floor_price ?? null;
-      const topOffer = statsJson?.total?.top_offer ?? null;
+      // Helpful once so you can see exact structure in Vercel logs
+      console.log("OpenSea collection stats JSON (truncated):", {
+        keys: Object.keys(statsJson?.total ?? {}),
+      });
+
+      const total = (statsJson.total ?? {}) as Record<string, unknown>;
 
       // FLOOR
-      if (typeof floorPrice === "number") {
-        floor.eth = floorPrice;
+      const floorRaw = total["floor_price"];
+      if (typeof floorRaw === "number") {
+        floor.eth = floorRaw;
         floor.formatted =
-          floorPrice >= 1
-            ? floorPrice.toFixed(3)
-            : floorPrice.toFixed(4);
+          floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4);
       }
 
-      // TOP OFFER (fallback when no item-level best offer)
-      if (!bestOffer && typeof topOffer === "number" && topOffer > 0) {
-        const priceEth = topOffer;
+      // Try a few likely top-offer field names
+      const possibleTop =
+        typeof total["top_offer"] === "number"
+          ? (total["top_offer"] as number)
+          : typeof total["top_bid"] === "number"
+            ? (total["top_bid"] as number)
+            : typeof total["top_offer_price"] === "number"
+              ? (total["top_offer_price"] as number)
+              : null;
+
+      // If there was no item-level bestOffer, but we DO have a collection-level top offer, use it
+      if (!bestOffer && typeof possibleTop === "number" && possibleTop > 0) {
+        const priceEth = possibleTop;
         const priceFormatted =
           priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
 
