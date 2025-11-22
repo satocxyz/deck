@@ -292,7 +292,8 @@ function NftDetailModal({
   const collectionName = getCollectionLabel(nft);
   const chainLabel = prettyChain(chain);
   const collectionSlug = getCollectionSlug(nft);
-  const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
+  const contractAddress =
+    typeof nft.contract === "string" ? nft.contract : undefined;
 
   const baseSearchQuery =
     (typeof nft.collection === "string" && nft.collection) ||
@@ -302,7 +303,7 @@ function NftDetailModal({
 
   const chainSlug = openSeaChainSlug(chain);
 
-  // Exact NFT link if OpenSea provides it
+  // Exact NFT link if OpenSea provides it, otherwise construct from contract + token
   const nftUrl =
     nft.opensea_url ??
     (contractAddress
@@ -314,7 +315,7 @@ function NftDetailModal({
   if (collectionSlug && collectionSlug.length > 0) {
     collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
   } else if (contractAddress) {
-    // Show all assets for this contract as collection view
+    // Show all assets for this contract as "collection" view
     collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
   } else if (baseSearchQuery) {
     collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
@@ -364,55 +365,58 @@ function NftDetailModal({
           </p>
         )}
 
+        {/* Opensea actions */}
         <div className="mt-4 space-y-2">
-          {nftUrl && (
-          <a
-            href={nftUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="
-              block w-full rounded-2xl border border-neutral-800
-              bg-neutral-900/80 px-3 py-2
-              text-center text-[12px] text-neutral-200
-              transition-colors duration-150
-              hover:border-purple-500/60 hover:text-purple-100
-            "
-          >
-            View this NFT on OpenSea
-          </a>
-          )}
+          <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
+            Opensea
+          </div>
 
-          {collectionUrl && (
-          <a
-            href={collectionUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="
-              block w-full rounded-2xl border border-neutral-800
-              bg-neutral-900/80 px-3 py-2
-              text-center text-[12px] text-neutral-200
-              transition-colors duration-150
-              hover:border-purple-500/60 hover:text-purple-100
-            "
-          >
-            View collection on OpenSea
-          </a>
+          <div className="grid grid-cols-2 gap-2">
+            {nftUrl && (
+              <a
+                href={nftUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="
+                  w-full rounded-xl border border-neutral-800 bg-neutral-900/80 
+                  px-2 py-1.5 text-center text-[11px] text-neutral-200
+                  transition-colors duration-150
+                  hover:border-purple-500/60 hover:text-purple-100
+                "
+              >
+                View NFT
+              </a>
+            )}
 
-          )}
+            {collectionUrl && (
+              <a
+                href={collectionUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="
+                  w-full rounded-xl border border-neutral-800 bg-neutral-900/80 
+                  px-2 py-1.5 text-center text-[11px] text-neutral-200
+                  transition-colors duration-150
+                  hover:border-purple-500/60 hover:text-purple-100
+                "
+              >
+                View Collection
+              </a>
+            )}
+          </div>
 
+          {/* Primary sell CTA – disabled for now, to be wired to Deck's own flow later */}
           <button
             type="button"
             disabled
-            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-[12px] font-medium text-neutral-500"
+            className="
+              mt-2 w-full rounded-2xl border border-purple-500/40 
+              bg-purple-600/60 px-3 py-2 
+              text-center text-[12px] font-semibold text-white 
+              shadow-sm opacity-60
+            "
           >
-            Buy (coming soon)
-          </button>
-          <button
-            type="button"
-            disabled
-            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-[12px] font-medium text-neutral-500"
-          >
-            List for sale (coming soon)
+            Sell / Manage Listing (coming soon)
           </button>
         </div>
 
