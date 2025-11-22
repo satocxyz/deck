@@ -54,7 +54,7 @@ export default async function handler(req: any, res: any) {
     const osChain = chain === "base" ? "base" : "ethereum";
     const protocol = "seaport";
 
-    // Best offer for this NFT
+    // Item-level best offer
     const offersParams = new URLSearchParams({
       asset_contract_address: contract,
       token_ids: identifier,
@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any) {
 
     const offersUrl = `https://api.opensea.io/api/v2/orders/${osChain}/${protocol}/offers?${offersParams.toString()}`;
 
-    // Collection stats (floor)
+    // Collection-level stats
     const statsUrl = `https://api.opensea.io/api/v2/collections/${collectionSlug}/stats`;
 
     const [offersRes, statsRes] = await Promise.all([
@@ -86,7 +86,9 @@ export default async function handler(req: any, res: any) {
     let bestOffer: SimpleOffer | null = null;
     let floor: FloorInfo = { eth: null, formatted: null };
 
-    // Parse offers
+    // -------------------------
+    // Parse ITEM-LEVEL offer
+    // -------------------------
     if (offersRes.ok) {
       const offersJson = (await offersRes.json()) as { orders?: any[] };
       const rawOrders = Array.isArray(offersJson.orders)
@@ -100,7 +102,7 @@ export default async function handler(req: any, res: any) {
         let priceEth = 0;
         try {
           const wei = BigInt(currentPriceStr);
-          priceEth = Number(wei) / 1e18; // assume 18 decimals
+          priceEth = Number(wei) / 1e18;
         } catch {
           priceEth = 0;
         }
@@ -117,13 +119,11 @@ export default async function handler(req: any, res: any) {
               ? order.expiration_time
               : null;
 
-          const id: string =
-            order.order_hash ??
-            order.id ??
-            `${makerAddress ?? "unknown"}-${currentPriceStr}`;
-
           bestOffer = {
-            id,
+            id:
+              order.order_hash ??
+              order.id ??
+              `${makerAddress ?? "unknown"}-${currentPriceStr}`,
             priceEth,
             priceFormatted,
             maker: makerAddress,
@@ -136,18 +136,44 @@ export default async function handler(req: any, res: any) {
       console.error("OpenSea offers error", offersRes.status, text);
     }
 
-    // Parse floor price
+    // ----------------------------
+    // Parse collection stats:
+    //   - floor_price
+    //   - top_offer  (IMPORTANT)
+    // ----------------------------
     if (statsRes.ok) {
       const statsJson = (await statsRes.json()) as {
-        total?: { floor_price?: number | null };
+        total?: {
+          floor_price?: number | null;
+          top_offer?: number | null;
+        };
       };
+
       const floorPrice = statsJson?.total?.floor_price ?? null;
+      const topOffer = statsJson?.total?.top_offer ?? null;
+
+      // FLOOR
       if (typeof floorPrice === "number") {
         floor.eth = floorPrice;
         floor.formatted =
           floorPrice >= 1
             ? floorPrice.toFixed(3)
             : floorPrice.toFixed(4);
+      }
+
+      // TOP OFFER (fallback when no item-level best offer)
+      if (!bestOffer && typeof topOffer === "number" && topOffer > 0) {
+        const priceEth = topOffer;
+        const priceFormatted =
+          priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
+
+        bestOffer = {
+          id: "collection-top-offer",
+          priceEth,
+          priceFormatted,
+          maker: null, // stats API does not expose maker address
+          expirationTime: null,
+        };
       }
     } else {
       const text = await statsRes.text();
