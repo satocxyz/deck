@@ -287,6 +287,73 @@ function NftDetailModal({
   nft: OpenSeaNft | null;
   onClose: () => void;
 }) {
+  type SimpleOffer = {
+    id: string;
+    priceEth: number;
+    priceFormatted: string;
+    maker: string | null;
+    expirationTime: number | null;
+  };
+
+  const [offers, setOffers] = useState<SimpleOffer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!nft) {
+      setOffers([]);
+      setOffersError(null);
+      setOffersLoading(false);
+      return;
+    }
+
+    const collectionSlug = getCollectionSlug(nft);
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!collectionSlug || !contractAddress) {
+      setOffers([]);
+      setOffersError(null);
+      setOffersLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setOffersLoading(true);
+    setOffersError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      collection: collectionSlug,
+      identifier: nft.identifier,
+      contract: contractAddress,
+    });
+
+    fetch(`/api/opensea/offers?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch offers");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        const arr = Array.isArray(json.offers) ? json.offers : [];
+        setOffers(arr);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load offers", err);
+        setOffersError("Failed to load offers");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setOffersLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft?.identifier, nft?.contract]);
+
   if (!nft) return null;
 
   const collectionName = getCollectionLabel(nft);
@@ -364,6 +431,61 @@ function NftDetailModal({
             {nft.description}
           </p>
         )}
+
+        {/* Offers section */}
+        <div className="mt-4 space-y-1">
+          <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
+            Offers
+          </div>
+
+          {offersLoading && (
+            <div className="px-1 text-[11px] text-neutral-400">
+              Loading offers from OpenSea…
+            </div>
+          )}
+
+          {!offersLoading && offersError && (
+            <div className="px-1 text-[11px] text-red-400">
+              {offersError}
+            </div>
+          )}
+
+          {!offersLoading && !offersError && offers.length === 0 && (
+            <div className="px-1 text-[11px] text-neutral-500">
+              No active offers for this NFT.
+            </div>
+          )}
+
+          {!offersLoading && !offersError && offers.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between px-1">
+                <span className="text-[11px] text-neutral-300">Best offer</span>
+                <span className="text-[11px] font-semibold text-emerald-300">
+                  {offers[0].priceFormatted} WETH
+                </span>
+              </div>
+
+              {offers.length > 1 && (
+                <div className="max-h-20 space-y-1 overflow-y-auto px-1">
+                  {offers.slice(1, 4).map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="flex items-baseline justify-between text-[10px] text-neutral-400"
+                    >
+                      <span>{offer.priceFormatted} WETH</span>
+                      {offer.maker && (
+                        <span className="font-mono text-[9px] text-neutral-500">
+                          {offer.maker.slice(0, 6)}…
+                          {offer.maker.slice(-4)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Opensea actions */}
         <div className="mt-4 space-y-2">
