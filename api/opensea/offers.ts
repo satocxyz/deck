@@ -1,10 +1,4 @@
-import { z } from "zod";
-
-const querySchema = z.object({
-  chain: z.enum(["base", "ethereum"]),
-  collection: z.string().min(1, "collection slug is required"),
-  identifier: z.string().min(1, "token identifier is required"),
-});
+// api/opensea/offers.ts
 
 type SimpleOffer = {
   id: string;
@@ -14,155 +8,190 @@ type SimpleOffer = {
   expirationTime: number | null;
 };
 
+type FloorInfo = {
+  eth: number | null;
+  formatted: string | null;
+};
+
 export default async function handler(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
 
-    const parsed = querySchema.safeParse({
-      chain: searchParams.get("chain"),
-      collection: searchParams.get("collection"),
-      identifier: searchParams.get("identifier"),
-    });
+    const chain = searchParams.get("chain");
+    const collectionSlug = searchParams.get("collection");
+    const identifier = searchParams.get("identifier");
+    const contract = searchParams.get("contract");
 
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({ error: "Invalid query", details: parsed.error.flatten() }),
-        {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        },
+    if (!chain || (chain !== "base" && chain !== "ethereum")) {
+      return jsonResponse(
+        { error: "Invalid or missing chain" },
+        400,
       );
     }
 
-    const { chain, collection, identifier } = parsed.data;
+    if (!collectionSlug) {
+      return jsonResponse(
+        { error: "Missing collection slug" },
+        400,
+      );
+    }
+
+    if (!identifier) {
+      return jsonResponse(
+        { error: "Missing token identifier" },
+        400,
+      );
+    }
+
+    if (!contract) {
+      return jsonResponse(
+        { error: "Missing contract address" },
+        400,
+      );
+    }
 
     const apiKey = process.env.OPENSEA_API_KEY;
     if (!apiKey) {
-      console.error("Missing OPENSEA_API_KEY environment variable");
-      return new Response(
-        JSON.stringify({ error: "Server misconfigured" }),
-        {
-          status: 500,
-          headers: { "content-type": "application/json" },
-        },
+      console.error("Missing OPENSEA_API_KEY");
+      return jsonResponse(
+        { error: "Server misconfigured" },
+        500,
       );
     }
 
-    // Map our chain to OpenSea chain slug (same names for these two)
     const osChain = chain === "base" ? "base" : "ethereum";
     const protocol = "seaport";
 
-    // Get all offers for this specific item
-    // Docs: GET /api/v2/orders/{chain}/{protocol}/offers with asset_contract_address + token_ids
-    // 
-    //
-    // We use nft.contract (asset_contract_address) and token id (identifier).
-    const assetContractAddress = searchParams.get("contract");
-    if (!assetContractAddress) {
-      return new Response(
-        JSON.stringify({ error: "Missing contract address" }),
-        {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        },
-      );
-    }
-
-    const params = new URLSearchParams({
-      asset_contract_address: assetContractAddress,
-      // token_ids is an array; here we just pass a single id
+    const offersParams = new URLSearchParams({
+      asset_contract_address: contract,
       token_ids: identifier,
-      // Optional sorting: highest price first
       order_by: "eth_price",
       order_direction: "desc",
-      limit: "10",
+      limit: "1", // only best offer
     });
 
-    const osUrl = `https://api.opensea.io/api/v2/orders/${osChain}/${protocol}/offers?${params.toString()}`;
+    const offersUrl = `https://api.opensea.io/api/v2/orders/${osChain}/${protocol}/offers?${offersParams.toString()}`;
 
-    const osRes = await fetch(osUrl, {
-      headers: {
-        accept: "application/json",
-        "x-api-key": apiKey,
-      },
-    });
+    const statsUrl = `https://api.opensea.io/api/v2/collections/${collectionSlug}/stats`;
 
-    if (!osRes.ok) {
-      const text = await osRes.text();
-      console.error("OpenSea offers error", osRes.status, text);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch offers from OpenSea" }),
-        {
-          status: 502,
-          headers: { "content-type": "application/json" },
+    // Fetch best offer + collection stats in parallel
+    const [offersRes, statsRes] = await Promise.all([
+      fetch(offersUrl, {
+        headers: {
+          accept: "application/json",
+          "x-api-key": apiKey,
         },
-      );
+      }),
+      fetch(statsUrl, {
+        headers: {
+          accept: "application/json",
+          "x-api-key": apiKey,
+        },
+      }),
+    ]);
+
+    if (!offersRes.ok) {
+      const text = await offersRes.text();
+      console.error("OpenSea offers error", offersRes.status, text);
     }
 
-    const json = (await osRes.json()) as {
-      orders?: any[];
-      next?: string | null;
-    };
+    if (!statsRes.ok) {
+      const text = await statsRes.text();
+      console.error("OpenSea stats error", statsRes.status, text);
+    }
 
-    const rawOrders = Array.isArray(json.orders) ? json.orders : [];
+    let bestOffer: SimpleOffer | null = null;
+    let floor: FloorInfo = { eth: null, formatted: null };
 
-    const offers: SimpleOffer[] = rawOrders
-      .filter((order) => {
-        // filter out invalid / canceled / finalized orders
-        if (order.canceled || order.finalized || order.marked_invalid) return false;
-        if (!order.current_price) return false;
-        return true;
-      })
-      .map((order) => {
+    // Parse offers
+    if (offersRes.ok) {
+      const offersJson = (await offersRes.json()) as {
+        orders?: any[];
+      };
+
+      const rawOrders = Array.isArray(offersJson.orders)
+        ? offersJson.orders
+        : [];
+
+      if (rawOrders.length > 0) {
+        const order = rawOrders[0];
+
         const currentPriceStr: string = order.current_price;
-        // current_price is in wei for the full order price 
         let priceEth = 0;
         try {
           const wei = BigInt(currentPriceStr);
-          // assume 18 decimals (WETH/ETH-like)
-          priceEth = Number(wei) / 1e18;
+          priceEth = Number(wei) / 1e18; // assume 18 decimals (WETH/ETH)
         } catch {
           priceEth = 0;
         }
 
-        const priceFormatted =
-          priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
+        if (priceEth > 0) {
+          const priceFormatted =
+            priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
 
-        const makerAddress: string | null =
-          order.maker?.address ?? order.maker?.account?.address ?? null;
+          const makerAddress: string | null =
+            order.maker?.address ?? order.maker?.account?.address ?? null;
 
-        const expirationTime: number | null =
-          typeof order.expiration_time === "number"
-            ? order.expiration_time
-            : null;
+          const expirationTime: number | null =
+            typeof order.expiration_time === "number"
+              ? order.expiration_time
+              : null;
 
-        const id: string =
-          order.order_hash ??
-          order.id ??
-          `${makerAddress ?? "unknown"}-${currentPriceStr}`;
+          const id: string =
+            order.order_hash ??
+            order.id ??
+            `${makerAddress ?? "unknown"}-${currentPriceStr}`;
 
-        return {
-          id,
-          priceEth,
-          priceFormatted,
-          maker: makerAddress,
-          expirationTime,
+          bestOffer = {
+            id,
+            priceEth,
+            priceFormatted,
+            maker: makerAddress,
+            expirationTime,
+          };
+        }
+      }
+    }
+
+    // Parse floor from collection stats
+    if (statsRes.ok) {
+      const statsJson = (await statsRes.json()) as {
+        total?: {
+          floor_price?: number | null;
         };
-      })
-      .filter((o) => o.priceEth > 0)
-      .sort((a, b) => b.priceEth - a.priceEth)
-      .slice(0, 10);
+      };
 
-    return new Response(JSON.stringify({ offers }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+      const floorPrice = statsJson?.total?.floor_price ?? null;
+
+      if (typeof floorPrice === "number") {
+        floor.eth = floorPrice;
+        floor.formatted =
+          floorPrice >= 1
+            ? floorPrice.toFixed(3)
+            : floorPrice.toFixed(4);
+      }
+    }
+
+    return jsonResponse(
+      {
+        bestOffer,
+        floor,
+      },
+      200,
+    );
   } catch (err) {
     console.error("Unexpected error in /api/opensea/offers", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    return jsonResponse(
+      { error: "Internal server error" },
+      500,
+    );
   }
+}
+
+function jsonResponse(body: any, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }

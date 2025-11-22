@@ -295,13 +295,20 @@ function NftDetailModal({
     expirationTime: number | null;
   };
 
-  const [offers, setOffers] = useState<SimpleOffer[]>([]);
+  type FloorInfo = {
+    eth: number | null;
+    formatted: string | null;
+  };
+
+  const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
+  const [floor, setFloor] = useState<FloorInfo>({ eth: null, formatted: null });
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!nft) {
-      setOffers([]);
+      setBestOffer(null);
+      setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
       return;
@@ -312,7 +319,8 @@ function NftDetailModal({
       typeof nft.contract === "string" ? nft.contract : undefined;
 
     if (!collectionSlug || !contractAddress) {
-      setOffers([]);
+      setBestOffer(null);
+      setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
       return;
@@ -336,8 +344,13 @@ function NftDetailModal({
       })
       .then((json) => {
         if (cancelled) return;
-        const arr = Array.isArray(json.offers) ? json.offers : [];
-        setOffers(arr);
+        setBestOffer(json.bestOffer ?? null);
+        setFloor(
+          json.floor ?? {
+            eth: null,
+            formatted: null,
+          },
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -353,6 +366,7 @@ function NftDetailModal({
       cancelled = true;
     };
   }, [chain, nft?.identifier, nft?.contract]);
+
 
   if (!nft) return null;
 
@@ -450,42 +464,34 @@ function NftDetailModal({
             </div>
           )}
 
-          {!offersLoading && !offersError && offers.length === 0 && (
+          {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
             <div className="px-1 text-[11px] text-neutral-500">
-              No active offers for this NFT.
+              No active offers or floor data.
             </div>
           )}
 
-          {!offersLoading && !offersError && offers.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-baseline justify-between px-1">
-                <span className="text-[11px] text-neutral-300">Best offer</span>
-                <span className="text-[11px] font-semibold text-emerald-300">
-                  {offers[0].priceFormatted} WETH
-                </span>
-              </div>
-
-              {offers.length > 1 && (
-                <div className="max-h-20 space-y-1 overflow-y-auto px-1">
-                  {offers.slice(1, 4).map((offer) => (
-                    <div
-                      key={offer.id}
-                      className="flex items-baseline justify-between text-[10px] text-neutral-400"
-                    >
-                      <span>{offer.priceFormatted} WETH</span>
-                      {offer.maker && (
-                        <span className="font-mono text-[9px] text-neutral-500">
-                          {offer.maker.slice(0, 6)}…
-                          {offer.maker.slice(-4)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+          {!offersLoading && !offersError && (bestOffer || floor.formatted) && (
+            <div className="space-y-1 px-1 text-[11px]">
+              {bestOffer && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-300">Best offer</span>
+                  <span className="font-semibold text-emerald-300">
+                    {bestOffer.priceFormatted} WETH
+                  </span>
+                </div>
+              )}
+              {floor.formatted && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-300">Floor</span>
+                  <span className="text-neutral-200">
+                    {floor.formatted} ETH
+                  </span>
                 </div>
               )}
             </div>
           )}
         </div>
+
 
         {/* Opensea actions */}
         <div className="mt-4 space-y-2">
