@@ -315,10 +315,9 @@ function NftDetailModal({
     }
 
     const collectionSlug = getCollectionSlug(nft);
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
 
-    if (!collectionSlug || !contractAddress) {
+    // Best-offer-by-NFT endpoint only needs slug + identifier
+    if (!collectionSlug) {
       setBestOffer(null);
       setFloor({ eth: null, formatted: null });
       setOffersError(null);
@@ -334,7 +333,6 @@ function NftDetailModal({
       chain,
       collection: collectionSlug,
       identifier: nft.identifier,
-      contract: contractAddress,
     });
 
     fetch(`/api/opensea/offers?${params.toString()}`)
@@ -365,8 +363,7 @@ function NftDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [chain, nft?.identifier, nft?.contract]);
-
+  }, [chain, nft?.identifier, nft?.collection]);
 
   if (!nft) return null;
 
@@ -492,7 +489,6 @@ function NftDetailModal({
           )}
         </div>
 
-
         {/* Opensea actions */}
         <div className="mt-4 space-y-2">
           <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
@@ -584,7 +580,9 @@ function getCollectionLabel(nft: OpenSeaNft): string {
 
   return (
     nft.collection.name ||
-    nft.collection.slug?.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
+    nft.collection.slug
+      ?.replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase()) ||
     "Unknown collection"
   );
 }
