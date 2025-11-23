@@ -9,12 +9,39 @@ export type OpenSeaNft = {
   name?: string;
   image_url?: string;
   description?: string;
-  // OpenSea v2 gives either:
-  // - collection: "slug-string"
-  // - or an object with { name, slug }
+
+  // OpenSea gives:
+  // - collection: string slug
+  // - or { name, slug }
   collection?: string | { name?: string; slug?: string };
+
   contract?: string;
   opensea_url?: string;
+
+  /**
+   * (NEW) Traits returned directly on NFT:
+   * Some collections include this on the top-level item.
+   */
+  traits?: {
+    trait_type?: string | null;
+    value?: string | number | null;
+  }[];
+
+  /**
+   * (NEW) Metadata sometimes contains traits or attributes
+   */
+  metadata?: {
+    traits?: {
+      trait_type?: string | null;
+      value?: string | number | null;
+    }[];
+    attributes?: {
+      trait_type?: string | null;
+      value?: string | number | null;
+    }[];
+    // (OpenSea metadata is often messy; future-proof)
+    [key: string]: unknown;
+  } | null;
 };
 
 

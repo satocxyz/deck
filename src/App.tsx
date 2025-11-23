@@ -410,6 +410,7 @@ function NftDetailModal({
   const collectionSlug = getCollectionSlug(nft);
   const contractAddress =
     typeof nft.contract === "string" ? nft.contract : undefined;
+  const traits = getTraits(nft);
 
   const baseSearchQuery =
     (typeof nft.collection === "string" && nft.collection) ||
@@ -479,6 +480,32 @@ function NftDetailModal({
           <p className="mt-3 line-clamp-3 text-[11px] text-neutral-300">
             {nft.description}
           </p>
+        )}
+        {/* Traits section */}
+        {traits.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
+              Traits
+            </div>
+            <div className="flex flex-wrap gap-1.5 px-1">
+              {traits.map((trait) => (
+                <div
+                  key={`${trait.label}-${trait.value}`}
+                  className="
+                    rounded-xl border border-neutral-800 bg-neutral-900/80 
+                    px-2 py-1 text-[10px]
+                  "
+                >
+                  <div className="text-[9px] uppercase tracking-wide text-neutral-500">
+                    {trait.label}
+                  </div>
+                  <div className="text-[11px] text-neutral-100">
+                    {trait.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Price section */}
