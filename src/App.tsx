@@ -364,6 +364,44 @@ function NftDetailModal({
       cancelled = true;
     };
   }, [chain, nft?.identifier, nft?.collection]);
+  function formatTimeRemaining(expirationTime: number | null): string | null {
+    if (!expirationTime) return null;
+
+    const nowSeconds = Date.now() / 1000;
+    const diff = expirationTime - nowSeconds;
+
+    if (diff <= 0) return "Expired";
+
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+
+    if (hours <= 0 && minutes <= 0) return "Less than 1m";
+
+    if (hours <= 0) return `${minutes}m`;
+    if (minutes <= 0) return `${hours}h`;
+
+    return `${hours}h ${minutes}m`;
+  }
+    function formatBestVsFloorDiff(
+    bestOffer: SimpleOffer | null,
+    floor: FloorInfo,
+  ): string | null {
+    if (!bestOffer || floor.eth == null || floor.eth <= 0) return null;
+
+    const diff = bestOffer.priceEth - floor.eth;
+    const diffPct = (diff / floor.eth) * 100;
+
+    const absPct = Math.abs(diffPct).toFixed(1);
+
+    if (diffPct > 0) {
+      return `Best offer is ${absPct}% above floor`;
+    }
+    if (diffPct < 0) {
+      return `Best offer is ${absPct}% below floor`;
+    }
+    return "Best offer is at floor";
+  }
+
 
   if (!nft) return null;
 
@@ -472,9 +510,16 @@ function NftDetailModal({
               {bestOffer && (
                 <div className="flex items-baseline justify-between">
                   <span className="text-neutral-300">Best offer</span>
-                  <span className="font-semibold text-emerald-300">
-                    {bestOffer.priceFormatted} WETH
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-semibold text-emerald-300">
+                      {bestOffer.priceFormatted} WETH
+                    </span>
+                    {formatTimeRemaining(bestOffer.expirationTime) && (
+                      <span className="text-[10px] text-neutral-500">
+                        Expires in {formatTimeRemaining(bestOffer.expirationTime)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
               {floor.formatted && (
@@ -482,6 +527,14 @@ function NftDetailModal({
                   <span className="text-neutral-300">Floor</span>
                   <span className="text-neutral-200">
                     {floor.formatted} ETH
+                  </span>
+                </div>
+              )}
+              {bestOffer && floor.formatted && formatBestVsFloorDiff(bestOffer, floor) && (
+                <div className="flex items-baseline justify-between pt-0.5">
+                  <span className="text-neutral-400">Context</span>
+                  <span className="text-[10px] text-neutral-400">
+                    {formatBestVsFloorDiff(bestOffer, floor)}
                   </span>
                 </div>
               )}
