@@ -278,6 +278,11 @@ function NftSkeletonGrid() {
 /**
  * NFT detail modal (no real trading yet – UI only, safe)
  */
+type NormalizedTrait = {
+  label: string;
+  value: string;
+};
+
 function NftDetailModal({
   chain,
   nft,
@@ -305,6 +310,11 @@ function NftDetailModal({
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
 
+  const [traits, setTraits] = useState<NormalizedTrait[]>([]);
+  const [traitsLoading, setTraitsLoading] = useState(false);
+  const [traitsError, setTraitsError] = useState<string | null>(null);
+
+  // Offers + floor
   useEffect(() => {
     if (!nft) {
       setBestOffer(null);
@@ -316,7 +326,6 @@ function NftDetailModal({
 
     const collectionSlug = getCollectionSlug(nft);
 
-    // Best-offer-by-NFT endpoint only needs slug + identifier
     if (!collectionSlug) {
       setBestOffer(null);
       setFloor({ eth: null, formatted: null });
@@ -365,6 +374,59 @@ function NftDetailModal({
     };
   }, [chain, nft?.identifier, nft?.collection]);
 
+  // Traits (from new nft-details endpoint)
+  useEffect(() => {
+    if (!nft) {
+      setTraits([]);
+      setTraitsError(null);
+      setTraitsLoading(false);
+      return;
+    }
+
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      setTraits([]);
+      setTraitsError(null);
+      setTraitsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setTraitsLoading(true);
+    setTraitsError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      contract: contractAddress,
+      identifier: nft.identifier,
+    });
+
+    fetch(`/api/opensea/nft-details?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch traits");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        setTraits(Array.isArray(json.traits) ? json.traits : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load traits", err);
+        setTraitsError("Failed to load traits");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setTraitsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft?.identifier, nft?.contract]);
+
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
 
@@ -411,7 +473,6 @@ function NftDetailModal({
   const collectionSlug = getCollectionSlug(nft);
   const contractAddress =
     typeof nft.contract === "string" ? nft.contract : undefined;
-  const traits = getTraits(nft);
 
   const baseSearchQuery =
     (typeof nft.collection === "string" && nft.collection) ||
@@ -421,7 +482,6 @@ function NftDetailModal({
 
   const chainSlug = openSeaChainSlug(chain);
 
-  // Exact NFT link if OpenSea provides it, otherwise construct from contract + token
   const nftUrl =
     nft.opensea_url ??
     (contractAddress
@@ -433,7 +493,6 @@ function NftDetailModal({
   if (collectionSlug && collectionSlug.length > 0) {
     collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
   } else if (contractAddress) {
-    // Show all assets for this contract as "collection" view
     collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
   } else if (baseSearchQuery) {
     collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
@@ -484,13 +543,25 @@ function NftDetailModal({
         )}
 
         {/* Traits section */}
-        {traits.length > 0 && (
+        {traitsLoading && (
+          <div className="mt-3 px-1 text-[11px] text-neutral-400">
+            Loading traits…
+          </div>
+        )}
+
+        {!traitsLoading && traitsError && (
+          <div className="mt-3 px-1 text-[11px] text-neutral-500">
+            {traitsError}
+          </div>
+        )}
+
+        {!traitsLoading && !traitsError && traits.length > 0 && (
           <div className="mt-3 space-y-1">
             <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
               Traits
             </div>
             <div className="flex flex-wrap gap-1.5 px-1">
-              {traits.map((trait: NormalizedTrait) => (
+              {traits.map((trait) => (
                 <div
                   key={`${trait.label}-${trait.value}`}
                   className="
@@ -651,7 +722,6 @@ function getCollectionLabel(nft: OpenSeaNft): string {
   if (!nft.collection) return "Unknown collection";
 
   if (typeof nft.collection === "string") {
-    // Convert slug ("cloakies-collection") -> "Cloakies Collection"
     const words = nft.collection.replace(/[-_]+/g, " ").trim().split(/\s+/);
     if (words.length === 0) return "Unknown collection";
     return words
@@ -676,66 +746,6 @@ function openSeaChainSlug(chain: Chain): string {
 function prettyChain(chain: Chain): string {
   if (chain === "base") return "Base";
   return "Ethereum";
-}
-
-type NormalizedTrait = {
-  label: string;
-  value: string;
-};
-
-function getTraits(nft: OpenSeaNft): NormalizedTrait[] {
-  const traits: any[] = [];
-
-  // Top-level traits (if present)
-  if (Array.isArray((nft as any).traits)) {
-    traits.push(...((nft as any).traits as any[]));
-  }
-
-  // Metadata traits / attributes (if present)
-  const metadata = (nft as any).metadata;
-  if (metadata) {
-    if (Array.isArray(metadata.traits)) {
-      traits.push(...(metadata.traits as any[]));
-    }
-    if (Array.isArray(metadata.attributes)) {
-      traits.push(...(metadata.attributes as any[]));
-    }
-  }
-
-  const normalized: NormalizedTrait[] = traits
-    .map((t: any, idx: number) => {
-      const rawType =
-        t.trait_type ??
-        t.type ??
-        t.trait ??
-        `Trait ${idx + 1}`;
-      const rawValue = t.value ?? "";
-
-      const label = String(rawType)
-        .replace(/[_-]+/g, " ")
-        .trim()
-        .replace(/\b\w/g, (c: string) => c.toUpperCase());
-
-      const value = String(rawValue).trim();
-
-      if (!value) return null;
-
-      return { label, value };
-    })
-    .filter((t): t is NormalizedTrait => t !== null);
-
-  // Deduplicate and limit count
-  const seen = new Set<string>();
-  const result: NormalizedTrait[] = [];
-  for (const t of normalized) {
-    const key = `${t.label}:${t.value}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(t);
-    if (result.length >= 8) break;
-  }
-
-  return result;
 }
 
 export default App;
