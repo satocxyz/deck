@@ -801,13 +801,17 @@ function SellConfirmSheet({
   };
   onClose: () => void;
 }) {
-  const [submitting, setSubmitting] = useState(false);
-
   // OpenSea fee is 2.5%
-  const feePct = 0.025;
+  const feePct = 2.5 / 100;
   const payout = offer.priceEth * (1 - feePct);
   const payoutFormatted =
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [resultKind, setResultKind] = useState<"info" | "success" | "error">(
+    "info",
+  );
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -823,16 +827,10 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-    if (submitting) return;
-    setSubmitting(true);
-
     try {
-      // Debug log so we can always see what we sent
-      console.log("Accept Best Offer clicked", {
-        chain,
-        orderHash,
-        offer,
-      });
+      setIsSubmitting(true);
+      setResultMessage(null);
+      setResultKind("info");
 
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
@@ -846,30 +844,68 @@ function SellConfirmSheet({
         }),
       });
 
-      const json = await res.json();
-      console.log("Fulfillment response", json);
-      // Later we'll branch on json.ok / json.safeToFill.
+      const data = (await res.json()) as {
+        ok: boolean;
+        safeToFill: boolean;
+        reason?: string;
+        message?: string;
+        echo?: unknown;
+      };
+
+      console.log("Fulfillment response", data);
+
+      if (!res.ok || !data.ok) {
+        setResultKind("error");
+        setResultMessage(
+          data.message ??
+            "We couldn’t verify this offer. Please try again or check in OpenSea directly.",
+        );
+        return;
+      }
+
+      // For now this is always false, but we still wire it like a real checker.
+      if (data.safeToFill) {
+        setResultKind("success");
+        setResultMessage(
+          data.message ??
+            "Offer looks safe to accept. You can now confirm in your wallet.",
+        );
+      } else {
+        setResultKind("info");
+        setResultMessage(
+          data.message ??
+            "Accepting offers is not enabled yet in Deck. No transaction was created.",
+        );
+      }
     } catch (err) {
-      console.error("Fulfillment request failed", err);
+      console.error("Fulfillment error", err);
+      setResultKind("error");
+      setResultMessage(
+        "Something went wrong while checking the offer. Please try again or accept directly in OpenSea.",
+      );
     } finally {
-      setSubmitting(false);
-      onClose();
+      setIsSubmitting(false);
     }
   }
+
+  const resultColorClass =
+    resultKind === "success"
+      ? "text-emerald-400"
+      : resultKind === "error"
+      ? "text-red-400"
+      : "text-neutral-400";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
-        className="absolute inset-0 w-full h-full"
-        onClick={() => {
-          if (!submitting) onClose();
-        }}
+        className="absolute inset-0 h-full w-full"
+        onClick={onClose}
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
 
-        <h2 className="text-sm font-semibold text-neutral-50 text-center">
+        <h2 className="text-center text-sm font-semibold text-neutral-50">
           Accept Best Offer
         </h2>
 
@@ -888,7 +924,7 @@ function SellConfirmSheet({
             </span>
           </div>
 
-          <div className="flex justify-between pt-1 border-t border-neutral-800">
+          <div className="flex justify-between border-t border-neutral-800 pt-1">
             <span className="text-neutral-300">You will receive</span>
             <span className="font-semibold text-emerald-300">
               {payoutFormatted} WETH
@@ -897,31 +933,32 @@ function SellConfirmSheet({
 
           <div className="flex justify-between pt-1">
             <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">
-              {formatExpiration()}
-            </span>
+            <span className="text-neutral-400">{formatExpiration()}</span>
           </div>
 
-          <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
-            For your safety, the transaction will only proceed if the
-            on-chain offer amount exactly matches the value shown here.
+          <div className="mt-2 text-[11px] leading-tight text-neutral-500">
+            For your safety, the transaction will only proceed if the on-chain
+            offer amount exactly matches the value shown here.
           </div>
         </div>
 
+        {resultMessage && (
+          <div className={`mt-3 text-[11px] ${resultColorClass}`}>
+            {resultMessage}
+          </div>
+        )}
+
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
           onClick={handleConfirm}
-          disabled={submitting}
+          disabled={isSubmitting}
         >
-          {submitting ? "Checking offer…" : "Confirm Accept Offer"}
+          {isSubmitting ? "Checking offer…" : "Confirm Accept Offer"}
         </button>
 
         <button
-          className="mt-2 w-full text-center text-[12px] text-neutral-400 disabled:opacity-60"
-          onClick={() => {
-            if (!submitting) onClose();
-          }}
-          disabled={submitting}
+          className="mt-2 w-full text-center text-[12px] text-neutral-400"
+          onClick={onClose}
         >
           Cancel
         </button>
