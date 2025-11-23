@@ -8,10 +8,6 @@ type SimpleOffer = {
   maker: string | null;
   expirationTime: number | null;
   source: "nft";
-  // extra fields for future on-chain safety
-  currency: string | null;
-  rawValue: string | null;
-  decimals: number | null;
 };
 
 type FloorInfo = {
@@ -115,31 +111,15 @@ export default async function handler(
 
         const priceObj = rawOffer.price ?? rawOffer.current_price ?? null;
 
-        // new: also capture raw pricing fields for safety later
-        let currency: string | null = null;
-        let rawValue: string | null = null;
-        let decimals: number | null = null;
-
         if (priceObj && typeof priceObj === "object") {
-          const p: any = priceObj;
+          const valueStr = (priceObj as any).value;
+          const decimals = (priceObj as any).decimals;
 
-          if (typeof p.currency === "string") {
-            currency = p.currency;
-          }
-
-          if (typeof p.value === "string") {
-            rawValue = p.value;
-          }
-
-          if (typeof p.decimals === "number") {
-            decimals = p.decimals;
-          }
-
-          if (typeof p.value === "string" && typeof p.decimals === "number") {
-            const total = Number(p.value);
+          if (typeof valueStr === "string" && typeof decimals === "number") {
+            const total = Number(valueStr);
 
             if (!Number.isNaN(total) && total > 0) {
-              priceEth = total / 10 ** p.decimals;
+              priceEth = total / 10 ** decimals;
             }
           }
         } else if (
@@ -153,8 +133,9 @@ export default async function handler(
         }
 
         // -------------------------------------------------
-        // FIX: HANDLE CRITERIA / COLLECTION-WIDE OFFER
-        // encoded_token_ids === "*" → OpenSea stores 2× per-NFT price
+        // HANDLE CRITERIA / COLLECTION-WIDE OFFER
+        // Derive per-NFT price from consideration startAmount
+        // when the order targets multiple NFTs.
         // -------------------------------------------------
         try {
           if (
@@ -162,16 +143,40 @@ export default async function handler(
             typeof priceEth === "number" &&
             priceEth > 0
           ) {
-            priceEth = priceEth / 2;
+            const params = rawOffer.protocol_data?.parameters;
+            const consideration = params?.consideration;
+
+            if (Array.isArray(consideration)) {
+              // In your sample JSON, the first consideration item (itemType 4)
+              // is the NFT leg with startAmount "2"
+              const nftLeg = consideration.find(
+                (c: any) =>
+                  // itemType 4 = ERC721 on Seaport v1.5
+                  c &&
+                  typeof c === "object" &&
+                  (c.itemType === 4 || c.itemType === 2 || c.itemType === 3),
+              );
+
+              const amountStr: string | undefined =
+                nftLeg?.startAmount ?? nftLeg?.endAmount;
+
+              const amountNum = amountStr ? Number(amountStr) : NaN;
+
+              if (Number.isFinite(amountNum) && amountNum > 1) {
+                // If the bidder wants N NFTs, per-NFT price = total / N.
+                priceEth = priceEth / amountNum;
+              }
+              // If amountNum <= 1, we leave priceEth as-is (already per NFT).
+            }
           }
         } catch (err) {
-          console.warn("criteria parsing failed:", err);
+          console.warn("criteria / consideration parsing failed:", err);
         }
 
         // -------------------------------------------------
         // BUILD OFFER OBJECT
         // -------------------------------------------------
-        if (priceEth && priceEth > 0) {
+        if (typeof priceEth === "number" && priceEth > 0) {
           const priceFormatted =
             priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
 
@@ -207,9 +212,6 @@ export default async function handler(
             maker: makerAddress,
             expirationTime,
             source: "nft",
-            currency,
-            rawValue,
-            decimals,
           };
         }
       }
