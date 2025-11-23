@@ -11,7 +11,13 @@ type SafeArea = {
 };
 
 function App() {
-  const [chain, setChain] = useState<Chain>("base");
+  // Remember last chain from localStorage, default to base
+  const [chain, setChain] = useState<Chain>(() => {
+    if (typeof window === "undefined") return "base";
+    const stored = window.localStorage.getItem("deck:chain");
+    return stored === "ethereum" ? "ethereum" : "base";
+  });
+
   const [safeArea, setSafeArea] = useState<SafeArea>({
     top: 0,
     bottom: 0,
@@ -19,6 +25,12 @@ function App() {
     right: 0,
   });
   const [selectedNft, setSelectedNft] = useState<OpenSeaNft | null>(null);
+
+  // Persist chain selection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("deck:chain", chain);
+  }, [chain]);
 
   useEffect(() => {
     (async () => {
@@ -107,7 +119,9 @@ function App() {
         {isConnected && loading && <NftSkeletonGrid />}
 
         {isConnected && !loading && error && (
-          <p className="text-[13px] text-red-400">Error: {error}</p>
+          <p className="text-[13px] text-red-400">
+            Couldn&apos;t load NFTs right now. Please try again in a moment.
+          </p>
         )}
 
         {showEmpty && (
@@ -362,7 +376,7 @@ function NftDetailModal({
       .catch((err) => {
         if (cancelled) return;
         console.error("Failed to load offers", err);
-        setOffersError("Failed to load offers");
+        setOffersError("open_sea_error");
       })
       .finally(() => {
         if (cancelled) return;
@@ -374,7 +388,7 @@ function NftDetailModal({
     };
   }, [chain, nft?.identifier, nft?.collection]);
 
-  // Traits (from new nft-details endpoint)
+  // Traits (from nft-details endpoint)
   useEffect(() => {
     if (!nft) {
       setTraits([]);
@@ -415,7 +429,7 @@ function NftDetailModal({
       .catch((err) => {
         if (cancelled) return;
         console.error("Failed to load traits", err);
-        setTraitsError("Failed to load traits");
+        setTraitsError("open_sea_error");
       })
       .finally(() => {
         if (cancelled) return;
@@ -426,6 +440,8 @@ function NftDetailModal({
       cancelled = true;
     };
   }, [chain, nft?.identifier, nft?.contract]);
+
+  const isBusy = offersLoading || traitsLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -509,7 +525,10 @@ function NftDetailModal({
         className="absolute inset-0 h-full w-full cursor-default"
         onClick={onClose}
       />
-      <div className="relative z-30 w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950/95 px-4 pb-5 pt-3 shadow-xl">
+      <div
+        className="relative z-30 w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950/95 px-4 pb-5 pt-3 shadow-xl"
+        style={{ opacity: isBusy ? 0.92 : 1 }}
+      >
         <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-neutral-700" />
         <div className="flex items-start gap-3">
           <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-neutral-900">
@@ -551,7 +570,7 @@ function NftDetailModal({
 
         {!traitsLoading && traitsError && (
           <div className="mt-3 px-1 text-[11px] text-neutral-500">
-            {traitsError}
+            OpenSea traits are unavailable right now.
           </div>
         )}
 
@@ -594,8 +613,8 @@ function NftDetailModal({
           )}
 
           {!offersLoading && offersError && (
-            <div className="px-1 text-[11px] text-red-400">
-              {offersError}
+            <div className="px-1 text-[11px] text-neutral-500">
+              OpenSea price data is unavailable right now.
             </div>
           )}
 
