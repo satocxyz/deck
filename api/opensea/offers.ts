@@ -7,7 +7,7 @@ type SimpleOffer = {
   priceFormatted: string
   maker: string | null
   expirationTime: number | null
-  source: 'item' | 'collection'
+  source: 'nft'
 }
 
 type FloorInfo = {
@@ -24,7 +24,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const chain = req.query.chain as string | undefined
   const collectionSlug = req.query.collection as string | undefined
   const identifier = req.query.identifier as string | undefined
-  const contract = req.query.contract as string | undefined
 
   if (!chain || (chain !== 'base' && chain !== 'ethereum')) {
     return res
@@ -36,8 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing collection slug' })
   }
 
-  // identifier + contract are only needed for **item-level** offers
-  const hasItemContext = Boolean(identifier && contract)
+  if (!identifier) {
+    return res.status(400).json({ error: 'Missing token identifier' })
+  }
 
   const apiKey = process.env.OPENSEA_API_KEY
   const baseUrl = process.env.OPENSEA_API_URL ?? 'https://api.opensea.io/api/v2'
@@ -47,14 +47,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Server misconfigured' })
   }
 
-  const osChain = chain === 'base' ? 'base' : 'ethereum'
-  const protocol = 'seaport'
-
   let bestOffer: SimpleOffer | null = null
   let floor: FloorInfo = { eth: null, formatted: null }
 
   try {
-    // ---------- 1) Collection stats (floor + maybe collection-level top offer) ----------
+    // ---------- 1) Floor price from collection stats ----------
     const statsUrl = `${baseUrl}/collections/${collectionSlug}/stats`
     const statsRes = await fetch(statsUrl, {
       headers: {
@@ -69,133 +66,128 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const total = (statsJson.total ?? {}) as Record<string, unknown>
-
-      // Helpful once to see what fields exist (check Vercel logs)
       console.log('OpenSea collection stats keys:', Object.keys(total))
 
-      // FLOOR: try floor_price (v2 docs)
       const floorRaw = total['floor_price']
       if (typeof floorRaw === 'number') {
         floor.eth = floorRaw
         floor.formatted =
           floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4)
       }
-
-      // Try to detect a collection-level top offer (if any)
-      const possibleTop =
-        typeof total['top_offer'] === 'number'
-          ? (total['top_offer'] as number)
-          : typeof total['top_bid'] === 'number'
-            ? (total['top_bid'] as number)
-            : typeof total['top_offer_price'] === 'number'
-              ? (total['top_offer_price'] as number)
-              : null
-
-      if (typeof possibleTop === 'number' && possibleTop > 0) {
-        const priceEth = possibleTop
-        const priceFormatted =
-          priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4)
-
-        // Only set this if we *never* find an item-specific offer later
-        bestOffer = {
-          id: 'collection-top-offer',
-          priceEth,
-          priceFormatted,
-          maker: null,
-          expirationTime: null,
-          source: 'collection',
-        }
-      }
     } else {
       const text = await statsRes.text()
       console.error('OpenSea stats error', statsRes.status, text)
     }
 
-    // ---------- 2) Item-level best offer (overrides collection-level if valid) ----------
-    if (hasItemContext) {
-      const offersParams = new URLSearchParams({
-        asset_contract_address: contract as string,
-        token_ids: identifier as string,
-        order_by: 'eth_price',
-        order_direction: 'desc',
-        limit: '1',
-      })
+    // ---------- 2) Best offer for this specific NFT ----------
+    const bestOfferUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}/best`
 
-      const offersUrl = `${baseUrl}/orders/${osChain}/${protocol}/offers?${offersParams.toString()}`
+    const bestRes = await fetch(bestOfferUrl, {
+      headers: {
+        Accept: 'application/json',
+        'X-API-KEY': apiKey,
+      },
+    })
 
-      const offersRes = await fetch(offersUrl, {
-        headers: {
-          Accept: 'application/json',
-          'X-API-KEY': apiKey,
-        },
-      })
+    if (bestRes.ok) {
+      const bestJson = (await bestRes.json()) as any
 
-      if (offersRes.ok) {
-        const offersJson = (await offersRes.json()) as { orders?: any[] }
-        const rawOrders = Array.isArray(offersJson.orders)
-          ? offersJson.orders
-          : []
+      // For your response, the order itself IS the best offer.
+      const rawOffer =
+        bestJson?.best_offer ??
+        bestJson?.best ??
+        bestJson?.offer ??
+        bestJson ?? null
 
-        if (rawOrders.length > 0) {
-          const order = rawOrders[0]
+      if (rawOffer && typeof rawOffer === 'object') {
+        // ----- Parse price -----
+        // Expect shape: price: { currency, decimals, value }
+        let priceEth: number | null = null
 
-          // current_price format is inconsistent; handle both ETH string / number and wei string
-          const raw = order.current_price
-          let priceEth: number | null = null
+        const priceObj = rawOffer.price ?? rawOffer.current_price ?? null
 
-          if (typeof raw === 'string') {
-            const numeric = Number(raw)
-            if (!Number.isNaN(numeric) && numeric > 0) {
-              // Heuristic:
-              // if it's a gigantic integer, assume wei -> convert to ETH
-              if (Number.isInteger(numeric) && numeric > 1e10) {
-                priceEth = numeric / 1e18
-              } else {
-                // assume already in ETH units
-                priceEth = numeric
-              }
+        if (priceObj && typeof priceObj === 'object') {
+          // case: { decimals: 18, value: "11400000000000000" }
+          if (
+            typeof (priceObj as any).value === 'string' &&
+            typeof (priceObj as any).decimals === 'number'
+          ) {
+            const valueStr = (priceObj as any).value as string
+            const decimals = (priceObj as any).decimals as number
+            const n = Number(valueStr)
+            if (!Number.isNaN(n) && n > 0 && decimals >= 0 && decimals <= 36) {
+              priceEth = n / 10 ** decimals
             }
-          } else if (typeof raw === 'number' && raw > 0) {
-            if (Number.isInteger(raw) && raw > 1e10) {
-              priceEth = raw / 1e18
-            } else {
-              priceEth = raw
+          } else if (typeof (priceObj as any).decimal === 'number') {
+            // some variants use .decimal directly
+            priceEth = (priceObj as any).decimal as number
+          } else if (
+            typeof (priceObj as any).amount === 'string' ||
+            typeof (priceObj as any).amount === 'number'
+          ) {
+            const n = Number((priceObj as any).amount)
+            if (!Number.isNaN(n) && n > 0) {
+              priceEth = n > 1e10 ? n / 1e18 : n
             }
           }
-
-          // Only override bestOffer if we parsed a meaningful > 0 price
-          if (priceEth && priceEth > 0) {
-            const priceFormatted =
-              priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4)
-
-            const makerAddress: string | null =
-              order.maker?.address ?? order.maker?.account?.address ?? null
-
-            const expirationTime: number | null =
-              typeof order.expiration_time === 'number'
-                ? order.expiration_time
-                : null
-
-            bestOffer = {
-              id:
-                order.order_hash ??
-                order.id ??
-                `${makerAddress ?? 'unknown'}-${raw}`,
-              priceEth,
-              priceFormatted,
-              maker: makerAddress,
-              expirationTime,
-              source: 'item',
-            }
+        } else if (
+          typeof priceObj === 'string' ||
+          typeof priceObj === 'number'
+        ) {
+          const n = Number(priceObj)
+          if (!Number.isNaN(n) && n > 0) {
+            priceEth = n > 1e10 ? n / 1e18 : n
           }
         }
-      } else {
-        const text = await offersRes.text()
-        console.error('OpenSea offers error', offersRes.status, text)
+
+        if (priceEth && priceEth > 0) {
+          const priceFormatted =
+            priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4)
+
+          // ----- Parse maker address -----
+          const makerAddress: string | null =
+            rawOffer.maker?.address ??
+            rawOffer.maker_address ??
+            rawOffer.maker ??
+            rawOffer.protocol_data?.parameters?.offerer ??
+            null
+
+          // ----- Parse expiration -----
+          let expirationTime: number | null = null
+          const endTimeParam = rawOffer.protocol_data?.parameters?.endTime
+          if (typeof endTimeParam === 'string') {
+            const n = Number(endTimeParam)
+            if (!Number.isNaN(n) && n > 0) {
+              expirationTime = n
+            }
+          } else if (typeof rawOffer.expires_at === 'number') {
+            expirationTime = rawOffer.expires_at
+          } else if (typeof rawOffer.expiration_time === 'number') {
+            expirationTime = rawOffer.expiration_time
+          }
+
+          const id: string =
+            rawOffer.order_hash ??
+            rawOffer.id ??
+            rawOffer.hash ??
+            `${makerAddress ?? 'unknown'}-${priceFormatted}`
+
+          bestOffer = {
+            id,
+            priceEth,
+            priceFormatted,
+            maker: makerAddress,
+            expirationTime,
+            source: 'nft',
+          }
+        }
       }
+    } else if (bestRes.status !== 404) {
+      // 404 = no best offer; that's fine → keep bestOffer = null
+      const text = await bestRes.text()
+      console.error('OpenSea best-offer error', bestRes.status, text)
     }
 
-    // ---------- 3) Return combined result ----------
     return res.status(200).json({ bestOffer, floor })
   } catch (err) {
     console.error('Unexpected error in /api/opensea/offers', err)
