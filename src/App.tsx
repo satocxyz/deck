@@ -807,6 +807,10 @@ function SellConfirmSheet({
   const payoutFormatted =
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
     const now = Date.now() / 1000;
@@ -820,9 +824,60 @@ function SellConfirmSheet({
     return `${hours}h ${minutes}m`;
   }
 
+  async function handleConfirm() {
+    if (submitting) return;
+
+    setSubmitting(true);
+    setStatus("idle");
+    setErrorMessage(null);
+
+    // So we can see clearly what's being sent
+    console.log("Accept Best Offer clicked", {
+      chain,
+      orderHash,
+      offer,
+    });
+
+    try {
+      const res = await fetch("/api/opensea/fulfillment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          orderHash,
+          // you can add taker address here later if needed
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Fulfillment error", res.status, text);
+        setStatus("error");
+        setErrorMessage("Could not fetch fulfillment data from OpenSea.");
+        return;
+      }
+
+      const json = await res.json();
+      console.log("Fulfillment response", json);
+
+      // For now we just log it and show a success message.
+      // Later we’ll take `json.fulfillment_data` and send it to the wallet.
+      setStatus("success");
+    } catch (err) {
+      console.error("Unexpected fulfillment error", err);
+      setStatus("error");
+      setErrorMessage("Unexpected error while preparing transaction.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <button className="absolute inset-0 w-full h-full" onClick={onClose} />
+      <button
+        className="absolute inset-0 w-full h-full"
+        onClick={onClose}
+      />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
         <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
@@ -842,7 +897,7 @@ function SellConfirmSheet({
           <div className="flex justify-between">
             <span className="text-neutral-300">OpenSea fee (2.5%)</span>
             <span className="text-neutral-400">
-              -{(offer.priceEth * feePct).toFixed(4)} WETH
+              -{(offer.priceEth * 0.025).toFixed(4)} WETH
             </span>
           </div>
 
@@ -855,29 +910,37 @@ function SellConfirmSheet({
 
           <div className="flex justify-between pt-1">
             <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">{formatExpiration()}</span>
+            <span className="text-neutral-400">
+              {formatExpiration()}
+            </span>
           </div>
 
           <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
-            For your safety, the transaction will only proceed if the on-chain
-            offer amount exactly matches the value shown here.
+            For your safety, the transaction will only proceed if the
+            on-chain offer amount exactly matches the value shown here.
           </div>
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm"
-          onClick={() => {
-            // Stub: this is where we’ll later call the fulfillment API
-            console.log("Accept Best Offer clicked", {
-              chain,
-              orderHash,
-              offer,
-            });
-            onClose();
-          }}
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={handleConfirm}
+          disabled={submitting}
         >
-          Confirm Accept Offer
+          {submitting ? "Preparing transaction…" : "Confirm Accept Offer"}
         </button>
+
+        <div className="mt-2 text-[11px] min-h-[16px]">
+          {status === "success" && (
+            <span className="text-emerald-400">
+              Fulfillment data loaded. Check console / Network tab.
+            </span>
+          )}
+          {status === "error" && (
+            <span className="text-red-400">
+              {errorMessage ?? "Something went wrong while talking to OpenSea."}
+            </span>
+          )}
+        </div>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-400"
@@ -889,5 +952,3 @@ function SellConfirmSheet({
     </div>
   );
 }
-
-
