@@ -1,6 +1,6 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useConnect, useWalletClient  } from "wagmi";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 
 type SafeArea = {
@@ -93,7 +93,8 @@ function App() {
         paddingBottom: 16 + safeArea.bottom,
         paddingLeft: 16 + safeArea.left,
         paddingRight: 16 + safeArea.right,
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       <header className="mb-3 flex items-baseline justify-between">
@@ -120,7 +121,8 @@ function App() {
 
         {isConnected && !loading && error && (
           <p className="text-[13px] text-red-400">
-            Couldn&apos;t load NFTs right now. Please try again in a moment.
+            Couldn&apos;t load NFTs right now. Please try again in a
+            moment.
           </p>
         )}
 
@@ -290,7 +292,7 @@ function NftSkeletonGrid() {
 }
 
 /**
- * NFT detail modal (no real trading yet – UI only, safe)
+ * NFT detail modal
  */
 type NormalizedTrait = {
   label: string;
@@ -549,7 +551,9 @@ function NftDetailModal({
             <div className="text-sm font-semibold text-neutral-50">
               {nft.name || `Token #${nft.identifier}`}
             </div>
-            <div className="text-[11px] text-neutral-400">{collectionName}</div>
+            <div className="text-[11px] text-neutral-400">
+              {collectionName}
+            </div>
             <div className="text-[10px] text-neutral-500">
               {chainLabel} • ID {nft.identifier}
             </div>
@@ -701,10 +705,10 @@ function NftDetailModal({
             )}
           </div>
 
-          {/* Primary sell CTA – disabled for now, to be wired to Deck's own flow later */}
+          {/* Primary sell CTA */}
           <button
             type="button"
-            disabled={!bestOffer} 
+            disabled={!bestOffer}
             onClick={() => setShowSellSheet(true)}
             className={[
               "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
@@ -715,7 +719,6 @@ function NftDetailModal({
           >
             {bestOffer ? "Accept Best Offer" : "No Offer Available"}
           </button>
-
         </div>
 
         <button
@@ -725,10 +728,13 @@ function NftDetailModal({
         >
           Close
         </button>
+
         {showSellSheet && bestOffer && (
           <SellConfirmSheet
             chain={chain}
             orderHash={bestOffer.id}
+            contractAddress={contractAddress}
+            tokenId={nft.identifier}
             offer={{
               priceEth: bestOffer.priceEth,
               priceFormatted: bestOffer.priceFormatted,
@@ -737,8 +743,6 @@ function NftDetailModal({
             onClose={() => setShowSellSheet(false)}
           />
         )}
-
-
       </div>
     </div>
   );
@@ -789,11 +793,15 @@ export default App;
 function SellConfirmSheet({
   chain,
   orderHash,
+  contractAddress,
+  tokenId,
   offer,
   onClose,
 }: {
   chain: Chain;
   orderHash: string;
+  contractAddress?: string;
+  tokenId: string;
   offer: {
     priceEth: number;
     priceFormatted: string;
@@ -839,7 +847,7 @@ function SellConfirmSheet({
         return;
       }
 
-      // 1) Ask backend for fulfillment (stub for now)
+      // 1) Ask backend for fulfillment (may be stub / test / real)
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: {
@@ -854,6 +862,8 @@ function SellConfirmSheet({
             priceFormatted: offer.priceFormatted,
             expirationTime: offer.expirationTime,
           },
+          contractAddress,
+          tokenId,
         }),
       });
 
@@ -868,14 +878,11 @@ function SellConfirmSheet({
       if (!json.safeToFill) {
         setInfo(
           json.message ||
-            "Accepting offers is not enabled yet. No transaction was created."
+            "Accepting offers is not enabled yet. No transaction was created.",
         );
         return;
       }
 
-      // -------------------------------
-      // 🟣 STEP 3: Real tx sending logic
-      // -------------------------------
       const tx = json.tx as
         | {
             to: string;
@@ -907,7 +914,6 @@ function SellConfirmSheet({
       setInfo(`Transaction submitted: ${txHash}`);
       onClose();
       return;
-
     } catch (err) {
       console.error("Error while sending transaction", err);
       setError("Failed to send transaction. Check console for details.");
