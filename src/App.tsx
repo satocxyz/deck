@@ -443,15 +443,15 @@ function NftDetailModal({
           </p>
         )}
 
-        {/* Offers section */}
+        {/* Price section */}
         <div className="mt-4 space-y-1">
           <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
-            Offers
+            Price
           </div>
 
           {offersLoading && (
             <div className="px-1 text-[11px] text-neutral-400">
-              Loading offers from OpenSea…
+              Loading price data…
             </div>
           )}
 
@@ -463,7 +463,7 @@ function NftDetailModal({
 
           {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
             <div className="px-1 text-[11px] text-neutral-500">
-              No active offers or floor data.
+              No price data available.
             </div>
           )}
 
@@ -491,10 +491,6 @@ function NftDetailModal({
 
         {/* Opensea actions */}
         <div className="mt-4 space-y-2">
-          <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
-            Opensea
-          </div>
-
           <div className="grid grid-cols-2 gap-2">
             {nftUrl && (
               <a
