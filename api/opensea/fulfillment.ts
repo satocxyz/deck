@@ -10,6 +10,7 @@ type MiniOfferPayload = {
 type FulfillmentRequestBody = {
   chain: "base" | "ethereum";
   orderHash: string;
+  takerAddress?: string; // <-- added
   offer: MiniOfferPayload | null;
 };
 
@@ -21,6 +22,7 @@ type FulfillmentResponse = {
   echo: {
     chain: string;
     orderHash: string;
+    takerAddress?: string;
     offer: {
       priceEth: number;
       priceFormatted: string;
@@ -30,10 +32,9 @@ type FulfillmentResponse = {
   tx?: {
     to: string;
     data: string;
-    value: string; // hex or decimal string
+    value: string;
   };
 };
-
 
 export default async function handler(
   req: VercelRequest,
@@ -44,15 +45,19 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { chain, orderHash, offer } = req.body as Partial<FulfillmentRequestBody>;
+  const { chain, orderHash, takerAddress, offer } =
+    req.body as Partial<FulfillmentRequestBody>;
 
+  // -------------------------------
+  // Basic validation
+  // -------------------------------
   if (chain !== "base" && chain !== "ethereum") {
     const payload: FulfillmentResponse = {
       ok: false,
       safeToFill: false,
       reason: "bad_request",
       message: "Invalid or missing 'chain'. Expected 'base' or 'ethereum'.",
-      echo: { chain, orderHash, offer } as any,
+      echo: { chain, orderHash, takerAddress, offer } as any,
     };
     return res.status(400).json(payload);
   }
@@ -63,21 +68,55 @@ export default async function handler(
       safeToFill: false,
       reason: "bad_request",
       message: "Missing or invalid 'orderHash'.",
-      echo: { chain, orderHash, offer } as any,
+      echo: { chain, orderHash, takerAddress, offer } as any,
     };
     return res.status(400).json(payload);
   }
 
-  // From here on, *never* 400 — this endpoint is a stub.
+  // -------------------------------
+  // STEP-B: "Test transaction" mode
+  // -------------------------------
+  // This allows real wallet signing with a safe tx (0 ETH to yourself)
+  const enableTestTx = process.env.DECK_ENABLE_TEST_TX === "true";
+
+  if (enableTestTx && takerAddress) {
+    const tx = {
+      to: takerAddress,
+      data: "0x",
+      value: "0", // no ETH transferred
+    };
+
+    const payload: FulfillmentResponse = {
+      ok: true,
+      safeToFill: true,
+      reason: "test_self_tx",
+      message:
+        "Test mode: sending a 0-value transaction to your own wallet. No offer will be accepted.",
+      echo: {
+        chain,
+        orderHash,
+        takerAddress,
+        offer: (offer ?? null) as MiniOfferPayload | null,
+      },
+      tx,
+    };
+
+    return res.status(200).json(payload);
+  }
+
+  // -------------------------------
+  // DEFAULT: Real fulfillment not enabled
+  // -------------------------------
   const payload: FulfillmentResponse = {
     ok: true,
     safeToFill: false,
     reason: "not_implemented",
     message:
-      "Accepting offers is not enabled yet in Deck. This endpoint is a stub for future smart-contract integrations. For now, no transaction will be created.",
+      "Accepting offers is not enabled yet in Deck. This endpoint is a stub for future integrations. No transaction will be created.",
     echo: {
       chain,
       orderHash,
+      takerAddress,
       offer: (offer ?? null) as MiniOfferPayload | null,
     },
   };

@@ -848,6 +848,7 @@ function SellConfirmSheet({
         body: JSON.stringify({
           chain,
           orderHash,
+          takerAddress: address,
           offer: {
             priceEth: offer.priceEth,
             priceFormatted: offer.priceFormatted,
