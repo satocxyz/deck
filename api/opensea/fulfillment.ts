@@ -13,21 +13,27 @@ type FulfillmentRequestBody = {
   offer: MiniOfferPayload | null;
 };
 
-type FulfillmentResponse =
-  | {
-      ok: true;
-      safeToFill: false;
-      reason: "not_implemented";
-      message: string;
-      echo: FulfillmentRequestBody;
-    }
-  | {
-      ok: false;
-      safeToFill: false;
-      reason: "bad_request";
-      message: string;
-      echo: unknown;
-    };
+type FulfillmentResponse = {
+  ok: boolean;
+  safeToFill: boolean;
+  reason?: string;
+  message?: string;
+  echo: {
+    chain: string;
+    orderHash: string;
+    offer: {
+      priceEth: number;
+      priceFormatted: string;
+      expirationTime: number | null;
+    } | null;
+  };
+  tx?: {
+    to: string;
+    data: string;
+    value: string; // hex or decimal string
+  };
+};
+
 
 export default async function handler(
   req: VercelRequest,

@@ -839,7 +839,7 @@ function SellConfirmSheet({
         return;
       }
 
-      // 1) Ask our backend for fulfillment data (still safe stub for now)
+      // 1) Ask backend for fulfillment (stub for now)
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: {
@@ -865,7 +865,6 @@ function SellConfirmSheet({
       }
 
       if (!json.safeToFill) {
-        // Current behavior: still disabled on the backend
         setInfo(
           json.message ||
             "Accepting offers is not enabled yet. No transaction was created."
@@ -873,9 +872,9 @@ function SellConfirmSheet({
         return;
       }
 
-      // When you later implement the real OpenSea call in /fulfillment,
-      // have it return something like:
-      // { ok: true, safeToFill: true, tx: { to, data, value } }
+      // -------------------------------
+      // 🟣 STEP 3: Real tx sending logic
+      // -------------------------------
       const tx = json.tx as
         | {
             to: string;
@@ -889,22 +888,25 @@ function SellConfirmSheet({
         return;
       }
 
-      // 2) Map our chain string -> chain id
       const chainId = chain === "base" ? 8453 : 1;
 
-      // 3) Actually send the transaction via wagmi/viem
-      //    IMPORTANT: only do this after you've verified on the backend
-      //    that tx matches the OpenSea fulfillment response exactly.
-      await walletClient.sendTransaction({
+      const txHash = await walletClient.sendTransaction({
         account: address as `0x${string}`,
-        chain: { id: chainId, name: "", nativeCurrency: undefined, rpcUrls: {} } as any,
+        chain: {
+          id: chainId,
+          name: "",
+          nativeCurrency: undefined,
+          rpcUrls: {},
+        } as any,
         to: tx.to as `0x${string}`,
         data: tx.data as `0x${string}`,
         value: tx.value ? BigInt(tx.value) : 0n,
       });
 
-      setInfo("Transaction submitted from your wallet.");
+      setInfo(`Transaction submitted: ${txHash}`);
       onClose();
+      return;
+
     } catch (err) {
       console.error("Error while sending transaction", err);
       setError("Failed to send transaction. Check console for details.");
