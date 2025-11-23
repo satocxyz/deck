@@ -808,8 +808,10 @@ function SellConfirmSheet({
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
 
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<
+    "idle" | "ok" | "blocked" | "error"
+  >("idle");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -825,27 +827,18 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-    if (submitting) return;
-
-    setSubmitting(true);
-    setStatus("idle");
-    setErrorMessage(null);
-
-    // So we can see clearly what's being sent
-    console.log("Accept Best Offer clicked", {
-      chain,
-      orderHash,
-      offer,
-    });
-
     try {
+      setSubmitting(true);
+      setStatus("idle");
+      setStatusMessage(null);
+
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chain,
           orderHash,
-          // you can add taker address here later if needed
+          // we can add taker address later if needed
         }),
       });
 
@@ -853,20 +846,36 @@ function SellConfirmSheet({
         const text = await res.text();
         console.error("Fulfillment error", res.status, text);
         setStatus("error");
-        setErrorMessage("Could not fetch fulfillment data from OpenSea.");
+        setStatusMessage(
+          "Something went wrong checking this offer. Please try again."
+        );
         return;
       }
 
       const json = await res.json();
       console.log("Fulfillment response", json);
 
-      // For now we just log it and show a success message.
-      // Later we’ll take `json.fulfillment_data` and send it to the wallet.
-      setStatus("success");
+      if (!json.safeToFill) {
+        setStatus("blocked");
+        setStatusMessage(
+          json.message ??
+            "This offer can’t be safely accepted from Deck yet. Please use OpenSea directly."
+        );
+        return;
+      }
+
+      // We *only* validate for now – no tx is sent from Deck yet.
+      setStatus("ok");
+      setStatusMessage(
+        json.message ??
+          "This offer looks safe, but accepting offers from Deck isn’t live yet. No transaction was sent."
+      );
     } catch (err) {
-      console.error("Unexpected fulfillment error", err);
+      console.error("Fulfillment request failed", err);
       setStatus("error");
-      setErrorMessage("Unexpected error while preparing transaction.");
+      setStatusMessage(
+        "Couldn’t reach Deck’s backend. Please check your connection and try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -875,14 +884,14 @@ function SellConfirmSheet({
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 h-full w-full"
         onClick={onClose}
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
 
-        <h2 className="text-sm font-semibold text-neutral-50 text-center">
+        <h2 className="text-center text-sm font-semibold text-neutral-50">
           Accept Best Offer
         </h2>
 
@@ -897,11 +906,11 @@ function SellConfirmSheet({
           <div className="flex justify-between">
             <span className="text-neutral-300">OpenSea fee (2.5%)</span>
             <span className="text-neutral-400">
-              -{(offer.priceEth * 0.025).toFixed(4)} WETH
+              -{(offer.priceEth * feePct).toFixed(4)} WETH
             </span>
           </div>
 
-          <div className="flex justify-between pt-1 border-t border-neutral-800">
+          <div className="flex justify-between border-t border-neutral-800 pt-1">
             <span className="text-neutral-300">You will receive</span>
             <span className="font-semibold text-emerald-300">
               {payoutFormatted} WETH
@@ -915,36 +924,39 @@ function SellConfirmSheet({
             </span>
           </div>
 
-          <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
+          <div className="mt-2 text-[11px] leading-tight text-neutral-500">
             For your safety, the transaction will only proceed if the
             on-chain offer amount exactly matches the value shown here.
           </div>
+
+          {statusMessage && (
+            <div
+              className={[
+                "mt-2 rounded-xl px-3 py-2 text-[11px]",
+                status === "ok"
+                  ? "bg-emerald-900/40 text-emerald-200 border border-emerald-700/60"
+                  : status === "blocked"
+                  ? "bg-amber-900/40 text-amber-100 border border-amber-700/60"
+                  : "bg-red-900/40 text-red-100 border border-red-700/60",
+              ].join(" ")}
+            >
+              {statusMessage}
+            </div>
+          )}
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60"
           onClick={handleConfirm}
           disabled={submitting}
         >
-          {submitting ? "Preparing transaction…" : "Confirm Accept Offer"}
+          {submitting ? "Checking offer…" : "Confirm Accept Offer"}
         </button>
-
-        <div className="mt-2 text-[11px] min-h-[16px]">
-          {status === "success" && (
-            <span className="text-emerald-400">
-              Fulfillment data loaded. Check console / Network tab.
-            </span>
-          )}
-          {status === "error" && (
-            <span className="text-red-400">
-              {errorMessage ?? "Something went wrong while talking to OpenSea."}
-            </span>
-          )}
-        </div>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-400"
           onClick={onClose}
+          disabled={submitting}
         >
           Cancel
         </button>
