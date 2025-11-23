@@ -364,6 +364,7 @@ function NftDetailModal({
       cancelled = true;
     };
   }, [chain, nft?.identifier, nft?.collection]);
+
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
 
@@ -382,7 +383,8 @@ function NftDetailModal({
 
     return `${hours}h ${minutes}m`;
   }
-    function formatBestVsFloorDiff(
+
+  function formatBestVsFloorDiff(
     bestOffer: SimpleOffer | null,
     floor: FloorInfo,
   ): string | null {
@@ -401,7 +403,6 @@ function NftDetailModal({
     }
     return "Best offer is at floor";
   }
-
 
   if (!nft) return null;
 
@@ -481,6 +482,7 @@ function NftDetailModal({
             {nft.description}
           </p>
         )}
+
         {/* Traits section */}
         {traits.length > 0 && (
           <div className="mt-3 space-y-1">
@@ -488,7 +490,7 @@ function NftDetailModal({
               Traits
             </div>
             <div className="flex flex-wrap gap-1.5 px-1">
-              {traits.map((trait) => (
+              {traits.map((trait: NormalizedTrait) => (
                 <div
                   key={`${trait.label}-${trait.value}`}
                   className="
@@ -543,7 +545,8 @@ function NftDetailModal({
                     </span>
                     {formatTimeRemaining(bestOffer.expirationTime) && (
                       <span className="text-[10px] text-neutral-500">
-                        Expires in {formatTimeRemaining(bestOffer.expirationTime)}
+                        Expires in{" "}
+                        {formatTimeRemaining(bestOffer.expirationTime)}
                       </span>
                     )}
                   </div>
@@ -557,19 +560,21 @@ function NftDetailModal({
                   </span>
                 </div>
               )}
-              {bestOffer && floor.formatted && formatBestVsFloorDiff(bestOffer, floor) && (
-                <div className="flex items-baseline justify-between pt-0.5">
-                  <span className="text-neutral-400">Context</span>
-                  <span className="text-[10px] text-neutral-400">
-                    {formatBestVsFloorDiff(bestOffer, floor)}
-                  </span>
-                </div>
-              )}
+              {bestOffer &&
+                floor.formatted &&
+                formatBestVsFloorDiff(bestOffer, floor) && (
+                  <div className="flex items-baseline justify-between pt-0.5">
+                    <span className="text-neutral-400">Context</span>
+                    <span className="text-[10px] text-neutral-400">
+                      {formatBestVsFloorDiff(bestOffer, floor)}
+                    </span>
+                  </div>
+                )}
             </div>
           )}
         </div>
 
-        {/* Opensea actions */}
+        {/* OpenSea actions */}
         <div className="mt-4 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             {nftUrl && (
@@ -671,6 +676,66 @@ function openSeaChainSlug(chain: Chain): string {
 function prettyChain(chain: Chain): string {
   if (chain === "base") return "Base";
   return "Ethereum";
+}
+
+type NormalizedTrait = {
+  label: string;
+  value: string;
+};
+
+function getTraits(nft: OpenSeaNft): NormalizedTrait[] {
+  const traits: any[] = [];
+
+  // Top-level traits (if present)
+  if (Array.isArray((nft as any).traits)) {
+    traits.push(...((nft as any).traits as any[]));
+  }
+
+  // Metadata traits / attributes (if present)
+  const metadata = (nft as any).metadata;
+  if (metadata) {
+    if (Array.isArray(metadata.traits)) {
+      traits.push(...(metadata.traits as any[]));
+    }
+    if (Array.isArray(metadata.attributes)) {
+      traits.push(...(metadata.attributes as any[]));
+    }
+  }
+
+  const normalized: NormalizedTrait[] = traits
+    .map((t: any, idx: number) => {
+      const rawType =
+        t.trait_type ??
+        t.type ??
+        t.trait ??
+        `Trait ${idx + 1}`;
+      const rawValue = t.value ?? "";
+
+      const label = String(rawType)
+        .replace(/[_-]+/g, " ")
+        .trim()
+        .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+      const value = String(rawValue).trim();
+
+      if (!value) return null;
+
+      return { label, value };
+    })
+    .filter((t): t is NormalizedTrait => t !== null);
+
+  // Deduplicate and limit count
+  const seen = new Set<string>();
+  const result: NormalizedTrait[] = [];
+  for (const t of normalized) {
+    const key = `${t.label}:${t.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(t);
+    if (result.length >= 8) break;
+  }
+
+  return result;
 }
 
 export default App;
