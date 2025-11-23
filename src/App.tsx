@@ -808,10 +808,8 @@ function SellConfirmSheet({
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resultMessage, setResultMessage] = useState<string | null>(null);
-  const [resultKind, setResultKind] = useState<"info" | "success" | "error">(
-    "info",
-  );
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -827,11 +825,13 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-    try {
-      setIsSubmitting(true);
-      setResultMessage(null);
-      setResultKind("info");
+    if (isSubmitting) return;
 
+    setIsSubmitting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: {
@@ -840,66 +840,51 @@ function SellConfirmSheet({
         body: JSON.stringify({
           chain,
           orderHash,
-          offer,
+          offer: {
+            priceEth: offer.priceEth,
+            priceFormatted: offer.priceFormatted,
+            expirationTime: offer.expirationTime,
+          },
         }),
       });
 
-      const data = (await res.json()) as {
-        ok: boolean;
-        safeToFill: boolean;
-        reason?: string;
-        message?: string;
-        echo?: unknown;
-      };
+      const data = await res.json().catch(() => null);
 
-      console.log("Fulfillment response", data);
-
-      if (!res.ok || !data.ok) {
-        setResultKind("error");
-        setResultMessage(
-          data.message ??
-            "We couldn’t verify this offer. Please try again or check in OpenSea directly.",
+      if (!res.ok || !data?.ok) {
+        console.error("Fulfillment error", res.status, data);
+        setError(
+          data?.message ??
+            "We couldn't prepare this offer right now. No transaction was created.",
         );
         return;
       }
 
-      // For now this is always false, but we still wire it like a real checker.
-      if (data.safeToFill) {
-        setResultKind("success");
-        setResultMessage(
-          data.message ??
-            "Offer looks safe to accept. You can now confirm in your wallet.",
-        );
-      } else {
-        setResultKind("info");
-        setResultMessage(
-          data.message ??
-            "Accepting offers is not enabled yet in Deck. No transaction was created.",
-        );
-      }
+      console.log("Fulfillment response", data);
+
+      const msg =
+        data.message ??
+        "Accepting offers is not enabled yet in Deck. This is only a dry run; no transaction was created.";
+      setNotice(msg);
+
+      // IMPORTANT: we still do NOT call the wallet here.
+      // When you're ready for real trading, this is where you'd
+      // use the fulfillment payload to request a signature.
     } catch (err) {
-      console.error("Fulfillment error", err);
-      setResultKind("error");
-      setResultMessage(
-        "Something went wrong while checking the offer. Please try again or accept directly in OpenSea.",
+      console.error("Fulfillment network error", err);
+      setError(
+        "Network error while preparing the offer. Please check your connection and try again. No transaction was created.",
       );
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const resultColorClass =
-    resultKind === "success"
-      ? "text-emerald-400"
-      : resultKind === "error"
-      ? "text-red-400"
-      : "text-neutral-400";
-
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
         className="absolute inset-0 h-full w-full"
         onClick={onClose}
+        type="button"
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
@@ -940,25 +925,33 @@ function SellConfirmSheet({
             For your safety, the transaction will only proceed if the on-chain
             offer amount exactly matches the value shown here.
           </div>
-        </div>
 
-        {resultMessage && (
-          <div className={`mt-3 text-[11px] ${resultColorClass}`}>
-            {resultMessage}
-          </div>
-        )}
+          {error && (
+            <div className="mt-2 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
+              {error}
+            </div>
+          )}
+
+          {notice && !error && (
+            <div className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
+              {notice}
+            </div>
+          )}
+        </div>
 
         <button
           className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
           onClick={handleConfirm}
+          type="button"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Checking offer…" : "Confirm Accept Offer"}
+          {isSubmitting ? "Preparing…" : "Confirm Accept Offer"}
         </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-400"
           onClick={onClose}
+          type="button"
         >
           Cancel
         </button>
