@@ -15,7 +15,10 @@ type FloorInfo = {
   formatted: string | null;
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });
@@ -26,9 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const identifier = req.query.identifier as string | undefined;
 
   if (!chain || (chain !== "base" && chain !== "ethereum")) {
-    return res
-      .status(400)
-      .json({ error: "Invalid or missing chain. Expected 'base' or 'ethereum'." });
+    return res.status(400).json({
+      error: "Invalid or missing chain. Expected 'base' or 'ethereum'.",
+    });
   }
 
   if (!collectionSlug) {
@@ -52,7 +55,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let floor: FloorInfo = { eth: null, formatted: null };
 
   try {
-    // ---------- 1) Floor price ----------
+    // -------------------------------------------------
+    // 1) COLLECTION FLOOR PRICE
+    // -------------------------------------------------
     const statsUrl = `${baseUrl}/collections/${collectionSlug}/stats`;
     const statsRes = await fetch(statsUrl, {
       headers: {
@@ -71,11 +76,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (typeof floorRaw === "number") {
         floor.eth = floorRaw;
-        floor.formatted = floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4);
+        floor.formatted =
+          floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4);
       }
     }
 
-    // ---------- 2) Best offer for NFT ----------
+    // -------------------------------------------------
+    // 2) BEST OFFER FOR THIS NFT
+    // -------------------------------------------------
     const bestOfferUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}/best`;
 
     const bestRes = await fetch(bestOfferUrl, {
@@ -96,11 +104,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         null;
 
       if (rawOffer && typeof rawOffer === "object") {
+        // -------------------------------------------------
+        // PRICE PARSING
+        // -------------------------------------------------
         let priceEth: number | null = null;
 
         const priceObj = rawOffer.price ?? rawOffer.current_price ?? null;
 
-        // ---------- FIXED: no dividing by remaining_quantity ----------
         if (priceObj && typeof priceObj === "object") {
           const valueStr = (priceObj as any).value;
           const decimals = (priceObj as any).decimals;
@@ -109,7 +119,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const total = Number(valueStr);
 
             if (!Number.isNaN(total) && total > 0) {
-              // OpenSea NFT best-offer endpoints ALWAYS return per-item price
               priceEth = total / 10 ** decimals;
             }
           }
@@ -123,7 +132,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // ---------- Build offer ----------
+        // -------------------------------------------------
+        // FIX: HANDLE CRITERIA / COLLECTION-WIDE OFFER
+        // OpenSea doubles the stored value for collection-wide bids.
+        // rawOffer.criteria.encoded_token_ids === "*" indicates this case.
+        // -------------------------------------------------
+        try {
+          if (
+            rawOffer.criteria?.encoded_token_ids === "*" &&
+            typeof priceEth === "number" &&
+            priceEth > 0
+          ) {
+            priceEth = priceEth / 2;
+          }
+        } catch (err) {
+          console.warn("criteria parsing failed:", err);
+        }
+
+        // -------------------------------------------------
+        // BUILD OFFER OBJECT
+        // -------------------------------------------------
         if (priceEth && priceEth > 0) {
           const priceFormatted =
             priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
@@ -136,8 +164,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             null;
 
           let expirationTime: number | null = null;
-
           const endTimeParam = rawOffer.protocol_data?.parameters?.endTime;
+
           if (typeof endTimeParam === "string") {
             const n = Number(endTimeParam);
             if (!Number.isNaN(n) && n > 0) expirationTime = n;
@@ -161,7 +189,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expirationTime,
             source: "nft",
           };
-          // ---------- END FIX ----------
         }
       }
     }
