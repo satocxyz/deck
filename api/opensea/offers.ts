@@ -15,53 +15,6 @@ type FloorInfo = {
   formatted: string | null;
 };
 
-// --------- helper: robust quantity detection ----------
-function detectQuantity(raw: any): number {
-  // The order quantity can appear in many locations
-  const candidates = [
-    raw.remaining_quantity,
-    raw.quantity_remaining,
-    raw.quantity,
-    raw.protocol_data?.parameters?.offer?.length,
-    raw.taker_asset_bundle?.items?.length,
-    raw.maker_asset_bundle?.items?.length,
-  ];
-
-  for (const q of candidates) {
-    if (typeof q === "number" && q > 0 && q < 9999) {
-      return q;
-    }
-  }
-
-  // fallback: assume single NFT
-  return 1;
-}
-
-// --------- helper: detect price (value + decimals) ----------
-function detectPrice(raw: any): { eth: number | null } {
-  let value: string | number | undefined = undefined;
-  let decimals: number | undefined = undefined;
-
-  const p = raw.price ?? raw.current_price;
-
-  if (!p) return { eth: null };
-
-  if (typeof p === "object") {
-    value = p.value;
-    decimals = p.decimals;
-  } else if (typeof p === "string" || typeof p === "number") {
-    value = p;
-    decimals = 18; // best guess
-  }
-
-  if (value == null || decimals == null) return { eth: null };
-
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return { eth: null };
-
-  return { eth: n / 10 ** decimals };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -73,9 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const identifier = req.query.identifier as string | undefined;
 
   if (!chain || (chain !== "base" && chain !== "ethereum")) {
-    return res.status(400).json({
-      error: "Invalid or missing chain. Expected 'base' or 'ethereum'.",
-    });
+    return res
+      .status(400)
+      .json({ error: "Invalid or missing chain. Expected 'base' or 'ethereum'." });
   }
 
   if (!collectionSlug) {
@@ -102,72 +55,114 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------- 1) Floor price ----------
     const statsUrl = `${baseUrl}/collections/${collectionSlug}/stats`;
     const statsRes = await fetch(statsUrl, {
-      headers: { Accept: "application/json", "X-API-KEY": apiKey },
+      headers: {
+        Accept: "application/json",
+        "X-API-KEY": apiKey,
+      },
     });
 
     if (statsRes.ok) {
-      const statsJson = await statsRes.json();
-      const total = statsJson.total ?? {};
+      const statsJson = (await statsRes.json()) as {
+        total?: Record<string, unknown>;
+      };
+
+      const total = (statsJson.total ?? {}) as Record<string, unknown>;
       const floorRaw = total["floor_price"];
+
       if (typeof floorRaw === "number") {
         floor.eth = floorRaw;
-        floor.formatted =
-          floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4);
+        floor.formatted = floorRaw >= 1 ? floorRaw.toFixed(3) : floorRaw.toFixed(4);
       }
     }
 
-    // ---------- 2) Best offer ----------
+    // ---------- 2) Best offer for NFT ----------
     const bestOfferUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}/best`;
+
     const bestRes = await fetch(bestOfferUrl, {
-      headers: { Accept: "application/json", "X-API-KEY": apiKey },
+      headers: {
+        Accept: "application/json",
+        "X-API-KEY": apiKey,
+      },
     });
 
     if (bestRes.ok) {
-      const json = await bestRes.json();
-      const rawOffer = json.best_offer ?? json.best ?? json.offer ?? json;
+      const bestJson = (await bestRes.json()) as any;
+
+      const rawOffer =
+        bestJson?.best_offer ??
+        bestJson?.best ??
+        bestJson?.offer ??
+        bestJson ??
+        null;
 
       if (rawOffer && typeof rawOffer === "object") {
-        const priceInfo = detectPrice(rawOffer);
-        if (!priceInfo.eth) {
-          return res.status(200).json({ bestOffer: null, floor });
+        let priceEth: number | null = null;
+
+        const priceObj = rawOffer.price ?? rawOffer.current_price ?? null;
+
+        // ---------- FIXED: no dividing by remaining_quantity ----------
+        if (priceObj && typeof priceObj === "object") {
+          const valueStr = (priceObj as any).value;
+          const decimals = (priceObj as any).decimals;
+
+          if (typeof valueStr === "string" && typeof decimals === "number") {
+            const total = Number(valueStr);
+
+            if (!Number.isNaN(total) && total > 0) {
+              // OpenSea NFT best-offer endpoints ALWAYS return per-item price
+              priceEth = total / 10 ** decimals;
+            }
+          }
+        } else if (
+          typeof priceObj === "string" ||
+          typeof priceObj === "number"
+        ) {
+          const n = Number(priceObj);
+          if (!Number.isNaN(n) && n > 0) {
+            priceEth = n > 1e10 ? n / 1e18 : n;
+          }
         }
 
-        const quantity = detectQuantity(rawOffer);
-        const perItemEth = priceInfo.eth / quantity;
+        // ---------- Build offer ----------
+        if (priceEth && priceEth > 0) {
+          const priceFormatted =
+            priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
 
-        const priceFormatted =
-          perItemEth >= 1 ? perItemEth.toFixed(3) : perItemEth.toFixed(4);
+          const makerAddress: string | null =
+            rawOffer.maker?.address ??
+            rawOffer.maker_address ??
+            rawOffer.maker ??
+            rawOffer.protocol_data?.parameters?.offerer ??
+            null;
 
-        const maker =
-          rawOffer.maker?.address ??
-          rawOffer.maker_address ??
-          rawOffer.maker ??
-          rawOffer.protocol_data?.parameters?.offerer ??
-          null;
+          let expirationTime: number | null = null;
 
-        let expirationTime: number | null = null;
-        const endTime = rawOffer.protocol_data?.parameters?.endTime;
-        if (typeof endTime === "string") {
-          const n = Number(endTime);
-          if (n > 0) expirationTime = n;
-        } else if (typeof rawOffer.expiration_time === "number") {
-          expirationTime = rawOffer.expiration_time;
+          const endTimeParam = rawOffer.protocol_data?.parameters?.endTime;
+          if (typeof endTimeParam === "string") {
+            const n = Number(endTimeParam);
+            if (!Number.isNaN(n) && n > 0) expirationTime = n;
+          } else if (typeof rawOffer.expires_at === "number") {
+            expirationTime = rawOffer.expires_at;
+          } else if (typeof rawOffer.expiration_time === "number") {
+            expirationTime = rawOffer.expiration_time;
+          }
+
+          const id: string =
+            rawOffer.order_hash ??
+            rawOffer.id ??
+            rawOffer.hash ??
+            `${makerAddress ?? "unknown"}-${priceFormatted}`;
+
+          bestOffer = {
+            id,
+            priceEth,
+            priceFormatted,
+            maker: makerAddress,
+            expirationTime,
+            source: "nft",
+          };
+          // ---------- END FIX ----------
         }
-
-        const id =
-          rawOffer.order_hash ??
-          rawOffer.id ??
-          rawOffer.hash ??
-          `${maker ?? "unknown"}-${priceFormatted}`;
-
-        bestOffer = {
-          id,
-          priceEth: perItemEth,
-          priceFormatted,
-          maker,
-          expirationTime,
-          source: "nft",
-        };
       }
     }
 
