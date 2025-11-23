@@ -327,6 +327,7 @@ function NftDetailModal({
   const [traits, setTraits] = useState<NormalizedTrait[]>([]);
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
+  const [showSellSheet, setShowSellSheet] = useState(false);
 
   // Offers + floor
   useEffect(() => {
@@ -703,16 +704,18 @@ function NftDetailModal({
           {/* Primary sell CTA – disabled for now, to be wired to Deck's own flow later */}
           <button
             type="button"
-            disabled
-            className="
-              mt-2 w-full rounded-2xl border border-purple-500/40 
-              bg-purple-600/60 px-3 py-2 
-              text-center text-[12px] font-semibold text-white 
-              shadow-sm opacity-60
-            "
+            disabled={!bestOffer} 
+            onClick={() => setShowSellSheet(true)}
+            className={[
+              "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
+              bestOffer
+                ? "bg-purple-600 text-white hover:bg-purple-500 border border-purple-500/60"
+                : "border border-neutral-800 bg-neutral-900/60 text-neutral-500 opacity-60 cursor-not-allowed",
+            ].join(" ")}
           >
-            Sell / Manage Listing (coming soon)
+            {bestOffer ? "Accept Best Offer" : "No Offer Available"}
           </button>
+
         </div>
 
         <button
@@ -722,6 +725,17 @@ function NftDetailModal({
         >
           Close
         </button>
+        {showSellSheet && bestOffer && (
+          <SellConfirmSheet
+            offer={{
+              priceEth: bestOffer.priceEth,
+              priceFormatted: bestOffer.priceFormatted,
+              expirationTime: bestOffer.expirationTime,
+            }}
+            onClose={() => setShowSellSheet(false)}
+          />
+        )}
+
       </div>
     </div>
   );
@@ -768,3 +782,104 @@ function prettyChain(chain: Chain): string {
 }
 
 export default App;
+
+function SellConfirmSheet({
+  offer,
+  onClose,
+}: {
+  offer: {
+    priceEth: number;
+    priceFormatted: string;
+    expirationTime: number | null;
+  };
+  onClose: () => void;
+}) {
+  // OpenSea fee is 2.5%
+  const feePct = 2.5 / 100;
+  const payout = offer.priceEth * (1 - feePct);
+  const payoutFormatted =
+    payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
+
+  function formatExpiration() {
+    if (!offer.expirationTime) return "Unknown";
+    const now = Date.now() / 1000;
+    const diff = offer.expirationTime - now;
+    if (diff <= 0) return "Expired";
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+    if (hours <= 0 && minutes <= 0) return "Under 1m";
+    if (hours <= 0) return `${minutes}m`;
+    if (minutes <= 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
+      <button
+        className="absolute inset-0 w-full h-full"
+        onClick={onClose}
+      />
+
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
+        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
+
+        <h2 className="text-sm font-semibold text-neutral-50 text-center">
+          Accept Best Offer
+        </h2>
+
+        <div className="mt-4 space-y-3 text-[12px]">
+          <div className="flex justify-between">
+            <span className="text-neutral-300">Offer</span>
+            <span className="font-semibold text-neutral-100">
+              {offer.priceFormatted} WETH
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-neutral-300">OpenSea fee (2.5%)</span>
+            <span className="text-neutral-400">
+              -{(offer.priceEth * 0.025).toFixed(4)} WETH
+            </span>
+          </div>
+
+          <div className="flex justify-between pt-1 border-t border-neutral-800">
+            <span className="text-neutral-300">You will receive</span>
+            <span className="font-semibold text-emerald-300">
+              {payoutFormatted} WETH
+            </span>
+          </div>
+
+          <div className="flex justify-between pt-1">
+            <span className="text-neutral-400">Offer expires</span>
+            <span className="text-neutral-400">
+              {formatExpiration()}
+            </span>
+          </div>
+
+          <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
+            For your safety, the transaction will only proceed if the
+            on-chain offer amount exactly matches the value shown here.
+          </div>
+        </div>
+
+        <button
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm"
+          onClick={() => {
+            // No signing yet — stub
+            alert("Trading flow will be added later.");
+            onClose();
+          }}
+        >
+          Confirm Accept Offer
+        </button>
+
+        <button
+          className="mt-2 w-full text-center text-[12px] text-neutral-400"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
