@@ -1,6 +1,6 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useConnect } from "wagmi";
+import { useAccount, useConnect, useWalletClient  } from "wagmi";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 
 type SafeArea = {
@@ -801,15 +801,19 @@ function SellConfirmSheet({
   };
   onClose: () => void;
 }) {
+  // Wallet hooks
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
   // OpenSea fee is 2.5%
   const feePct = 2.5 / 100;
   const payout = offer.priceEth * (1 - feePct);
   const payoutFormatted =
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -825,13 +829,17 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-    if (isSubmitting) return;
-
-    setIsSubmitting(true);
+    setSubmitting(true);
     setError(null);
-    setNotice(null);
+    setInfo(null);
 
     try {
+      if (!address || !walletClient) {
+        setError("Wallet is not connected.");
+        return;
+      }
+
+      // 1) Ask our backend for fulfillment data (still safe stub for now)
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: {
@@ -848,49 +856,74 @@ function SellConfirmSheet({
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const json = await res.json();
+      console.log("Fulfillment response", json);
 
-      if (!res.ok || !data?.ok) {
-        console.error("Fulfillment error", res.status, data);
-        setError(
-          data?.message ??
-            "We couldn't prepare this offer right now. No transaction was created.",
+      if (!res.ok || !json.ok) {
+        setError(json.message || "Backend rejected fulfillment request.");
+        return;
+      }
+
+      if (!json.safeToFill) {
+        // Current behavior: still disabled on the backend
+        setInfo(
+          json.message ||
+            "Accepting offers is not enabled yet. No transaction was created."
         );
         return;
       }
 
-      console.log("Fulfillment response", data);
+      // When you later implement the real OpenSea call in /fulfillment,
+      // have it return something like:
+      // { ok: true, safeToFill: true, tx: { to, data, value } }
+      const tx = json.tx as
+        | {
+            to: string;
+            data: string;
+            value?: string | null;
+          }
+        | undefined;
 
-      const msg =
-        data.message ??
-        "Accepting offers is not enabled yet in Deck. This is only a dry run; no transaction was created.";
-      setNotice(msg);
+      if (!tx || !tx.to || !tx.data) {
+        setError("Backend did not return a transaction to send.");
+        return;
+      }
 
-      // IMPORTANT: we still do NOT call the wallet here.
-      // When you're ready for real trading, this is where you'd
-      // use the fulfillment payload to request a signature.
+      // 2) Map our chain string -> chain id
+      const chainId = chain === "base" ? 8453 : 1;
+
+      // 3) Actually send the transaction via wagmi/viem
+      //    IMPORTANT: only do this after you've verified on the backend
+      //    that tx matches the OpenSea fulfillment response exactly.
+      await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: { id: chainId, name: "", nativeCurrency: undefined, rpcUrls: {} } as any,
+        to: tx.to as `0x${string}`,
+        data: tx.data as `0x${string}`,
+        value: tx.value ? BigInt(tx.value) : 0n,
+      });
+
+      setInfo("Transaction submitted from your wallet.");
+      onClose();
     } catch (err) {
-      console.error("Fulfillment network error", err);
-      setError(
-        "Network error while preparing the offer. Please check your connection and try again. No transaction was created.",
-      );
+      console.error("Error while sending transaction", err);
+      setError("Failed to send transaction. Check console for details.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
-        className="absolute inset-0 h-full w-full"
+        className="absolute inset-0 w-full h-full"
         onClick={onClose}
-        type="button"
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
+        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-50">
+        <h2 className="text-sm font-semibold text-neutral-50 text-center">
           Accept Best Offer
         </h2>
 
@@ -905,11 +938,11 @@ function SellConfirmSheet({
           <div className="flex justify-between">
             <span className="text-neutral-300">OpenSea fee (2.5%)</span>
             <span className="text-neutral-400">
-              -{(offer.priceEth * feePct).toFixed(4)} WETH
+              -{(offer.priceEth * 0.025).toFixed(4)} WETH
             </span>
           </div>
 
-          <div className="flex justify-between border-t border-neutral-800 pt-1">
+          <div className="flex justify-between pt-1 border-t border-neutral-800">
             <span className="text-neutral-300">You will receive</span>
             <span className="font-semibold text-emerald-300">
               {payoutFormatted} WETH
@@ -918,40 +951,43 @@ function SellConfirmSheet({
 
           <div className="flex justify-between pt-1">
             <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">{formatExpiration()}</span>
-          </div>
-
-          <div className="mt-2 text-[11px] leading-tight text-neutral-500">
-            For your safety, the transaction will only proceed if the on-chain
-            offer amount exactly matches the value shown here.
+            <span className="text-neutral-400">
+              {formatExpiration()}
+            </span>
           </div>
 
           {error && (
-            <div className="mt-2 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
+            <div className="mt-2 text-[11px] text-red-400 leading-tight">
               {error}
             </div>
           )}
 
-          {notice && !error && (
-            <div className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
-              {notice}
+          {info && !error && (
+            <div className="mt-2 text-[11px] text-amber-300 leading-tight">
+              {info}
+            </div>
+          )}
+
+          {!info && !error && (
+            <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
+              For your safety, the transaction will only proceed if the
+              on-chain offer amount exactly matches the value shown here.
             </div>
           )}
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          disabled={submitting}
           onClick={handleConfirm}
-          type="button"
-          disabled={isSubmitting}
         >
-          {isSubmitting ? "Preparing…" : "Confirm Accept Offer"}
+          {submitting ? "Submitting…" : "Confirm Accept Offer"}
         </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-400"
           onClick={onClose}
-          type="button"
+          disabled={submitting}
         >
           Cancel
         </button>
