@@ -8,6 +8,10 @@ type SimpleOffer = {
   maker: string | null;
   expirationTime: number | null;
   source: "nft";
+  // extra fields for future on-chain safety
+  currency: string | null;
+  rawValue: string | null;
+  decimals: number | null;
 };
 
 type FloorInfo = {
@@ -111,15 +115,31 @@ export default async function handler(
 
         const priceObj = rawOffer.price ?? rawOffer.current_price ?? null;
 
-        if (priceObj && typeof priceObj === "object") {
-          const valueStr = (priceObj as any).value;
-          const decimals = (priceObj as any).decimals;
+        // new: also capture raw pricing fields for safety later
+        let currency: string | null = null;
+        let rawValue: string | null = null;
+        let decimals: number | null = null;
 
-          if (typeof valueStr === "string" && typeof decimals === "number") {
-            const total = Number(valueStr);
+        if (priceObj && typeof priceObj === "object") {
+          const p: any = priceObj;
+
+          if (typeof p.currency === "string") {
+            currency = p.currency;
+          }
+
+          if (typeof p.value === "string") {
+            rawValue = p.value;
+          }
+
+          if (typeof p.decimals === "number") {
+            decimals = p.decimals;
+          }
+
+          if (typeof p.value === "string" && typeof p.decimals === "number") {
+            const total = Number(p.value);
 
             if (!Number.isNaN(total) && total > 0) {
-              priceEth = total / 10 ** decimals;
+              priceEth = total / 10 ** p.decimals;
             }
           }
         } else if (
@@ -134,8 +154,7 @@ export default async function handler(
 
         // -------------------------------------------------
         // FIX: HANDLE CRITERIA / COLLECTION-WIDE OFFER
-        // OpenSea doubles the stored value for collection-wide bids.
-        // rawOffer.criteria.encoded_token_ids === "*" indicates this case.
+        // encoded_token_ids === "*" → OpenSea stores 2× per-NFT price
         // -------------------------------------------------
         try {
           if (
@@ -188,6 +207,9 @@ export default async function handler(
             maker: makerAddress,
             expirationTime,
             source: "nft",
+            currency,
+            rawValue,
+            decimals,
           };
         }
       }
