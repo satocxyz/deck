@@ -801,17 +801,13 @@ function SellConfirmSheet({
   };
   onClose: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+
   // OpenSea fee is 2.5%
-  const feePct = 2.5 / 100;
+  const feePct = 0.025;
   const payout = offer.priceEth * (1 - feePct);
   const payoutFormatted =
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
-
-  const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState<
-    "idle" | "ok" | "blocked" | "error"
-  >("idle");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -827,71 +823,53 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
+    if (submitting) return;
+    setSubmitting(true);
+
     try {
-      setSubmitting(true);
-      setStatus("idle");
-      setStatusMessage(null);
+      // Debug log so we can always see what we sent
+      console.log("Accept Best Offer clicked", {
+        chain,
+        orderHash,
+        offer,
+      });
 
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           chain,
           orderHash,
-          // we can add taker address later if needed
+          offer,
         }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Fulfillment error", res.status, text);
-        setStatus("error");
-        setStatusMessage(
-          "Something went wrong checking this offer. Please try again."
-        );
-        return;
-      }
-
       const json = await res.json();
       console.log("Fulfillment response", json);
-
-      if (!json.safeToFill) {
-        setStatus("blocked");
-        setStatusMessage(
-          json.message ??
-            "This offer can’t be safely accepted from Deck yet. Please use OpenSea directly."
-        );
-        return;
-      }
-
-      // We *only* validate for now – no tx is sent from Deck yet.
-      setStatus("ok");
-      setStatusMessage(
-        json.message ??
-          "This offer looks safe, but accepting offers from Deck isn’t live yet. No transaction was sent."
-      );
+      // Later we'll branch on json.ok / json.safeToFill.
     } catch (err) {
       console.error("Fulfillment request failed", err);
-      setStatus("error");
-      setStatusMessage(
-        "Couldn’t reach Deck’s backend. Please check your connection and try again."
-      );
     } finally {
       setSubmitting(false);
+      onClose();
     }
   }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
-        className="absolute inset-0 h-full w-full"
-        onClick={onClose}
+        className="absolute inset-0 w-full h-full"
+        onClick={() => {
+          if (!submitting) onClose();
+        }}
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
+        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-50">
+        <h2 className="text-sm font-semibold text-neutral-50 text-center">
           Accept Best Offer
         </h2>
 
@@ -910,7 +888,7 @@ function SellConfirmSheet({
             </span>
           </div>
 
-          <div className="flex justify-between border-t border-neutral-800 pt-1">
+          <div className="flex justify-between pt-1 border-t border-neutral-800">
             <span className="text-neutral-300">You will receive</span>
             <span className="font-semibold text-emerald-300">
               {payoutFormatted} WETH
@@ -924,29 +902,14 @@ function SellConfirmSheet({
             </span>
           </div>
 
-          <div className="mt-2 text-[11px] leading-tight text-neutral-500">
+          <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
             For your safety, the transaction will only proceed if the
             on-chain offer amount exactly matches the value shown here.
           </div>
-
-          {statusMessage && (
-            <div
-              className={[
-                "mt-2 rounded-xl px-3 py-2 text-[11px]",
-                status === "ok"
-                  ? "bg-emerald-900/40 text-emerald-200 border border-emerald-700/60"
-                  : status === "blocked"
-                  ? "bg-amber-900/40 text-amber-100 border border-amber-700/60"
-                  : "bg-red-900/40 text-red-100 border border-red-700/60",
-              ].join(" ")}
-            >
-              {statusMessage}
-            </div>
-          )}
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           onClick={handleConfirm}
           disabled={submitting}
         >
@@ -954,8 +917,10 @@ function SellConfirmSheet({
         </button>
 
         <button
-          className="mt-2 w-full text-center text-[12px] text-neutral-400"
-          onClick={onClose}
+          className="mt-2 w-full text-center text-[12px] text-neutral-400 disabled:opacity-60"
+          onClick={() => {
+            if (!submitting) onClose();
+          }}
           disabled={submitting}
         >
           Cancel
