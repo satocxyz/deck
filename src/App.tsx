@@ -727,6 +727,8 @@ function NftDetailModal({
         </button>
         {showSellSheet && bestOffer && (
           <SellConfirmSheet
+            chain={chain}
+            orderHash={bestOffer.id}
             offer={{
               priceEth: bestOffer.priceEth,
               priceFormatted: bestOffer.priceFormatted,
@@ -735,6 +737,7 @@ function NftDetailModal({
             onClose={() => setShowSellSheet(false)}
           />
         )}
+
 
       </div>
     </div>
@@ -784,9 +787,13 @@ function prettyChain(chain: Chain): string {
 export default App;
 
 function SellConfirmSheet({
+  chain,
+  orderHash,
   offer,
   onClose,
 }: {
+  chain: Chain;
+  orderHash: string;
   offer: {
     priceEth: number;
     priceFormatted: string;
@@ -799,6 +806,9 @@ function SellConfirmSheet({
   const payout = offer.priceEth * (1 - feePct);
   const payoutFormatted =
     payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -813,11 +823,54 @@ function SellConfirmSheet({
     return `${hours}h ${minutes}m`;
   }
 
+  async function handleConfirm() {
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      const res = await fetch("/api/opensea/fulfillment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chain,
+          orderHash,
+          price: {
+            eth: offer.priceEth,
+            formatted: offer.priceFormatted,
+            currency: "WETH",
+          },
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json || json.ok !== true) {
+        throw new Error(json?.message || "Failed to validate offer.");
+      }
+
+      // For now, we explicitly DO NOT sign or send any transaction.
+      // We just surface the backend message.
+      alert(
+        json.message ??
+          "Accepting offers is not enabled yet. This call only validates data.",
+      );
+      onClose();
+    } catch (err) {
+      console.error("fulfillment error", err);
+      setError("Something went wrong. Please try again in a moment.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
       <button
         className="absolute inset-0 w-full h-full"
         onClick={onClose}
+        disabled={submitting}
       />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
@@ -851,31 +904,33 @@ function SellConfirmSheet({
 
           <div className="flex justify-between pt-1">
             <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">
-              {formatExpiration()}
-            </span>
+            <span className="text-neutral-400">{formatExpiration()}</span>
           </div>
 
           <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
-            For your safety, the transaction will only proceed if the
-            on-chain offer amount exactly matches the value shown here.
+            For your safety, the transaction will only proceed in the
+            future if the on-chain offer amount exactly matches the value
+            shown here. Currently, no transaction will be created – this
+            step only validates the offer.
           </div>
+
+          {error && (
+            <div className="mt-2 text-[11px] text-red-400">{error}</div>
+          )}
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm"
-          onClick={() => {
-            // No signing yet — stub
-            alert("Trading flow will be added later.");
-            onClose();
-          }}
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={handleConfirm}
+          disabled={submitting}
         >
-          Confirm Accept Offer
+          {submitting ? "Checking offer…" : "Confirm Accept Offer"}
         </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-400"
           onClick={onClose}
+          disabled={submitting}
         >
           Cancel
         </button>
@@ -883,3 +938,4 @@ function SellConfirmSheet({
     </div>
   );
 }
+
