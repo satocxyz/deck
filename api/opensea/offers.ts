@@ -7,6 +7,7 @@ type SimpleOffer = {
   priceFormatted: string;
   maker: string | null;
   expirationTime: number | null;
+  protocolAddress: string | null; // NEW
   source: "nft";
 };
 
@@ -147,11 +148,9 @@ export default async function handler(
             const consideration = params?.consideration;
 
             if (Array.isArray(consideration)) {
-              // In your sample JSON, the first consideration item (itemType 4)
-              // is the NFT leg with startAmount "2"
+              // first NFT leg (ERC721/1155)
               const nftLeg = consideration.find(
                 (c: any) =>
-                  // itemType 4 = ERC721 on Seaport v1.5
                   c &&
                   typeof c === "object" &&
                   (c.itemType === 4 || c.itemType === 2 || c.itemType === 3),
@@ -163,10 +162,9 @@ export default async function handler(
               const amountNum = amountStr ? Number(amountStr) : NaN;
 
               if (Number.isFinite(amountNum) && amountNum > 1) {
-                // If the bidder wants N NFTs, per-NFT price = total / N.
+                // per-NFT price
                 priceEth = priceEth / amountNum;
               }
-              // If amountNum <= 1, we leave priceEth as-is (already per NFT).
             }
           }
         } catch (err) {
@@ -199,6 +197,11 @@ export default async function handler(
             expirationTime = rawOffer.expiration_time;
           }
 
+          const protocolAddress: string | null =
+            typeof rawOffer.protocol_address === "string"
+              ? rawOffer.protocol_address
+              : null;
+
           const id: string =
             rawOffer.order_hash ??
             rawOffer.id ??
@@ -211,6 +214,7 @@ export default async function handler(
             priceFormatted,
             maker: makerAddress,
             expirationTime,
+            protocolAddress, // NEW
             source: "nft",
           };
         }

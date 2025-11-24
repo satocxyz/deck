@@ -312,7 +312,7 @@ function NftDetailModal({
     priceFormatted: string;
     maker: string | null;
     expirationTime: number | null;
-    protocolAddress?: string | null;
+    protocolAddress: string | null; // now non-optional
   };
 
   type FloorInfo = {
@@ -922,7 +922,7 @@ function SellConfirmSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end justifycenter bg-black/50 backdrop-blur-sm">
       <button className="absolute inset-0 w-full h-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">

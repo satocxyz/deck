@@ -10,10 +10,10 @@ type MiniOfferPayload = {
 type FulfillmentRequestBody = {
   chain: "base" | "ethereum";
   orderHash: string;
-  contractAddress: string;
-  tokenId: string;
-  protocolAddress: string;
   takerAddress?: string;
+  contractAddress?: string;
+  tokenId?: string;
+  protocolAddress?: string;
   offer: MiniOfferPayload | null;
 };
 
@@ -23,17 +23,13 @@ type FulfillmentResponse = {
   reason?: string;
   message?: string;
   echo: {
-    chain: string;
-    orderHash: string;
+    chain: string | undefined;
+    orderHash: string | undefined;
+    takerAddress?: string;
     contractAddress?: string;
     tokenId?: string;
     protocolAddress?: string;
-    takerAddress?: string;
-    offer: {
-      priceEth: number;
-      priceFormatted: string;
-      expirationTime: number | null;
-    } | null;
+    offer: MiniOfferPayload | null;
   };
   tx?: {
     to: string;
@@ -54,16 +50,22 @@ export default async function handler(
   const {
     chain,
     orderHash,
+    takerAddress,
     contractAddress,
     tokenId,
     protocolAddress,
-    takerAddress,
     offer,
   } = req.body as Partial<FulfillmentRequestBody>;
 
-  const enableReal =
-    process.env.DECK_ENABLE_REAL_FULFILLMENT === "true";
-  const enableTestTx = process.env.DECK_ENABLE_TEST_TX === "true";
+  const echoBase = {
+    chain,
+    orderHash,
+    takerAddress,
+    contractAddress,
+    tokenId,
+    protocolAddress,
+    offer: (offer ?? null) as MiniOfferPayload | null,
+  };
 
   // -------------------------------
   // Basic validation
@@ -74,15 +76,7 @@ export default async function handler(
       safeToFill: false,
       reason: "bad_request",
       message: "Invalid or missing 'chain'. Expected 'base' or 'ethereum'.",
-      echo: {
-        chain: chain ?? "",
-        orderHash: orderHash ?? "",
-        contractAddress,
-        tokenId,
-        protocolAddress,
-        takerAddress,
-        offer: (offer ?? null) as MiniOfferPayload | null,
-      },
+      echo: echoBase,
     };
     return res.status(400).json(payload);
   }
@@ -93,44 +87,26 @@ export default async function handler(
       safeToFill: false,
       reason: "bad_request",
       message: "Missing or invalid 'orderHash'.",
-      echo: {
-        chain,
-        orderHash: orderHash ?? "",
-        contractAddress,
-        tokenId,
-        protocolAddress,
-        takerAddress,
-        offer: (offer ?? null) as MiniOfferPayload | null,
-      },
+      echo: echoBase,
     };
     return res.status(400).json(payload);
   }
 
-  // ------------------------------------------------------------------
-  // REAL OpenSea fulfillment – *only* when DECK_ENABLE_REAL_FULFILLMENT=true
-  // ------------------------------------------------------------------
+  const enableReal = process.env.DECK_ENABLE_REAL_FULFILLMENT === "true";
+  const enableTest = process.env.DECK_ENABLE_TEST_TX === "true";
+
+  // -------------------------------------------------------------------
+  // REAL OpenSea fulfillment (gated behind DECK_ENABLE_REAL_FULFILLMENT)
+  // -------------------------------------------------------------------
   if (enableReal) {
-    if (
-      !takerAddress ||
-      !contractAddress ||
-      !tokenId ||
-      !protocolAddress
-    ) {
+    if (!takerAddress || !contractAddress || !tokenId || !protocolAddress) {
       const payload: FulfillmentResponse = {
         ok: false,
         safeToFill: false,
         reason: "bad_request",
         message:
           "Missing takerAddress, contractAddress, tokenId or protocolAddress for real fulfillment.",
-        echo: {
-          chain,
-          orderHash,
-          contractAddress,
-          tokenId,
-          protocolAddress,
-          takerAddress,
-          offer: (offer ?? null) as MiniOfferPayload | null,
-        },
+        echo: echoBase,
       };
       return res.status(400).json(payload);
     }
@@ -140,32 +116,26 @@ export default async function handler(
       process.env.OPENSEA_API_URL ?? "https://api.opensea.io/api/v2";
 
     if (!apiKey) {
-      console.error("Missing OPENSEA_API_KEY in real fulfillment");
       const payload: FulfillmentResponse = {
         ok: false,
         safeToFill: false,
         reason: "server_misconfigured",
-        message: "Server is missing OPENSEA_API_KEY.",
-        echo: {
-          chain,
-          orderHash,
-          contractAddress,
-          tokenId,
-          protocolAddress,
-          takerAddress,
-          offer: (offer ?? null) as MiniOfferPayload | null,
-        },
+        message: "OPENSEA_API_KEY is not set on the server.",
+        echo: echoBase,
       };
       return res.status(500).json(payload);
     }
 
     try {
-      const url = `${baseUrl}/offers/fulfillment_data`;
+      // NOTE: path based on OpenSea v2 docs (offer fulfillment data v2).
+      // If they ever change it, this will just fail safely.
+      const chainSlug = chain === "base" ? "base" : "ethereum";
+      const url = `${baseUrl}/offers/${chainSlug}/fulfillment_data`;
 
-      const osBody = {
+      const body = {
         offer: {
           hash: orderHash,
-          chain,
+          chain: chainSlug,
           protocol_address: protocolAddress,
         },
         fulfiller: {
@@ -175,6 +145,7 @@ export default async function handler(
           asset_contract_address: contractAddress,
           token_id: tokenId,
         },
+        // single NFT
         units_to_fill: 1,
       };
 
@@ -185,119 +156,94 @@ export default async function handler(
           "Content-Type": "application/json",
           "X-API-KEY": apiKey,
         },
-        body: JSON.stringify(osBody),
+        body: JSON.stringify(body),
       });
 
+      const text = await osRes.text();
+      let osJson: any = null;
+      try {
+        osJson = text ? JSON.parse(text) : null;
+      } catch {
+        // leave osJson = null
+      }
+
       if (!osRes.ok) {
-        const text = await osRes.text();
         console.error(
-          "OpenSea fulfillment_data error",
+          "[OpenSea fulfillment error]",
           osRes.status,
+          osRes.statusText,
           text,
         );
-
         const payload: FulfillmentResponse = {
           ok: false,
           safeToFill: false,
           reason: "opensea_error",
           message:
-            "OpenSea fulfillment_data request failed. Check server logs for details.",
-          echo: {
-            chain,
-            orderHash,
-            contractAddress,
-            tokenId,
-            protocolAddress,
-            takerAddress,
-            offer: (offer ?? null) as MiniOfferPayload | null,
-          },
+            osJson?.message ||
+            `OpenSea fulfillment failed with status ${osRes.status}.`,
+          echo: echoBase,
         };
-        return res.status(502).json(payload);
+        return res.status(200).json(payload);
       }
 
-      const osJson = (await osRes.json()) as any;
-      console.log("OpenSea fulfillment_data response", osJson);
-
-      // Try to be flexible with response shape
-      const txData =
+      const txObj =
         osJson?.fulfillment_data?.transaction ??
-        osJson?.transaction ??
+        osJson?.fulfillment_data?.fulfillment_data?.transaction ??
         null;
 
-      if (
-        !txData ||
-        typeof txData.to !== "string" ||
-        typeof txData.data !== "string"
-      ) {
+      const to: string | undefined = txObj?.to;
+      const data: string | undefined = txObj?.data ?? txObj?.calldata;
+      const value: string =
+        typeof txObj?.value === "string"
+          ? txObj.value
+          : txObj?.value != null
+          ? String(txObj.value)
+          : "0";
+
+      if (!to || !data) {
+        console.error("[OpenSea fulfillment] Missing to/data in response", txObj);
         const payload: FulfillmentResponse = {
           ok: false,
           safeToFill: false,
-          reason: "malformed_opensea_response",
+          reason: "invalid_opensea_response",
           message:
-            "OpenSea did not return a valid transaction object in fulfillment_data.",
-          echo: {
-            chain,
-            orderHash,
-            contractAddress,
-            tokenId,
-            protocolAddress,
-            takerAddress,
-            offer: (offer ?? null) as MiniOfferPayload | null,
-          },
+            "OpenSea fulfillment response did not include transaction 'to' or 'data'.",
+          echo: echoBase,
         };
-        return res.status(502).json(payload);
+        return res.status(200).json(payload);
       }
-
-      const tx = {
-        to: txData.to,
-        data: txData.data,
-        value: txData.value ?? "0",
-      };
 
       const payload: FulfillmentResponse = {
         ok: true,
         safeToFill: true,
-        reason: "opensea_fulfillment_ok",
-        message: "Offer can be safely filled with the returned transaction.",
-        echo: {
-          chain,
-          orderHash,
-          contractAddress,
-          tokenId,
-          protocolAddress,
-          takerAddress,
-          offer: (offer ?? null) as MiniOfferPayload | null,
+        reason: "ready",
+        message: "Offer is safe to fill. Transaction created from OpenSea.",
+        echo: echoBase,
+        tx: {
+          to,
+          data,
+          value,
         },
-        tx,
       };
 
       return res.status(200).json(payload);
     } catch (err) {
-      console.error("Unexpected error in real fulfillment:", err);
+      console.error("[OpenSea fulfillment] Unexpected error", err);
       const payload: FulfillmentResponse = {
         ok: false,
         safeToFill: false,
-        reason: "internal_error",
-        message:
-          "Internal server error while talking to OpenSea fulfillment API.",
-        echo: {
-          chain,
-          orderHash,
-          contractAddress,
-          tokenId,
-          protocolAddress,
-          takerAddress,
-          offer: (offer ?? null) as MiniOfferPayload | null,
-        },
+        reason: "opensea_exception",
+        message: "Unexpected error while contacting OpenSea for fulfillment.",
+        echo: echoBase,
       };
-      return res.status(500).json(payload);
+      return res.status(200).json(payload);
     }
   }
 
   // -------------------------------
-  // Test transaction mode (0-value tx to self)
+  // Test mode: self-tx with 0 value
   // -------------------------------
-  if (enableTestTx && takerAddress) {
+  if (enableTest && takerAddress) {
     const tx = {
       to: takerAddress,
       data: "0x",
@@ -310,15 +256,7 @@ export default async function handler(
       reason: "test_self_tx",
       message:
         "Test mode: sending a 0-value transaction to your own wallet. No offer will be accepted.",
-      echo: {
-        chain,
-        orderHash,
-        contractAddress,
-        tokenId,
-        protocolAddress,
-        takerAddress,
-        offer: (offer ?? null) as MiniOfferPayload | null,
-      },
+      echo: echoBase,
       tx,
     };
 
@@ -326,7 +264,7 @@ export default async function handler(
   }
 
   // -------------------------------
-  // DEFAULT: Real fulfillment not enabled
+  // Default: not implemented
   // -------------------------------
   const payload: FulfillmentResponse = {
     ok: true,
@@ -334,15 +272,7 @@ export default async function handler(
     reason: "not_implemented",
     message:
       "Accepting offers is not enabled yet in Deck. This endpoint is a stub for future integrations. No transaction will be created.",
-    echo: {
-      chain: chain ?? "",
-      orderHash: orderHash ?? "",
-      contractAddress,
-      tokenId,
-      protocolAddress,
-      takerAddress,
-      offer: (offer ?? null) as MiniOfferPayload | null,
-    },
+    echo: echoBase,
   };
 
   return res.status(200).json(payload);
