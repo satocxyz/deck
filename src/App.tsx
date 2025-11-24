@@ -93,8 +93,7 @@ function App() {
         paddingBottom: 16 + safeArea.bottom,
         paddingLeft: 16 + safeArea.left,
         paddingRight: 16 + safeArea.right,
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       <header className="mb-3 flex items-baseline justify-between">
@@ -121,8 +120,7 @@ function App() {
 
         {isConnected && !loading && error && (
           <p className="text-[13px] text-red-400">
-            Couldn&apos;t load NFTs right now. Please try again in a
-            moment.
+            Couldn&apos;t load NFTs right now. Please try again in a moment.
           </p>
         )}
 
@@ -314,6 +312,7 @@ function NftDetailModal({
     priceFormatted: string;
     maker: string | null;
     expirationTime: number | null;
+    protocolAddress?: string | null;
   };
 
   type FloorInfo = {
@@ -551,9 +550,7 @@ function NftDetailModal({
             <div className="text-sm font-semibold text-neutral-50">
               {nft.name || `Token #${nft.identifier}`}
             </div>
-            <div className="text-[11px] text-neutral-400">
-              {collectionName}
-            </div>
+            <div className="text-[11px] text-neutral-400">{collectionName}</div>
             <div className="text-[10px] text-neutral-500">
               {chainLabel} • ID {nft.identifier}
             </div>
@@ -705,19 +702,20 @@ function NftDetailModal({
             )}
           </div>
 
-          {/* Primary sell CTA */}
           <button
             type="button"
-            disabled={!bestOffer}
+            disabled={!bestOffer || !contractAddress}
             onClick={() => setShowSellSheet(true)}
             className={[
               "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
-              bestOffer
+              bestOffer && contractAddress
                 ? "bg-purple-600 text-white hover:bg-purple-500 border border-purple-500/60"
                 : "border border-neutral-800 bg-neutral-900/60 text-neutral-500 opacity-60 cursor-not-allowed",
             ].join(" ")}
           >
-            {bestOffer ? "Accept Best Offer" : "No Offer Available"}
+            {bestOffer && contractAddress
+              ? "Accept Best Offer"
+              : "No Offer Available"}
           </button>
         </div>
 
@@ -729,12 +727,13 @@ function NftDetailModal({
           Close
         </button>
 
-        {showSellSheet && bestOffer && (
+        {showSellSheet && bestOffer && contractAddress && (
           <SellConfirmSheet
             chain={chain}
             orderHash={bestOffer.id}
             contractAddress={contractAddress}
-            tokenId={nft.identifier}
+            tokenId={String(nft.identifier)}
+            protocolAddress={bestOffer.protocolAddress ?? ""}
             offer={{
               priceEth: bestOffer.priceEth,
               priceFormatted: bestOffer.priceFormatted,
@@ -795,13 +794,15 @@ function SellConfirmSheet({
   orderHash,
   contractAddress,
   tokenId,
+  protocolAddress,
   offer,
   onClose,
 }: {
   chain: Chain;
   orderHash: string;
-  contractAddress?: string;
+  contractAddress: string;
   tokenId: string;
+  protocolAddress: string;
   offer: {
     priceEth: number;
     priceFormatted: string;
@@ -809,7 +810,6 @@ function SellConfirmSheet({
   };
   onClose: () => void;
 }) {
-  // Wallet hooks
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -817,7 +817,6 @@ function SellConfirmSheet({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  // OpenSea fee is 2.5%
   const feePct = 2.5 / 100;
   const payout = offer.priceEth * (1 - feePct);
   const payoutFormatted =
@@ -847,7 +846,6 @@ function SellConfirmSheet({
         return;
       }
 
-      // 1) Ask backend for fulfillment (may be stub / test / real)
       const res = await fetch("/api/opensea/fulfillment", {
         method: "POST",
         headers: {
@@ -856,14 +854,15 @@ function SellConfirmSheet({
         body: JSON.stringify({
           chain,
           orderHash,
+          contractAddress,
+          tokenId,
+          protocolAddress,
           takerAddress: address,
           offer: {
             priceEth: offer.priceEth,
             priceFormatted: offer.priceFormatted,
             expirationTime: offer.expirationTime,
           },
-          contractAddress,
-          tokenId,
         }),
       });
 
@@ -924,10 +923,7 @@ function SellConfirmSheet({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <button
-        className="absolute inset-0 w-full h-full"
-        onClick={onClose}
-      />
+      <button className="absolute inset-0 w-full h-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
         <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
@@ -960,9 +956,7 @@ function SellConfirmSheet({
 
           <div className="flex justify-between pt-1">
             <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">
-              {formatExpiration()}
-            </span>
+            <span className="text-neutral-400">{formatExpiration()}</span>
           </div>
 
           {error && (
