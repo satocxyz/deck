@@ -127,8 +127,6 @@ export default async function handler(
     }
 
     try {
-      // NOTE: path based on OpenSea v2 docs (offer fulfillment data v2).
-      // If they ever change it, this will just fail safely.
       const chainSlug = chain === "base" ? "base" : "ethereum";
       const url = `${baseUrl}/offers/${chainSlug}/fulfillment_data`;
 
@@ -145,7 +143,6 @@ export default async function handler(
           asset_contract_address: contractAddress,
           token_id: tokenId,
         },
-        // single NFT
         units_to_fill: 1,
       };
 
@@ -164,7 +161,7 @@ export default async function handler(
       try {
         osJson = text ? JSON.parse(text) : null;
       } catch {
-        // leave osJson = null
+        // leave osJson = null if body wasn't JSON
       }
 
       if (!osRes.ok) {
@@ -201,7 +198,10 @@ export default async function handler(
           : "0";
 
       if (!to || !data) {
-        console.error("[OpenSea fulfillment] Missing to/data in response", txObj);
+        console.error(
+          "[OpenSea fulfillment] Missing to/data in response",
+          txObj,
+        );
         const payload: FulfillmentResponse = {
           ok: false,
           safeToFill: false,
@@ -233,7 +233,8 @@ export default async function handler(
         ok: false,
         safeToFill: false,
         reason: "opensea_exception",
-        message: "Unexpected error while contacting OpenSea for fulfillment.",
+        message:
+          "Unexpected error while contacting OpenSea for fulfillment.",
         echo: echoBase,
       };
       return res.status(200).json(payload);
