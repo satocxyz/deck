@@ -8,13 +8,25 @@ type MiniOfferPayload = {
 };
 
 type FulfillmentRequestBody = {
-  chain: "base" | "ethereum";
-  orderHash: string;
+  chain?: "base" | "ethereum";
+  orderHash?: string;
   takerAddress?: string;
   contractAddress?: string;
   tokenId?: string;
   protocolAddress?: string;
-  offer: MiniOfferPayload | null;
+  offer?: MiniOfferPayload | null;
+
+  // We also allow OpenSea-style body:
+  // offer: { hash, chain, protocol_address }
+  // fulfiller: { address }
+  // consideration: { asset_contract_address, token_id }
+  fulfiller?: {
+    address?: string;
+  };
+  consideration?: {
+    asset_contract_address?: string;
+    token_id?: string | number;
+  };
 };
 
 type FulfillmentResponse = {
@@ -47,15 +59,46 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const {
-    chain,
-    orderHash,
-    takerAddress,
-    contractAddress,
-    tokenId,
-    protocolAddress,
-    offer,
-  } = req.body as Partial<FulfillmentRequestBody>;
+  const raw = req.body as FulfillmentRequestBody | any;
+
+  // ---------- 1) Normalize input (support both Deck-style + OpenSea-style body) ----------
+  let chain = raw.chain as "base" | "ethereum" | undefined;
+  let orderHash = raw.orderHash as string | undefined;
+  let takerAddress = raw.takerAddress as string | undefined;
+  let contractAddress = raw.contractAddress as string | undefined;
+  let tokenId = raw.tokenId as string | undefined;
+  let protocolAddress = raw.protocolAddress as string | undefined;
+  let offer = (raw.offer ?? null) as MiniOfferPayload | null;
+
+  // If fields are missing, fall back to OpenSea-style locations
+  if (!chain && typeof raw.offer?.chain === "string") {
+    if (raw.offer.chain === "base" || raw.offer.chain === "ethereum") {
+      chain = raw.offer.chain;
+    }
+  }
+
+  if (!orderHash && typeof raw.offer?.hash === "string") {
+    orderHash = raw.offer.hash;
+  }
+
+  if (!protocolAddress && typeof raw.offer?.protocol_address === "string") {
+    protocolAddress = raw.offer.protocol_address;
+  }
+
+  if (!takerAddress && typeof raw.fulfiller?.address === "string") {
+    takerAddress = raw.fulfiller.address;
+  }
+
+  if (
+    !contractAddress &&
+    typeof raw.consideration?.asset_contract_address === "string"
+  ) {
+    contractAddress = raw.consideration.asset_contract_address;
+  }
+
+  if (tokenId === undefined && raw.consideration?.token_id != null) {
+    tokenId = String(raw.consideration.token_id);
+  }
 
   const echoBase = {
     chain,
@@ -127,8 +170,10 @@ export default async function handler(
     }
 
     try {
+      // ✅ Correct OpenSea endpoint
+      const url = `${baseUrl}/offers/fulfillment_data`;
+
       const chainSlug = chain === "base" ? "base" : "ethereum";
-      const url = `${baseUrl}/offers/${chainSlug}/fulfillment_data`;
 
       const body = {
         offer: {
@@ -161,7 +206,7 @@ export default async function handler(
       try {
         osJson = text ? JSON.parse(text) : null;
       } catch {
-        // leave osJson = null if body wasn't JSON
+        // leave osJson = null
       }
 
       if (!osRes.ok) {
@@ -189,7 +234,8 @@ export default async function handler(
         null;
 
       const to: string | undefined = txObj?.to;
-      const data: string | undefined = txObj?.data ?? txObj?.calldata;
+      const data: string | undefined =
+        txObj?.data ?? txObj?.calldata ?? txObj?.input_data?.calldata;
       const value: string =
         typeof txObj?.value === "string"
           ? txObj.value
@@ -198,10 +244,7 @@ export default async function handler(
           : "0";
 
       if (!to || !data) {
-        console.error(
-          "[OpenSea fulfillment] Missing to/data in response",
-          txObj,
-        );
+        console.error("[OpenSea fulfillment] Missing to/data in response", txObj);
         const payload: FulfillmentResponse = {
           ok: false,
           safeToFill: false,
@@ -233,8 +276,7 @@ export default async function handler(
         ok: false,
         safeToFill: false,
         reason: "opensea_exception",
-        message:
-          "Unexpected error while contacting OpenSea for fulfillment.",
+        message: "Unexpected error while contacting OpenSea for fulfillment.",
         echo: echoBase,
       };
       return res.status(200).json(payload);
