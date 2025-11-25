@@ -344,48 +344,50 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
   const displayName =
     user?.displayName || user?.username || "Farcaster user";
 
-  if (isConnected) {
-    return (
-      <div
-        className="
-          flex items-center justify-between
-          rounded-2xl bg-white
-          px-3 py-2.5 text-[11px] shadow-sm
-        "
-      >
-        {/* Text block – right aligned */}
-        <div className="flex min-w-0 flex-col items-end text-right mr-2">
-          <span className="truncate text-[12px] font-semibold text-neutral-900">
-            {displayName}
-          </span>
-          <span className="mt-0.5 flex items-center gap-1 text-[10px] text-neutral-500">
-            <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
-            <span className="max-w-[140px] truncate">
-              {shortenAddress(address)}
-            </span>
-          </span>
-        </div>
+if (isConnected) {
+  return (
+    <div
+      className="
+        flex items-center gap-2
+        rounded-2xl bg-white
+        px-3 py-2.5 text-[11px] shadow-sm
+      "
+    >
+      {/* Text block – right aligned */}
+      <div className="flex min-w-0 flex-col items-end text-right">
+        <span className="truncate text-[12px] font-semibold text-neutral-900 leading-tight">
+          {displayName}
+        </span>
 
-        {/* Avatar on the right with ring */}
-        <div className="relative h-8 w-8 flex-shrink-0">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
-          <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
-            {user?.pfpUrl ? (
-              <img
-                src={user.pfpUrl}
-                alt={displayName}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
-                ?
-              </div>
-            )}
-          </div>
+        <span className="flex items-center gap-1 text-[10px] text-neutral-500 leading-tight">
+          <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
+          <span className="max-w-[120px] truncate">
+            {shortenAddress(address)}
+          </span>
+        </span>
+      </div>
+
+      {/* Avatar */}
+      <div className="relative h-8 w-8 flex-shrink-0">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
+        <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
+          {user?.pfpUrl ? (
+            <img
+              src={user.pfpUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
+              ?
+            </div>
+          )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   const connector = connectors[0];
 
