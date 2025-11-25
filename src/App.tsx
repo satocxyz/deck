@@ -208,21 +208,23 @@ function App() {
                   console.log("NFT object:", nft);
                   setSelectedNft(nft);
                 }}
-                className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/80 text-left shadow-sm transition hover:border-purple-500/60 hover:bg-neutral-900"
+                className="
+                  group relative flex flex-col overflow-hidden rounded-2xl 
+                  border border-neutral-800/80 bg-neutral-900/70 backdrop-blur-sm
+                  shadow-sm transition-all duration-200
+                  hover:border-purple-500/60 hover:shadow-purple-500/10 hover:shadow-lg
+                "
               >
-                {/* Collection name on top of each NFT */}
-                <div className="px-2 pt-2">
-                  <div className="truncate text-[10px] text-neutral-500">
-                    {getCollectionLabel(nft)}
-                  </div>
-                </div>
-
-                <div className="relative mt-1 w-full pb-[100%] bg-neutral-950">
+                <div className="relative w-full pb-[100%] overflow-hidden rounded-2xl">
+                  {/* NFT Image */}
                   {nft.image_url ? (
                     <img
                       src={nft.image_url}
                       alt={nft.name || `NFT #${nft.identifier}`}
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="
+                        absolute inset-0 h-full w-full object-cover 
+                        transition-transform duration-200 group-hover:scale-[1.03]
+                      "
                       loading="lazy"
                     />
                   ) : (
@@ -230,17 +232,41 @@ function App() {
                       No image
                     </div>
                   )}
-                </div>
 
-                <div className="space-y-0.5 px-2 py-1.5">
-                  <div className="truncate text-[12px] font-medium text-neutral-50">
-                    {nft.name || `#${nft.identifier}`}
+                  {/* Collection Pill */}
+                  <div
+                    className="
+                      absolute left-1.5 top-1.5 rounded-full 
+                      bg-black/60 px-2 py-0.5 
+                      text-[9px] font-medium text-neutral-300
+                      backdrop-blur-sm max-w-[90%] truncate
+                    "
+                  >
+                    {getCollectionLabel(nft)}
+                  </div>
+
+                  {/* Bottom Info Overlay */}
+                  <div
+                    className="
+                      absolute inset-x-1.5 bottom-1.5 rounded-xl 
+                      bg-black/65 px-2 py-1 backdrop-blur-sm
+                      text-neutral-100 leading-tight
+                      shadow-sm
+                    "
+                  >
+                    <div className="truncate text-[11px] font-semibold">
+                      {nft.name || `NFT #${nft.identifier}`}
+                    </div>
+                    <div className="truncate text-[9px] text-neutral-400">
+                      #{nft.identifier}
+                    </div>
                   </div>
                 </div>
               </button>
             ))}
           </div>
         )}
+
 
       </main>
 
