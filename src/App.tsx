@@ -188,7 +188,7 @@ function App() {
               Deck
             </h1>
             <p className="text-[11px] text-neutral-500">
-              Sell NFTs from your Farcaster wallet
+              Sell your NFTs directly inside Farcaster.
             </p>
           </div>
 
@@ -214,7 +214,7 @@ function App() {
           </div>
 
           {/* Chain selector (right, aligned with badge) */}
-          <div className="flex-1 flex justify-end">
+          <div className="flex flex-1 justify-end">
             <div className="w-[40%] min-w-[130px]">
               <ChainSelector chain={chain} onChange={setChain} />
             </div>
@@ -225,7 +225,7 @@ function App() {
       <main className="mt-4">
         {!isConnected && (
           <p className="text-[13px] text-neutral-400">
-            Connect your Farcaster wallet to see your NFT deck.
+            Connect your Farcaster wallet to see your NFTs.
           </p>
         )}
 
@@ -233,13 +233,14 @@ function App() {
 
         {isConnected && !loading && error && (
           <p className="text-[13px] text-red-400">
-            Couldn&apos;t load NFTs right now. Please try again in a moment.
+            We couldn&apos;t load your NFTs. Try again in a moment.
           </p>
         )}
 
         {showEmpty && (
           <p className="text-[13px] text-neutral-400">
-            No NFTs found on {prettyChain(chain)} for this wallet.
+            You don&apos;t have any NFTs on {prettyChain(chain)} for this
+            wallet.
           </p>
         )}
 
@@ -302,7 +303,7 @@ function App() {
                 </div>
 
                 {/* Text area */}
-                <div className="px-0.5 pt-2 pb-1.5 space-y-0.5 text-left">
+                <div className="space-y-0.5 px-0.5 pb-1.5 pt-2 text-left">
                   <div className="truncate text-[12px] font-semibold text-neutral-900">
                     {nft.name || `NFT #${nft.identifier}`}
                   </div>
@@ -344,51 +345,49 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
   const displayName =
     user?.displayName || user?.username || "Farcaster user";
 
-if (isConnected) {
-  return (
-    <div
-      className="
-        flex items-center justify-end gap-2
-        rounded-2xl bg-transparent
-        px-1 py-2
-      "
-    >
-      {/* Text block – fully right aligned */}
-      <div className="flex min-w-0 flex-col items-end text-right">
-        <span className="truncate text-[12px] font-semibold text-neutral-900 leading-tight">
-          {displayName}
-        </span>
-
-        <span className="flex items-center gap-1 text-[10px] text-neutral-500 leading-tight">
-          <span className="inline-block h-[9px] w-[9px] rounded-[3px] border border-neutral-400/70" />
-          <span className="max-w-[130px] truncate">
-            {shortenAddress(address)}
+  if (isConnected) {
+    return (
+      <div
+        className="
+          flex items-center justify-end gap-2
+          rounded-2xl bg-transparent
+          px-1 py-2
+        "
+      >
+        {/* Text block – fully right aligned */}
+        <div className="flex min-w-0 flex-col items-end text-right">
+          <span className="truncate text-[12px] font-semibold text-neutral-900 leading-tight">
+            {displayName}
           </span>
-        </span>
-      </div>
 
-      {/* Avatar on the far right */}
-      <div className="relative h-8 w-8 flex-shrink-0">
-        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
-        <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
-          {user?.pfpUrl ? (
-            <img
-              src={user.pfpUrl}
-              alt={displayName}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
-              ?
-            </div>
-          )}
+          <span className="flex items-center gap-1 text-[10px] text-neutral-500 leading-tight">
+            <span className="inline-block h-[9px] w-[9px] rounded-[3px] border border-neutral-400/70" />
+            <span className="max-w-[130px] truncate">
+              {shortenAddress(address)}
+            </span>
+          </span>
+        </div>
+
+        {/* Avatar on the far right */}
+        <div className="relative h-8 w-8 flex-shrink-0">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
+          <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
+            {user?.pfpUrl ? (
+              <img
+                src={user.pfpUrl}
+                alt={displayName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
+                ?
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-
+    );
+  }
 
   const connector = connectors[0];
 
@@ -410,7 +409,6 @@ if (isConnected) {
     </button>
   );
 }
-
 
 /**
  * Chain selector: Base / Ethereum
@@ -707,19 +705,19 @@ function NftDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button
         type="button"
         className="absolute inset-0 h-full w-full cursor-default"
         onClick={onClose}
       />
       <div
-        className="relative z-30 w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950/95 px-4 pb-5 pt-3 shadow-xl"
-        style={{ opacity: isBusy ? 0.92 : 1 }}
+        className="relative z-30 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pb-5 pt-3 shadow-xl"
+        style={{ opacity: isBusy ? 0.96 : 1 }}
       >
-        <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-neutral-700" />
+        <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-neutral-300" />
         <div className="flex items-start gap-3">
-          <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-neutral-900">
+          <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-neutral-100">
             {nft.image_url ? (
               <img
                 src={nft.image_url}
@@ -733,32 +731,32 @@ function NftDetailModal({
             )}
           </div>
           <div className="flex-1 space-y-0.5">
-            <div className="text-sm font-semibold text-neutral-50">
+            <div className="text-sm font-semibold text-neutral-900">
               {nft.name || `Token #${nft.identifier}`}
             </div>
-            <div className="text-[11px] text-neutral-400">{collectionName}</div>
-            <div className="text-[10px] text-neutral-500">
+            <div className="text-[11px] text-neutral-500">{collectionName}</div>
+            <div className="text-[10px] text-neutral-400">
               {chainLabel} • ID {nft.identifier}
             </div>
           </div>
         </div>
 
         {nft.description && (
-          <p className="mt-3 line-clamp-3 text-[11px] text-neutral-300">
+          <p className="mt-3 line-clamp-3 text-[11px] text-neutral-600">
             {nft.description}
           </p>
         )}
 
         {/* Traits section */}
         {traitsLoading && (
-          <div className="mt-3 px-1 text-[11px] text-neutral-400">
+          <div className="mt-3 px-1 text-[11px] text-neutral-500">
             Loading traits…
           </div>
         )}
 
         {!traitsLoading && traitsError && (
           <div className="mt-3 px-1 text-[11px] text-neutral-500">
-            OpenSea traits are unavailable right now.
+            We can&apos;t show traits right now.
           </div>
         )}
 
@@ -772,14 +770,14 @@ function NftDetailModal({
                 <div
                   key={`${trait.label}-${trait.value}`}
                   className="
-                    rounded-xl border border-neutral-800 bg-neutral-900/80 
+                    rounded-xl border border-neutral-200 bg-neutral-50 
                     px-2 py-1 text-[10px]
                   "
                 >
                   <div className="text-[9px] uppercase tracking-wide text-neutral-500">
                     {trait.label}
                   </div>
-                  <div className="text-[11px] text-neutral-100">
+                  <div className="text-[11px] text-neutral-900">
                     {trait.value}
                   </div>
                 </div>
@@ -795,20 +793,20 @@ function NftDetailModal({
           </div>
 
           {offersLoading && (
-            <div className="px-1 text-[11px] text-neutral-400">
+            <div className="px-1 text-[11px] text-neutral-500">
               Loading price data…
             </div>
           )}
 
           {!offersLoading && offersError && (
             <div className="px-1 text-[11px] text-neutral-500">
-              OpenSea price data is unavailable right now.
+              We can&apos;t show price data right now.
             </div>
           )}
 
           {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
             <div className="px-1 text-[11px] text-neutral-500">
-              No price data available.
+              No price data available for this NFT.
             </div>
           )}
 
@@ -816,9 +814,9 @@ function NftDetailModal({
             <div className="space-y-1 px-1 text-[11px]">
               {bestOffer && (
                 <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-300">Best offer</span>
+                  <span className="text-neutral-600">Best offer</span>
                   <div className="flex flex-col items-end">
-                    <span className="font-semibold text-emerald-300">
+                    <span className="font-semibold text-emerald-600">
                       {bestOffer.priceFormatted} WETH
                     </span>
                     {formatTimeRemaining(bestOffer.expirationTime) && (
@@ -832,8 +830,8 @@ function NftDetailModal({
               )}
               {floor.formatted && (
                 <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-300">Floor</span>
-                  <span className="text-neutral-200">
+                  <span className="text-neutral-600">Floor</span>
+                  <span className="text-neutral-800">
                     {floor.formatted} ETH
                   </span>
                 </div>
@@ -842,8 +840,8 @@ function NftDetailModal({
                 floor.formatted &&
                 formatBestVsFloorDiff(bestOffer, floor) && (
                   <div className="flex items-baseline justify-between pt-0.5">
-                    <span className="text-neutral-400">Context</span>
-                    <span className="text-[10px] text-neutral-400">
+                    <span className="text-neutral-500">Context</span>
+                    <span className="text-[10px] text-neutral-500">
                       {formatBestVsFloorDiff(bestOffer, floor)}
                     </span>
                   </div>
@@ -861,10 +859,10 @@ function NftDetailModal({
                 target="_blank"
                 rel="noreferrer"
                 className="
-                  w-full rounded-xl border border-neutral-800 bg-neutral-900/80 
-                  px-2 py-1.5 text-center text-[11px] text-neutral-200
+                  w-full rounded-xl border border-neutral-200 bg-white
+                  px-2 py-1.5 text-center text-[11px] text-neutral-700
                   transition-colors duration-150
-                  hover:border-purple-500/60 hover:text-purple-100
+                  hover:border-purple-400/60 hover:bg-purple-50 hover:text-neutral-900
                 "
               >
                 View NFT
@@ -877,13 +875,13 @@ function NftDetailModal({
                 target="_blank"
                 rel="noreferrer"
                 className="
-                  w-full rounded-xl border border-neutral-800 bg-neutral-900/80 
-                  px-2 py-1.5 text-center text-[11px] text-neutral-200
+                  w-full rounded-xl border border-neutral-200 bg-white
+                  px-2 py-1.5 text-center text-[11px] text-neutral-700
                   transition-colors duration-150
-                  hover:border-purple-500/60 hover:text-purple-100
+                  hover:border-purple-400/60 hover:bg-purple-50 hover:text-neutral-900
                 "
               >
-                View Collection
+                View collection
               </a>
             )}
           </div>
@@ -896,12 +894,12 @@ function NftDetailModal({
               "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
               bestOffer && contractAddress
                 ? "bg-purple-600 text-white hover:bg-purple-500 border border-purple-500/60"
-                : "border border-neutral-800 bg-neutral-900/60 text-neutral-500 opacity-60 cursor-not-allowed",
+                : "border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60 cursor-not-allowed",
             ].join(" ")}
           >
             {bestOffer && contractAddress
-              ? "Accept Best Offer"
-              : "No Offer Available"}
+              ? "Accept best offer"
+              : "No offer available"}
           </button>
         </div>
 
@@ -1090,10 +1088,13 @@ function SellConfirmSheet({
           address &&
           recipient.toLowerCase() !== address.toLowerCase()
         ) {
-          console.error("Recipient from backend does not match current address", {
-            recipient,
-            address,
-          });
+          console.error(
+            "Recipient from backend does not match current address",
+            {
+              recipient,
+              address,
+            },
+          );
           setError("Recipient mismatch between wallet and fulfillment data.");
           return;
         }
@@ -1140,51 +1141,51 @@ function SellConfirmSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-50">
-          Accept Best Offer
+        <h2 className="text-center text-sm font-semibold text-neutral-900">
+          Accept best offer
         </h2>
 
         <div className="mt-4 space-y-3 text-[12px]">
           <div className="flex justify-between">
-            <span className="text-neutral-300">Offer</span>
-            <span className="font-semibold text-neutral-100">
+            <span className="text-neutral-600">Offer</span>
+            <span className="font-semibold text-neutral-900">
               {offer.priceFormatted} WETH
             </span>
           </div>
 
           <div className="flex justify-between">
-            <span className="text-neutral-300">OpenSea fee (2.5%)</span>
-            <span className="text-neutral-400">
+            <span className="text-neutral-600">OpenSea fee (2.5%)</span>
+            <span className="text-neutral-500">
               -{(offer.priceEth * 0.025).toFixed(4)} WETH
             </span>
           </div>
 
-          <div className="flex justify-between border-t border-neutral-800 pt-1">
-            <span className="text-neutral-300">You will receive</span>
-            <span className="font-semibold text-emerald-300">
+          <div className="flex justify-between border-t border-neutral-200 pt-1">
+            <span className="text-neutral-700">You&apos;ll receive</span>
+            <span className="font-semibold text-emerald-600">
               {payoutFormatted} WETH
             </span>
           </div>
 
           <div className="flex justify-between pt-1">
-            <span className="text-neutral-400">Offer expires</span>
-            <span className="text-neutral-400">{formatExpiration()}</span>
+            <span className="text-neutral-500">Offer expires</span>
+            <span className="text-neutral-600">{formatExpiration()}</span>
           </div>
 
           {error && (
-            <div className="mt-2 leading-tight text-[11px] text-red-400">
+            <div className="mt-2 leading-tight text-[11px] text-red-500">
               {error}
             </div>
           )}
 
           {info && !error && (
-            <div className="mt-2 leading-tight text-[11px] text-amber-300">
+            <div className="mt-2 leading-tight text-[11px] text-amber-600">
               {info}
             </div>
           )}
@@ -1198,15 +1199,15 @@ function SellConfirmSheet({
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 hover:bg-purple-500"
           disabled={submitting}
           onClick={handleConfirm}
         >
-          {submitting ? "Submitting…" : "Confirm Accept Offer"}
+          {submitting ? "Submitting…" : "Confirm accept offer"}
         </button>
 
         <button
-          className="mt-2 w-full text-center text-[12px] text-neutral-400"
+          className="mt-2 w-full text-center text-[12px] text-neutral-500"
           onClick={onClose}
           disabled={submitting}
         >
