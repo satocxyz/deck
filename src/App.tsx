@@ -1,7 +1,103 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
+
+// Minimal Seaport 1.6 ABI for matchAdvancedOrders
+const seaportMatchAdvancedOrdersAbi = [
+  {
+    type: "function",
+    name: "matchAdvancedOrders",
+    stateMutability: "payable",
+    inputs: [
+      {
+        name: "orders",
+        type: "tuple[]",
+        components: [
+          {
+            name: "parameters",
+            type: "tuple",
+            components: [
+              { name: "offerer", type: "address" },
+              { name: "zone", type: "address" },
+              {
+                name: "offer",
+                type: "tuple[]",
+                components: [
+                  { name: "itemType", type: "uint8" },
+                  { name: "token", type: "address" },
+                  { name: "identifierOrCriteria", type: "uint256" },
+                  { name: "startAmount", type: "uint256" },
+                  { name: "endAmount", type: "uint256" },
+                ],
+              },
+              {
+                name: "consideration",
+                type: "tuple[]",
+                components: [
+                  { name: "itemType", type: "uint8" },
+                  { name: "token", type: "address" },
+                  { name: "identifierOrCriteria", type: "uint256" },
+                  { name: "startAmount", type: "uint256" },
+                  { name: "endAmount", type: "uint256" },
+                  { name: "recipient", type: "address" },
+                ],
+              },
+              { name: "orderType", type: "uint8" },
+              { name: "startTime", type: "uint256" },
+              { name: "endTime", type: "uint256" },
+              { name: "zoneHash", type: "bytes32" },
+              { name: "salt", type: "uint256" },
+              { name: "conduitKey", type: "bytes32" },
+              { name: "totalOriginalConsiderationItems", type: "uint256" },
+            ],
+          },
+          { name: "numerator", type: "uint120" },
+          { name: "denominator", type: "uint120" },
+          { name: "signature", type: "bytes" },
+          { name: "extraData", type: "bytes" },
+        ],
+      },
+      {
+        name: "criteriaResolvers",
+        type: "tuple[]",
+        components: [
+          { name: "orderIndex", type: "uint256" },
+          { name: "side", type: "uint8" },
+          { name: "index", type: "uint256" },
+          { name: "identifier", type: "uint256" },
+          { name: "criteriaProof", type: "bytes32[]" },
+        ],
+      },
+      {
+        name: "fulfillments",
+        type: "tuple[]",
+        components: [
+          {
+            name: "offerComponents",
+            type: "tuple[]",
+            components: [
+              { name: "orderIndex", type: "uint256" },
+              { name: "itemIndex", type: "uint256" },
+            ],
+          },
+          {
+            name: "considerationComponents",
+            type: "tuple[]",
+            components: [
+              { name: "orderIndex", type: "uint256" },
+              { name: "itemIndex", type: "uint256" },
+            ],
+          },
+        ],
+      },
+      { name: "recipient", type: "address" },
+    ],
+    outputs: [{ name: "magicValue", type: "bytes4" }],
+  },
+] as const;
+
 
 type SafeArea = {
   top: number;
@@ -858,6 +954,7 @@ function SellConfirmSheet({
           tokenId,
           protocolAddress,
           takerAddress: address,
+          // offer is only for echo/debug on backend – OpenSea call ignores it
           offer: {
             priceEth: offer.priceEth,
             priceFormatted: offer.priceFormatted,
@@ -885,34 +982,51 @@ function SellConfirmSheet({
       const tx = json.tx as
         | {
             to: string;
-            data: string;
             value?: string | null;
+            data?: string;
+            functionName?: string;
+            inputData?: {
+              orders: any[];
+              criteriaResolvers: any[];
+              fulfillments: any[];
+              recipient: string;
+            };
           }
         | undefined;
 
-      if (!tx || !tx.to || !tx.data) {
+      if (!tx || !tx.to) {
         setError("Backend did not return a transaction to send.");
         return;
       }
 
-      const chainId = chain === "base" ? 8453 : 1;
+      let dataToSend: `0x${string}` | undefined;
 
-      const txHash = await walletClient.sendTransaction({
-        account: address as `0x${string}`,
-        chain: {
-          id: chainId,
-          name: "",
-          nativeCurrency: undefined,
-          rpcUrls: {},
-        } as any,
-        to: tx.to as `0x${string}`,
-        data: tx.data as `0x${string}`,
-        value: tx.value ? BigInt(tx.value) : 0n,
-      });
+      if (tx.data) {
+        // future-proof: if backend ever sends raw calldata, just use it
+        dataToSend = tx.data as `0x${string}`;
+      } else if (
+        tx.functionName === "matchAdvancedOrders" &&
+        tx.inputData &&
+        Array.isArray(tx.inputData.orders)
+      ) {
+        const { orders, criteriaResolvers, fulfillments, recipient } = tx.inputData;
 
-      setInfo(`Transaction submitted: ${txHash}`);
-      onClose();
-      return;
+        // Fix: cast to proper hex address type
+        const recipientHex = recipient as `0x${string}`;
+
+        dataToSend = encodeFunctionData({
+          abi: seaportMatchAdvancedOrdersAbi,
+          functionName: "matchAdvancedOrders",
+          args: [orders, criteriaResolvers, fulfillments, recipientHex],
+        }) as `0x${string}`;
+      } else {
+        console.error("Unexpected tx payload from backend:", tx);
+        setError(
+          "Backend did not return a usable transaction payload from OpenSea.",
+        );
+        return;
+      }
+
     } catch (err) {
       console.error("Error while sending transaction", err);
       setError("Failed to send transaction. Check console for details.");
@@ -922,7 +1036,8 @@ function SellConfirmSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justifycenter bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
+
       <button className="absolute inset-0 w-full h-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">

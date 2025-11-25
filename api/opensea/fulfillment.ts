@@ -8,25 +8,14 @@ type MiniOfferPayload = {
 };
 
 type FulfillmentRequestBody = {
-  chain?: "base" | "ethereum";
-  orderHash?: string;
+  chain: "base" | "ethereum";
+  orderHash: string;
   takerAddress?: string;
   contractAddress?: string;
   tokenId?: string;
   protocolAddress?: string;
-  offer?: MiniOfferPayload | null;
-
-  // We also allow OpenSea-style body:
-  // offer: { hash, chain, protocol_address }
-  // fulfiller: { address }
-  // consideration: { asset_contract_address, token_id }
-  fulfiller?: {
-    address?: string;
-  };
-  consideration?: {
-    asset_contract_address?: string;
-    token_id?: string | number;
-  };
+  // we don't rely on shape of `offer` for OpenSea call, only echo it
+  offer: MiniOfferPayload | any | null;
 };
 
 type FulfillmentResponse = {
@@ -41,12 +30,14 @@ type FulfillmentResponse = {
     contractAddress?: string;
     tokenId?: string;
     protocolAddress?: string;
-    offer: MiniOfferPayload | null;
+    offer: MiniOfferPayload | any | null;
   };
   tx?: {
     to: string;
-    data: string;
     value: string; // hex or decimal string
+    data?: string; // raw calldata (if OpenSea ever returns it)
+    functionName?: string;
+    inputData?: any; // OpenSea's decoded input_data (orders, criteriaResolvers, fulfillments, recipient)
   };
 };
 
@@ -59,55 +50,24 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const raw = req.body as FulfillmentRequestBody | any;
-
-  // ---------- 1) Normalize input (support both Deck-style + OpenSea-style body) ----------
-  let chain = raw.chain as "base" | "ethereum" | undefined;
-  let orderHash = raw.orderHash as string | undefined;
-  let takerAddress = raw.takerAddress as string | undefined;
-  let contractAddress = raw.contractAddress as string | undefined;
-  let tokenId = raw.tokenId as string | undefined;
-  let protocolAddress = raw.protocolAddress as string | undefined;
-  let offer = (raw.offer ?? null) as MiniOfferPayload | null;
-
-  // If fields are missing, fall back to OpenSea-style locations
-  if (!chain && typeof raw.offer?.chain === "string") {
-    if (raw.offer.chain === "base" || raw.offer.chain === "ethereum") {
-      chain = raw.offer.chain;
-    }
-  }
-
-  if (!orderHash && typeof raw.offer?.hash === "string") {
-    orderHash = raw.offer.hash;
-  }
-
-  if (!protocolAddress && typeof raw.offer?.protocol_address === "string") {
-    protocolAddress = raw.offer.protocol_address;
-  }
-
-  if (!takerAddress && typeof raw.fulfiller?.address === "string") {
-    takerAddress = raw.fulfiller.address;
-  }
-
-  if (
-    !contractAddress &&
-    typeof raw.consideration?.asset_contract_address === "string"
-  ) {
-    contractAddress = raw.consideration.asset_contract_address;
-  }
-
-  if (tokenId === undefined && raw.consideration?.token_id != null) {
-    tokenId = String(raw.consideration.token_id);
-  }
-
-  const echoBase = {
+  const {
     chain,
     orderHash,
     takerAddress,
     contractAddress,
     tokenId,
     protocolAddress,
-    offer: (offer ?? null) as MiniOfferPayload | null,
+    offer,
+  } = req.body as Partial<FulfillmentRequestBody>;
+
+  const echoBase: FulfillmentResponse["echo"] = {
+    chain,
+    orderHash,
+    takerAddress,
+    contractAddress,
+    tokenId,
+    protocolAddress,
+    offer: (offer ?? null) as any,
   };
 
   // -------------------------------
@@ -170,11 +130,10 @@ export default async function handler(
     }
 
     try {
-      // ✅ Correct OpenSea endpoint
+      const chainSlug = chain === "base" ? "base" : "ethereum";
       const url = `${baseUrl}/offers/fulfillment_data`;
 
-      const chainSlug = chain === "base" ? "base" : "ethereum";
-
+      // Body shape that worked in your Postman tests
       const body = {
         offer: {
           hash: orderHash,
@@ -228,29 +187,61 @@ export default async function handler(
         return res.status(200).json(payload);
       }
 
+      // Shape based on your actual Postman JSON:
+      // {
+      //   "protocol": "seaport1.6",
+      //   "fulfillment_data": {
+      //      "transaction": {
+      //          "function": "matchAdvancedOrders(...)",
+      //          "chain": 8453,
+      //          "to": "0x...",
+      //          "value": "0",
+      //          "input_data": { orders, criteriaResolvers, fulfillments, recipient }
+      //      },
+      //      ...
+      //   }
+      // }
       const txObj =
         osJson?.fulfillment_data?.transaction ??
         osJson?.fulfillment_data?.fulfillment_data?.transaction ??
         null;
 
-      const to: string | undefined = txObj?.to;
-      const data: string | undefined =
-        txObj?.data ?? txObj?.calldata ?? txObj?.input_data?.calldata;
-      const value: string =
-        typeof txObj?.value === "string"
-          ? txObj.value
-          : txObj?.value != null
-          ? String(txObj.value)
-          : "0";
-
-      if (!to || !data) {
-        console.error("[OpenSea fulfillment] Missing to/data in response", txObj);
+      if (!txObj) {
+        console.error("[OpenSea fulfillment] Missing transaction object", osJson);
         const payload: FulfillmentResponse = {
           ok: false,
           safeToFill: false,
           reason: "invalid_opensea_response",
           message:
-            "OpenSea fulfillment response did not include transaction 'to' or 'data'.",
+            "OpenSea fulfillment response did not include a transaction object.",
+          echo: echoBase,
+        };
+        return res.status(200).json(payload);
+      }
+
+      const to: string | undefined = txObj.to;
+      const value: string =
+        typeof txObj.value === "string"
+          ? txObj.value
+          : txObj?.value != null
+          ? String(txObj.value)
+          : "0";
+
+      // NEW: function + input_data instead of raw data/calldata
+      const functionName: string | undefined = txObj.function;
+      const inputData: any = txObj.input_data ?? null;
+
+      if (!to || !functionName || !inputData) {
+        console.error(
+          "[OpenSea fulfillment] Missing to/function/input_data in response",
+          txObj,
+        );
+        const payload: FulfillmentResponse = {
+          ok: false,
+          safeToFill: false,
+          reason: "invalid_opensea_response",
+          message:
+            "OpenSea fulfillment response did not include 'to', 'function', or 'input_data'.",
           echo: echoBase,
         };
         return res.status(200).json(payload);
@@ -260,12 +251,15 @@ export default async function handler(
         ok: true,
         safeToFill: true,
         reason: "ready",
-        message: "Offer is safe to fill. Transaction created from OpenSea.",
+        message:
+          "Offer is safe to fill. Function + arguments created from OpenSea fulfillment data.",
         echo: echoBase,
         tx: {
           to,
-          data,
           value,
+          functionName,
+          inputData,
+          // NOTE: no raw `data` field here — front-end will encode using Seaport ABI.
         },
       };
 
