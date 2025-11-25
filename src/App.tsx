@@ -184,9 +184,16 @@ function App() {
         {/* Row 1: Title + profile */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
-              Deck
-            </h1>
+            <div className="flex items-center gap-2">
+              <img
+                src="/deck-logo.png"
+                alt="Deck"
+                className="h-6 w-auto"
+              />
+              <span className="text-xl font-semibold tracking-tight text-neutral-900">
+                Deck
+              </span>
+            </div>
             <p className="text-[11px] text-neutral-500">
               Sell your NFTs directly inside Farcaster.
             </p>
