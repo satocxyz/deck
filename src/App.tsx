@@ -210,21 +210,21 @@ function App() {
                 setSelectedNft(nft);
               }}
               className="
-                group flex flex-col overflow-hidden rounded-2xl 
-                bg-white border border-neutral-200 
-                shadow-sm hover:shadow-md 
-                transition-all duration-200
-                hover:-translate-y-[1px]
+                group flex flex-col overflow-hidden rounded-2xl
+                bg-white/95 border border-neutral-200
+                shadow-sm transition-all duration-200
+                hover:-translate-y-[2px] hover:shadow-lg hover:border-purple-400/40
+                active:translate-y-0 active:shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
                 p-2
               "
             >
-              {/* INNER IMAGE CONTAINER */}
+              {/* Inner image container */}
               <div
                 className="
                   relative w-full pb-[100%]
-                  rounded-xl overflow-hidden 
-                  bg-neutral-100 
-                  shadow-xs
+                  rounded-xl overflow-hidden
+                  bg-gradient-to-br from-neutral-100 to-neutral-200
                 "
               >
                 {nft.image_url ? (
@@ -233,7 +233,8 @@ function App() {
                     alt={nft.name || `NFT #${nft.identifier}`}
                     className="
                       absolute inset-0 h-full w-full object-cover
-                      transition-transform duration-200 group-hover:scale-[1.03]
+                      transition-transform duration-200
+                      group-hover:scale-[1.03]
                     "
                     loading="lazy"
                   />
@@ -243,11 +244,11 @@ function App() {
                   </div>
                 )}
 
-                {/* TOKEN ID BADGE */}
+                {/* Token ID badge (top-right) */}
                 <div
                   className="
-                    absolute right-2 top-2 rounded-full 
-                    bg-black/70 px-2 py-0.5 
+                    absolute right-2 top-2 rounded-full
+                    bg-black/70 px-2 py-0.5
                     text-[9px] font-medium text-white
                     backdrop-blur-sm
                   "
@@ -256,8 +257,8 @@ function App() {
                 </div>
               </div>
 
-              {/* TEXT AREA */}
-              <div className="px-0.5 pt-2 pb-1.5 space-y-0.5">
+              {/* Text area */}
+              <div className="px-0.5 pt-2 pb-1.5 space-y-0.5 text-left">
                 <div className="truncate text-[12px] font-semibold text-neutral-900">
                   {nft.name || `NFT #${nft.identifier}`}
                 </div>
@@ -270,6 +271,7 @@ function App() {
           ))}
         </div>
       )}
+
 
 
 
