@@ -989,28 +989,42 @@ function SellConfirmSheet({
     // ---------- FIX IS APPLIED HERE ----------
     if (tx.data) {
       dataToSend = tx.data as `0x${string}`;
-    } else if (
-      tx.functionName === "matchAdvancedOrders" &&
-      tx.inputData &&
-      Array.isArray(tx.inputData.orders)
-    ) {
-      const { orders, criteriaResolvers, fulfillments, recipient } =
-        tx.inputData;
+} else if (
+  tx.functionName?.startsWith("matchAdvancedOrders") && // <--- changed
+  tx.inputData &&
+  Array.isArray(tx.inputData.orders)
+) {
+  const { orders, criteriaResolvers, fulfillments, recipient } = tx.inputData;
 
-      const recipientHex = recipient as `0x${string}`;
+  // Optional extra safety: make sure recipient is *your* address
+  if (
+    recipient &&
+    address &&
+    recipient.toLowerCase() !== address.toLowerCase()
+  ) {
+    console.error("Recipient from backend does not match current address", {
+      recipient,
+      address,
+    });
+    setError("Recipient mismatch between wallet and fulfillment data.");
+    return;
+  }
 
-      dataToSend = encodeFunctionData({
-        abi: seaportMatchAdvancedOrdersAbi,
-        functionName: "matchAdvancedOrders",
-        args: [orders, criteriaResolvers, fulfillments, recipientHex],
-      }) as `0x${string}`;
-    } else {
-      console.error("Unexpected tx payload from backend:", tx);
-      setError(
-        "Backend did not return a usable transaction payload from OpenSea.",
-      );
-      return;
-    }
+  const recipientHex = recipient as `0x${string}`;
+
+  dataToSend = encodeFunctionData({
+    abi: seaportMatchAdvancedOrdersAbi,
+    functionName: "matchAdvancedOrders", // just the name here
+    args: [orders, criteriaResolvers, fulfillments, recipientHex],
+  }) as `0x${string}`;
+} else {
+  console.error("Unexpected tx payload from backend:", tx);
+  setError(
+    "Backend did not return a usable transaction payload from OpenSea.",
+  );
+  return;
+}
+
     // ---------- END FIX ----------
 
     const chainId = chain === "base" ? 8453 : 1;
