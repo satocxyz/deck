@@ -200,71 +200,76 @@ function App() {
         )}
 
         {showGrid && (
-          <div className="grid grid-cols-2 gap-3 pb-10">
-            {nfts.map((nft) => (
-              <button
-                key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
-                type="button"
-                onClick={() => {
-                  console.log("NFT object:", nft);
-                  setSelectedNft(nft);
-                }}
+        <div className="grid grid-cols-2 gap-3 pb-10">
+          {nfts.map((nft) => (
+            <button
+              key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+              type="button"
+              onClick={() => {
+                console.log("NFT object:", nft);
+                setSelectedNft(nft);
+              }}
+              className="
+                group flex flex-col overflow-hidden rounded-2xl 
+                bg-white border border-neutral-200 
+                shadow-sm hover:shadow-md 
+                transition-all duration-200
+                hover:-translate-y-[1px]
+                p-2
+              "
+            >
+              {/* INNER IMAGE CONTAINER */}
+              <div
                 className="
-                  group flex flex-col overflow-hidden rounded-2xl 
-                  bg-white border border-neutral-200 
-                  shadow-sm hover:shadow-md 
-                  transition-all duration-200
-                  hover:-translate-y-[1px]
+                  relative w-full pb-[100%]
+                  rounded-xl overflow-hidden 
+                  bg-neutral-100 
+                  shadow-xs
                 "
               >
-                {/* Image area */}
-                <div className="relative w-full pb-[100%] bg-neutral-100">
-                  {nft.image_url ? (
-                    <img
-                      src={nft.image_url}
-                      alt={nft.name || `NFT #${nft.identifier}`}
-                      className="
-                        absolute inset-0 h-full w-full object-cover 
-                        rounded-t-2xl
-                        transition-transform duration-200 group-hover:scale-[1.03]
-                      "
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
-                      No image
-                    </div>
-                  )}
-
-                  {/* Token ID badge (replacing countdown pill) */}
-                  <div
+                {nft.image_url ? (
+                  <img
+                    src={nft.image_url}
+                    alt={nft.name || `NFT #${nft.identifier}`}
                     className="
-                      absolute right-2 top-2 rounded-full 
-                      bg-black/70 px-2 py-0.5 
-                      text-[9px] font-medium text-white
-                      backdrop-blur-sm
+                      absolute inset-0 h-full w-full object-cover
+                      transition-transform duration-200 group-hover:scale-[1.03]
                     "
-                  >
-                    #{nft.identifier}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
+                    No image
                   </div>
+                )}
+
+                {/* TOKEN ID BADGE */}
+                <div
+                  className="
+                    absolute right-2 top-2 rounded-full 
+                    bg-black/70 px-2 py-0.5 
+                    text-[9px] font-medium text-white
+                    backdrop-blur-sm
+                  "
+                >
+                  #{nft.identifier}
+                </div>
+              </div>
+
+              {/* TEXT AREA */}
+              <div className="px-0.5 pt-2 pb-1.5 space-y-0.5">
+                <div className="truncate text-[12px] font-semibold text-neutral-900">
+                  {nft.name || `NFT #${nft.identifier}`}
                 </div>
 
-                {/* Text content */}
-                <div className="px-3 py-2.5 space-y-0.5">
-                  {/* NFT name */}
-                  <div className="truncate text-[12px] font-semibold text-neutral-900">
-                    {nft.name || `NFT #${nft.identifier}`}
-                  </div>
-
-                  {/* Collection name */}
-                  <div className="truncate text-[11px] text-neutral-500">
-                    {getCollectionLabel(nft)}
-                  </div>
+                <div className="truncate text-[11px] text-neutral-500">
+                  {getCollectionLabel(nft)}
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
 
 
