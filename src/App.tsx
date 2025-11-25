@@ -181,8 +181,9 @@ function App() {
       }}
     >
       <header className="mb-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        {/* Row 1: Title + profile */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
               Deck
             </h1>
@@ -191,7 +192,15 @@ function App() {
             </p>
           </div>
 
-          {/* Powered by OpenSea badge */}
+          {/* Farcaster profile / wallet pill */}
+          <div className="w-[55%] max-w-[240px]">
+            <ConnectMenu user={fcUser} />
+          </div>
+        </div>
+
+        {/* Row 2: Powered by OpenSea + chain selector */}
+        <div className="flex items-center gap-2">
+          {/* Powered by OpenSea badge (left) */}
           <div
             className="
               inline-flex items-center gap-1 rounded-full 
@@ -203,15 +212,12 @@ function App() {
             <span className="text-[11px]">🌊</span>
             <span>Powered by OpenSea</span>
           </div>
-        </div>
 
-        {/* Wallet + chain row */}
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <ConnectMenu user={fcUser} />
-          </div>
-          <div className="w-[40%] min-w-[130px]">
-            <ChainSelector chain={chain} onChange={setChain} />
+          {/* Chain selector (right, aligned with badge) */}
+          <div className="flex-1 flex justify-end">
+            <div className="w-[40%] min-w-[130px]">
+              <ChainSelector chain={chain} onChange={setChain} />
+            </div>
           </div>
         </div>
       </header>
