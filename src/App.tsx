@@ -348,26 +348,26 @@ if (isConnected) {
   return (
     <div
       className="
-        flex items-center gap-2
-        rounded-2xl bg-white
-        px-3 py-2.5 text-[11px] shadow-sm
+        flex items-center justify-end gap-2
+        rounded-2xl bg-transparent
+        px-1 py-2
       "
     >
-      {/* Text block – right aligned */}
+      {/* Text block – fully right aligned */}
       <div className="flex min-w-0 flex-col items-end text-right">
         <span className="truncate text-[12px] font-semibold text-neutral-900 leading-tight">
           {displayName}
         </span>
 
         <span className="flex items-center gap-1 text-[10px] text-neutral-500 leading-tight">
-          <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
-          <span className="max-w-[120px] truncate">
+          <span className="inline-block h-[9px] w-[9px] rounded-[3px] border border-neutral-400/70" />
+          <span className="max-w-[130px] truncate">
             {shortenAddress(address)}
           </span>
         </span>
       </div>
 
-      {/* Avatar */}
+      {/* Avatar on the far right */}
       <div className="relative h-8 w-8 flex-shrink-0">
         <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
         <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
@@ -387,6 +387,7 @@ if (isConnected) {
     </div>
   );
 }
+
 
 
   const connector = connectors[0];
