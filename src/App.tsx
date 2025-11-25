@@ -98,12 +98,18 @@ const seaportMatchAdvancedOrdersAbi = [
   },
 ] as const;
 
-
 type SafeArea = {
   top: number;
   bottom: number;
   left: number;
   right: number;
+};
+
+type MiniAppUser = {
+  fid: number;
+  username?: string;
+  displayName?: string;
+  pfpUrl?: string;
 };
 
 function App() {
@@ -121,6 +127,7 @@ function App() {
     right: 0,
   });
   const [selectedNft, setSelectedNft] = useState<OpenSeaNft | null>(null);
+  const [fcUser, setFcUser] = useState<MiniAppUser | null>(null);
 
   // Persist chain selection
   useEffect(() => {
@@ -132,8 +139,18 @@ function App() {
     (async () => {
       try {
         const context = await sdk.context;
+
         if (context?.client?.safeAreaInsets) {
           setSafeArea(context.client.safeAreaInsets);
+        }
+
+        if (context?.user) {
+          setFcUser({
+            fid: context.user.fid,
+            username: context.user.username,
+            displayName: context.user.displayName,
+            pfpUrl: context.user.pfpUrl,
+          });
         }
 
         await sdk.actions.ready();
@@ -152,19 +169,17 @@ function App() {
   const showEmpty =
     isConnected && !loading && !error && nfts.length === 0;
 
-
   return (
-      <div
-        className="min-h-screen bg-neutral-50 text-neutral-900"
-        style={{
-          paddingTop: 16 + safeArea.top,
-          paddingBottom: 16 + safeArea.bottom,
-          paddingLeft: 16 + safeArea.left,
-          paddingRight: 16 + safeArea.right,
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-        }}
-      >
-
+    <div
+      className="min-h-screen bg-neutral-50 text-neutral-900"
+      style={{
+        paddingTop: 16 + safeArea.top,
+        paddingBottom: 16 + safeArea.bottom,
+        paddingLeft: 16 + safeArea.left,
+        paddingRight: 16 + safeArea.right,
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
       <header className="mb-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -193,7 +208,7 @@ function App() {
         {/* Wallet + chain row */}
         <div className="flex gap-2">
           <div className="flex-1">
-            <ConnectMenu />
+            <ConnectMenu user={fcUser} />
           </div>
           <div className="w-[40%] min-w-[130px]">
             <ChainSelector chain={chain} onChange={setChain} />
@@ -223,81 +238,77 @@ function App() {
         )}
 
         {showGrid && (
-        <div className="grid grid-cols-2 gap-3 pb-10">
-          {nfts.map((nft) => (
-            <button
-              key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
-              type="button"
-              onClick={() => {
-                console.log("NFT object:", nft);
-                setSelectedNft(nft);
-              }}
-              className="
-                group flex flex-col overflow-hidden rounded-2xl
-                bg-white/95 border border-neutral-200
-                shadow-sm transition-all duration-200
-                hover:-translate-y-[2px] hover:shadow-lg hover:border-purple-400/40
-                active:translate-y-0 active:shadow-sm
-                focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
-                p-2
-              "
-            >
-              {/* Inner image container */}
-              <div
+          <div className="grid grid-cols-2 gap-3 pb-10">
+            {nfts.map((nft) => (
+              <button
+                key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+                type="button"
+                onClick={() => {
+                  console.log("NFT object:", nft);
+                  setSelectedNft(nft);
+                }}
                 className="
-                  relative w-full pb-[100%]
-                  rounded-xl overflow-hidden
-                  bg-gradient-to-br from-neutral-100 to-neutral-200
+                  group flex flex-col overflow-hidden rounded-2xl
+                  bg-white/95 border border-neutral-200
+                  shadow-sm transition-all duration-200
+                  hover:-translate-y-[2px] hover:shadow-lg hover:border-purple-400/40
+                  active:translate-y-0 active:shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
+                  p-2
                 "
               >
-                {nft.image_url ? (
-                  <img
-                    src={nft.image_url}
-                    alt={nft.name || `NFT #${nft.identifier}`}
-                    className="
-                      absolute inset-0 h-full w-full object-cover
-                      transition-transform duration-200
-                      group-hover:scale-[1.03]
-                    "
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
-                    No image
-                  </div>
-                )}
-
-                {/* Token ID badge (top-right) */}
+                {/* Inner image container */}
                 <div
                   className="
-                    absolute right-2 top-2 rounded-full
-                    bg-black/70 px-2 py-0.5
-                    text-[9px] font-medium text-white
-                    backdrop-blur-sm
+                    relative w-full pb-[100%]
+                    rounded-xl overflow-hidden
+                    bg-gradient-to-br from-neutral-100 to-neutral-200
                   "
                 >
-                  #{nft.identifier}
+                  {nft.image_url ? (
+                    <img
+                      src={nft.image_url}
+                      alt={nft.name || `NFT #${nft.identifier}`}
+                      className="
+                        absolute inset-0 h-full w-full object-cover
+                        transition-transform duration-200
+                        group-hover:scale-[1.03]
+                      "
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
+                      No image
+                    </div>
+                  )}
+
+                  {/* Token ID badge (top-right) */}
+                  <div
+                    className="
+                      absolute right-2 top-2 rounded-full
+                      bg-black/70 px-2 py-0.5
+                      text-[9px] font-medium text-white
+                      backdrop-blur-sm
+                    "
+                  >
+                    #{nft.identifier}
+                  </div>
                 </div>
-              </div>
 
-              {/* Text area */}
-              <div className="px-0.5 pt-2 pb-1.5 space-y-0.5 text-left">
-                <div className="truncate text-[12px] font-semibold text-neutral-900">
-                  {nft.name || `NFT #${nft.identifier}`}
+                {/* Text area */}
+                <div className="px-0.5 pt-2 pb-1.5 space-y-0.5 text-left">
+                  <div className="truncate text-[12px] font-semibold text-neutral-900">
+                    {nft.name || `NFT #${nft.identifier}`}
+                  </div>
+
+                  <div className="truncate text-[11px] text-neutral-500">
+                    {getCollectionLabel(nft)}
+                  </div>
                 </div>
-
-                <div className="truncate text-[11px] text-neutral-500">
-                  {getCollectionLabel(nft)}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-
-
-
+              </button>
+            ))}
+          </div>
+        )}
       </main>
 
       <NftDetailModal
@@ -310,31 +321,61 @@ function App() {
 }
 
 /**
- * Wallet connect pill / button
+ * Helpers for header / wallet
  */
-function ConnectMenu() {
+function shortenAddress(addr?: string | null) {
+  if (!addr) return "";
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+/**
+ * Wallet connect pill / button with Farcaster user
+ */
+function ConnectMenu({ user }: { user: MiniAppUser | null }) {
   const { isConnected, address } = useAccount();
   const { connect, connectors, isPending } = useConnect();
+
+  const displayName =
+    user?.displayName || user?.username || "Farcaster user";
 
   if (isConnected) {
     return (
       <div
         className="
-          flex items-center justify-between gap-2 
-          rounded-2xl border border-neutral-200 bg-white 
+          flex items-center gap-3
+          rounded-2xl border border-neutral-200 bg-white
           px-3 py-2.5 text-[11px] shadow-sm
         "
       >
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-emerald-400" />
-          <div className="flex flex-col">
-            <span className="font-medium text-neutral-900">
-              Wallet connected
-            </span>
-            <span className="max-w-[160px] truncate text-[10px] text-neutral-500">
-              {address}
-            </span>
+        {/* Avatar with ring */}
+        <div className="relative h-8 w-8">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
+          <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
+            {user?.pfpUrl ? (
+              <img
+                src={user.pfpUrl}
+                alt={displayName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
+                ?
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Name + wallet */}
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-[12px] font-semibold text-neutral-900">
+            {displayName}
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-neutral-500">
+            <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
+            <span className="max-w-[150px] truncate">
+              {shortenAddress(address)}
+            </span>
+          </span>
         </div>
       </div>
     );
@@ -348,11 +389,11 @@ function ConnectMenu() {
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
       className="
-        w-full rounded-2xl 
-        bg-neutral-900 text-white 
-        px-4 py-3 text-sm font-semibold 
+        w-full rounded-2xl
+        bg-neutral-900 text-white
+        px-4 py-3 text-sm font-semibold
         shadow-sm transition-all duration-150
-        hover:bg-neutral-800 
+        hover:bg-neutral-800
         disabled:cursor-not-allowed disabled:opacity-60
       "
     >
@@ -360,7 +401,6 @@ function ConnectMenu() {
     </button>
   );
 }
-
 
 /**
  * Chain selector: Base / Ethereum
@@ -412,12 +452,12 @@ function NftSkeletonGrid() {
       {placeholders.map((_, idx) => (
         <div
           key={idx}
-          className="animate-pulse overflow-hidden rounded-2xl border border-neutral-900 bg-neutral-900/60"
+          className="animate-pulse overflow-hidden rounded-2xl border border-neutral-200 bg-white/90"
         >
-          <div className="w-full pb-[100%] bg-neutral-800/60" />
+          <div className="w-full pb-[100%] bg-neutral-200/70" />
           <div className="space-y-1 px-2 py-2">
-            <div className="h-3 w-4/5 rounded bg-neutral-800" />
-            <div className="h-2.5 w-3/5 rounded bg-neutral-800/80" />
+            <div className="h-3 w-4/5 rounded bg-neutral-200" />
+            <div className="h-2.5 w-3/5 rounded bg-neutral-200/80" />
           </div>
         </div>
       ))}
@@ -972,137 +1012,131 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-  setSubmitting(true);
-  setError(null);
-  setInfo(null);
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
 
-  // 🔥 Declare once here so TS knows it will be used later
-  let dataToSend: `0x${string}` | undefined;
+    let dataToSend: `0x${string}` | undefined;
 
-  try {
-    if (!address || !walletClient) {
-      setError("Wallet is not connected.");
-      return;
+    try {
+      if (!address || !walletClient) {
+        setError("Wallet is not connected.");
+        return;
+      }
+
+      const res = await fetch("/api/opensea/fulfillment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          orderHash,
+          contractAddress,
+          tokenId,
+          protocolAddress,
+          takerAddress: address,
+          offer: {
+            priceEth: offer.priceEth,
+            priceFormatted: offer.priceFormatted,
+            expirationTime: offer.expirationTime,
+          },
+        }),
+      });
+
+      const json = await res.json();
+      console.log("Fulfillment response", json);
+
+      if (!res.ok || !json.ok) {
+        setError(json.message || "Backend rejected fulfillment request.");
+        return;
+      }
+
+      if (!json.safeToFill) {
+        setInfo(
+          json.message ||
+            "Accepting offers is not enabled yet. No transaction was created.",
+        );
+        return;
+      }
+
+      const tx = json.tx;
+
+      if (!tx || !tx.to) {
+        setError("Backend did not return a transaction to send.");
+        return;
+      }
+
+      if (tx.data) {
+        dataToSend = tx.data as `0x${string}`;
+      } else if (
+        tx.functionName?.startsWith("matchAdvancedOrders") &&
+        tx.inputData &&
+        Array.isArray(tx.inputData.orders)
+      ) {
+        const { orders, criteriaResolvers, fulfillments, recipient } =
+          tx.inputData;
+
+        if (
+          recipient &&
+          address &&
+          recipient.toLowerCase() !== address.toLowerCase()
+        ) {
+          console.error("Recipient from backend does not match current address", {
+            recipient,
+            address,
+          });
+          setError("Recipient mismatch between wallet and fulfillment data.");
+          return;
+        }
+
+        const recipientHex = recipient as `0x${string}`;
+
+        dataToSend = encodeFunctionData({
+          abi: seaportMatchAdvancedOrdersAbi,
+          functionName: "matchAdvancedOrders",
+          args: [orders, criteriaResolvers, fulfillments, recipientHex],
+        }) as `0x${string}`;
+      } else {
+        console.error("Unexpected tx payload from backend:", tx);
+        setError(
+          "Backend did not return a usable transaction payload from OpenSea.",
+        );
+        return;
+      }
+
+      const chainId = chain === "base" ? 8453 : 1;
+      const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: {
+          id: chainId,
+          name: "",
+          nativeCurrency: undefined,
+          rpcUrls: {},
+        } as any,
+        to: tx.to as `0x${string}`,
+        data: dataToSend,
+        value: valueBigInt,
+      });
+
+      setInfo(`Transaction submitted: ${txHash}`);
+      onClose();
+    } catch (err) {
+      console.error("Error while sending transaction", err);
+      setError("Failed to send transaction. Check console for details.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const res = await fetch("/api/opensea/fulfillment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chain,
-        orderHash,
-        contractAddress,
-        tokenId,
-        protocolAddress,
-        takerAddress: address,
-        offer: {
-          priceEth: offer.priceEth,
-          priceFormatted: offer.priceFormatted,
-          expirationTime: offer.expirationTime,
-        },
-      }),
-    });
-
-    const json = await res.json();
-    console.log("Fulfillment response", json);
-
-    if (!res.ok || !json.ok) {
-      setError(json.message || "Backend rejected fulfillment request.");
-      return;
-    }
-
-    if (!json.safeToFill) {
-      setInfo(
-        json.message ||
-          "Accepting offers is not enabled yet. No transaction was created.",
-      );
-      return;
-    }
-
-    const tx = json.tx;
-
-    if (!tx || !tx.to) {
-      setError("Backend did not return a transaction to send.");
-      return;
-    }
-
-    // ---------- FIX IS APPLIED HERE ----------
-    if (tx.data) {
-      dataToSend = tx.data as `0x${string}`;
-} else if (
-  tx.functionName?.startsWith("matchAdvancedOrders") && // <--- changed
-  tx.inputData &&
-  Array.isArray(tx.inputData.orders)
-) {
-  const { orders, criteriaResolvers, fulfillments, recipient } = tx.inputData;
-
-  // Optional extra safety: make sure recipient is *your* address
-  if (
-    recipient &&
-    address &&
-    recipient.toLowerCase() !== address.toLowerCase()
-  ) {
-    console.error("Recipient from backend does not match current address", {
-      recipient,
-      address,
-    });
-    setError("Recipient mismatch between wallet and fulfillment data.");
-    return;
   }
-
-  const recipientHex = recipient as `0x${string}`;
-
-  dataToSend = encodeFunctionData({
-    abi: seaportMatchAdvancedOrdersAbi,
-    functionName: "matchAdvancedOrders", // just the name here
-    args: [orders, criteriaResolvers, fulfillments, recipientHex],
-  }) as `0x${string}`;
-} else {
-  console.error("Unexpected tx payload from backend:", tx);
-  setError(
-    "Backend did not return a usable transaction payload from OpenSea.",
-  );
-  return;
-}
-
-    // ---------- END FIX ----------
-
-    const chainId = chain === "base" ? 8453 : 1;
-    const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
-
-    const txHash = await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: {
-        id: chainId,
-        name: "",
-        nativeCurrency: undefined,
-        rpcUrls: {},
-      } as any,
-      to: tx.to as `0x${string}`,
-      data: dataToSend, // <--- NOW USED SAFELY
-      value: valueBigInt,
-    });
-
-    setInfo(`Transaction submitted: ${txHash}`);
-    onClose();
-  } catch (err) {
-    console.error("Error while sending transaction", err);
-    setError("Failed to send transaction. Check console for details.");
-  } finally {
-    setSubmitting(false);
-  }
-}
-
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
-
-      <button className="absolute inset-0 w-full h-full" onClick={onClose} />
+      <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-800 bg-neutral-950 px-5 py-4">
-        <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-3" />
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700" />
 
-        <h2 className="text-sm font-semibold text-neutral-50 text-center">
+        <h2 className="text-center text-sm font-semibold text-neutral-50">
           Accept Best Offer
         </h2>
 
@@ -1121,7 +1155,7 @@ function SellConfirmSheet({
             </span>
           </div>
 
-          <div className="flex justify-between pt-1 border-t border-neutral-800">
+          <div className="flex justify-between border-t border-neutral-800 pt-1">
             <span className="text-neutral-300">You will receive</span>
             <span className="font-semibold text-emerald-300">
               {payoutFormatted} WETH
@@ -1134,19 +1168,19 @@ function SellConfirmSheet({
           </div>
 
           {error && (
-            <div className="mt-2 text-[11px] text-red-400 leading-tight">
+            <div className="mt-2 leading-tight text-[11px] text-red-400">
               {error}
             </div>
           )}
 
           {info && !error && (
-            <div className="mt-2 text-[11px] text-amber-300 leading-tight">
+            <div className="mt-2 leading-tight text-[11px] text-amber-300">
               {info}
             </div>
           )}
 
           {!info && !error && (
-            <div className="mt-2 text-[11px] text-neutral-500 leading-tight">
+            <div className="mt-2 leading-tight text-[11px] text-neutral-500">
               For your safety, the transaction will only proceed if the
               on-chain offer amount exactly matches the value shown here.
             </div>
@@ -1154,7 +1188,7 @@ function SellConfirmSheet({
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
           disabled={submitting}
           onClick={handleConfirm}
         >
