@@ -180,54 +180,50 @@ function App() {
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      <header className="mb-4 space-y-3">
-        {/* Row 1: Title + profile */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <img
-                src="/deck-logo.png"
-                alt="Deck"
-                className="h-6 w-auto"
-              />
-              <span className="text-xl font-semibold tracking-tight text-neutral-900">
-                Deck
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-500">
-              Sell your NFTs directly inside Farcaster.
-            </p>
-          </div>
+    <header className="mb-4 space-y-3">
+      {/* Row 1: Logo + profile */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 flex flex-col items-start">
+          {/* Big Deck logo only */}
+          <img
+            src="/deck-logo.png"
+            alt="Deck"
+            className="h-12 w-auto mb-1"
+          />
 
-          {/* Farcaster profile / wallet pill */}
-          <div className="w-[55%] max-w-[240px]">
-            <ConnectMenu user={fcUser} />
-          </div>
+          <p className="text-[11px] text-neutral-500 leading-tight">
+            Sell your NFTs directly inside Farcaster.
+          </p>
         </div>
 
-        {/* Row 2: Powered by OpenSea + chain selector */}
-        <div className="flex items-center gap-2">
-          {/* Powered by OpenSea badge (left) */}
-          <div
-            className="
-              inline-flex items-center gap-1 rounded-full 
-              bg-neutral-900 px-3 py-1
-              text-[10px] font-medium text-white
-              shadow-sm
-            "
-          >
-            <span className="text-[11px]">🌊</span>
-            <span>Powered by OpenSea</span>
-          </div>
+        {/* Farcaster profile pill */}
+        <div className="w-[55%] max-w-[240px]">
+          <ConnectMenu user={fcUser} />
+        </div>
+      </div>
 
-          {/* Chain selector (right, aligned with badge) */}
-          <div className="flex flex-1 justify-end">
-            <div className="w-[40%] min-w-[130px]">
-              <ChainSelector chain={chain} onChange={setChain} />
-            </div>
+      {/* Row 2: Powered by OpenSea + chain selector */}
+      <div className="flex items-center gap-2">
+        <div
+          className="
+            inline-flex items-center gap-1 rounded-full 
+            bg-neutral-900 px-3 py-1
+            text-[10px] font-medium text-white
+            shadow-sm
+          "
+        >
+          <span className="text-[11px]">🌊</span>
+          <span>Powered by OpenSea</span>
+        </div>
+
+        <div className="flex-1 flex justify-end">
+          <div className="w-[40%] min-w-[130px]">
+            <ChainSelector chain={chain} onChange={setChain} />
           </div>
         </div>
-      </header>
+      </div>
+    </header>
+
 
       <main className="mt-4">
         {!isConnected && (
