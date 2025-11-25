@@ -932,108 +932,113 @@ function SellConfirmSheet({
   }
 
   async function handleConfirm() {
-    setSubmitting(true);
-    setError(null);
-    setInfo(null);
+  setSubmitting(true);
+  setError(null);
+  setInfo(null);
 
-    try {
-      if (!address || !walletClient) {
-        setError("Wallet is not connected.");
-        return;
-      }
+  // 🔥 Declare once here so TS knows it will be used later
+  let dataToSend: `0x${string}` | undefined;
 
-      const res = await fetch("/api/opensea/fulfillment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chain,
-          orderHash,
-          contractAddress,
-          tokenId,
-          protocolAddress,
-          takerAddress: address,
-          // offer is only for echo/debug on backend – OpenSea call ignores it
-          offer: {
-            priceEth: offer.priceEth,
-            priceFormatted: offer.priceFormatted,
-            expirationTime: offer.expirationTime,
-          },
-        }),
-      });
-
-      const json = await res.json();
-      console.log("Fulfillment response", json);
-
-      if (!res.ok || !json.ok) {
-        setError(json.message || "Backend rejected fulfillment request.");
-        return;
-      }
-
-      if (!json.safeToFill) {
-        setInfo(
-          json.message ||
-            "Accepting offers is not enabled yet. No transaction was created.",
-        );
-        return;
-      }
-
-      const tx = json.tx as
-        | {
-            to: string;
-            value?: string | null;
-            data?: string;
-            functionName?: string;
-            inputData?: {
-              orders: any[];
-              criteriaResolvers: any[];
-              fulfillments: any[];
-              recipient: string;
-            };
-          }
-        | undefined;
-
-      if (!tx || !tx.to) {
-        setError("Backend did not return a transaction to send.");
-        return;
-      }
-
-      let dataToSend: `0x${string}` | undefined;
-
-      if (tx.data) {
-        // future-proof: if backend ever sends raw calldata, just use it
-        dataToSend = tx.data as `0x${string}`;
-      } else if (
-        tx.functionName === "matchAdvancedOrders" &&
-        tx.inputData &&
-        Array.isArray(tx.inputData.orders)
-      ) {
-        const { orders, criteriaResolvers, fulfillments, recipient } = tx.inputData;
-
-        // Fix: cast to proper hex address type
-        const recipientHex = recipient as `0x${string}`;
-
-        dataToSend = encodeFunctionData({
-          abi: seaportMatchAdvancedOrdersAbi,
-          functionName: "matchAdvancedOrders",
-          args: [orders, criteriaResolvers, fulfillments, recipientHex],
-        }) as `0x${string}`;
-      } else {
-        console.error("Unexpected tx payload from backend:", tx);
-        setError(
-          "Backend did not return a usable transaction payload from OpenSea.",
-        );
-        return;
-      }
-
-    } catch (err) {
-      console.error("Error while sending transaction", err);
-      setError("Failed to send transaction. Check console for details.");
-    } finally {
-      setSubmitting(false);
+  try {
+    if (!address || !walletClient) {
+      setError("Wallet is not connected.");
+      return;
     }
+
+    const res = await fetch("/api/opensea/fulfillment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chain,
+        orderHash,
+        contractAddress,
+        tokenId,
+        protocolAddress,
+        takerAddress: address,
+        offer: {
+          priceEth: offer.priceEth,
+          priceFormatted: offer.priceFormatted,
+          expirationTime: offer.expirationTime,
+        },
+      }),
+    });
+
+    const json = await res.json();
+    console.log("Fulfillment response", json);
+
+    if (!res.ok || !json.ok) {
+      setError(json.message || "Backend rejected fulfillment request.");
+      return;
+    }
+
+    if (!json.safeToFill) {
+      setInfo(
+        json.message ||
+          "Accepting offers is not enabled yet. No transaction was created.",
+      );
+      return;
+    }
+
+    const tx = json.tx;
+
+    if (!tx || !tx.to) {
+      setError("Backend did not return a transaction to send.");
+      return;
+    }
+
+    // ---------- FIX IS APPLIED HERE ----------
+    if (tx.data) {
+      dataToSend = tx.data as `0x${string}`;
+    } else if (
+      tx.functionName === "matchAdvancedOrders" &&
+      tx.inputData &&
+      Array.isArray(tx.inputData.orders)
+    ) {
+      const { orders, criteriaResolvers, fulfillments, recipient } =
+        tx.inputData;
+
+      const recipientHex = recipient as `0x${string}`;
+
+      dataToSend = encodeFunctionData({
+        abi: seaportMatchAdvancedOrdersAbi,
+        functionName: "matchAdvancedOrders",
+        args: [orders, criteriaResolvers, fulfillments, recipientHex],
+      }) as `0x${string}`;
+    } else {
+      console.error("Unexpected tx payload from backend:", tx);
+      setError(
+        "Backend did not return a usable transaction payload from OpenSea.",
+      );
+      return;
+    }
+    // ---------- END FIX ----------
+
+    const chainId = chain === "base" ? 8453 : 1;
+    const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
+
+    const txHash = await walletClient.sendTransaction({
+      account: address as `0x${string}`,
+      chain: {
+        id: chainId,
+        name: "",
+        nativeCurrency: undefined,
+        rpcUrls: {},
+      } as any,
+      to: tx.to as `0x${string}`,
+      data: dataToSend, // <--- NOW USED SAFELY
+      value: valueBigInt,
+    });
+
+    setInfo(`Transaction submitted: ${txHash}`);
+    onClose();
+  } catch (err) {
+    console.error("Error while sending transaction", err);
+    setError("Failed to send transaction. Check console for details.");
+  } finally {
+    setSubmitting(false);
   }
+}
+
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm">
