@@ -146,40 +146,12 @@ function App() {
   const { isConnected } = useAccount();
   const { data, loading, error } = useMyNfts(chain);
 
-  // Group NFTs by collection for nicer UX
-  const grouped = useMemo(() => {
-    const groups: {
-      key: string;
-      label: string;
-      nfts: OpenSeaNft[];
-    }[] = [];
+  const nfts = useMemo(() => data?.nfts ?? [], [data]);
 
-    if (!data?.nfts) return groups;
-
-    const map = new Map<string, { label: string; nfts: OpenSeaNft[] }>();
-
-    for (const nft of data.nfts) {
-      const slug = getCollectionSlug(nft) || "unknown";
-      const label = getCollectionLabel(nft);
-
-      if (!map.has(slug)) {
-        map.set(slug, { label, nfts: [] });
-      }
-      map.get(slug)!.nfts.push(nft);
-    }
-
-    for (const [key, value] of map.entries()) {
-      groups.push({ key, label: value.label, nfts: value.nfts });
-    }
-
-    groups.sort((a, b) => a.label.localeCompare(b.label));
-
-    return groups;
-  }, [data]);
-
-  const showGrid = isConnected && !loading && !error && grouped.length > 0;
+  const showGrid = isConnected && !loading && !error && nfts.length > 0;
   const showEmpty =
-    isConnected && !loading && !error && grouped.length === 0;
+    isConnected && !loading && !error && nfts.length === 0;
+
 
   return (
     <div
@@ -227,58 +199,49 @@ function App() {
         )}
 
         {showGrid && (
-          <div className="space-y-4 pb-10">
-            {grouped.map((group) => (
-              <section key={group.key} className="space-y-2">
-                <div className="flex items-center justify-between px-0.5">
-                  <h2 className="text-xs font-medium text-neutral-200">
-                    {group.label}
-                  </h2>
-                  <span className="text-[10px] text-neutral-500">
-                    {group.nfts.length} item
-                    {group.nfts.length > 1 ? "s" : ""}
-                  </span>
+          <div className="grid grid-cols-2 gap-3 pb-10">
+            {nfts.map((nft) => (
+              <button
+                key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+                type="button"
+                onClick={() => {
+                  console.log("NFT object:", nft);
+                  setSelectedNft(nft);
+                }}
+                className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/80 text-left shadow-sm transition hover:border-purple-500/60 hover:bg-neutral-900"
+              >
+                {/* Collection name on top of each NFT */}
+                <div className="px-2 pt-2">
+                  <div className="truncate text-[10px] text-neutral-500">
+                    {getCollectionLabel(nft)}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {group.nfts.map((nft) => (
-                    <button
-                      key={`${group.key}-${nft.identifier}`}
-                      type="button"
-                      onClick={() => {
-                        console.log("NFT object:", nft);
-                        setSelectedNft(nft);
-                      }}
-                      className="group overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/80 text-left shadow-sm transition hover:border-purple-500/60 hover:bg-neutral-900"
-                    >
-                      <div className="relative w-full pb-[100%] bg-neutral-950">
-                        {nft.image_url ? (
-                          <img
-                            src={nft.image_url}
-                            alt={nft.name || `NFT #${nft.identifier}`}
-                            className="absolute inset-0 h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
-                            No image
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-0.5 px-2 py-1.5">
-                        <div className="truncate text-[12px] font-medium text-neutral-50">
-                          {nft.name || `#${nft.identifier}`}
-                        </div>
-                        <div className="truncate text-[10px] text-neutral-500">
-                          {getCollectionLabel(nft)}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+
+                <div className="relative mt-1 w-full pb-[100%] bg-neutral-950">
+                  {nft.image_url ? (
+                    <img
+                      src={nft.image_url}
+                      alt={nft.name || `NFT #${nft.identifier}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
+                      No image
+                    </div>
+                  )}
                 </div>
-              </section>
+
+                <div className="space-y-0.5 px-2 py-1.5">
+                  <div className="truncate text-[12px] font-medium text-neutral-50">
+                    {nft.name || `#${nft.identifier}`}
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
         )}
+
       </main>
 
       <NftDetailModal
