@@ -348,13 +348,26 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
     return (
       <div
         className="
-          flex items-center gap-3
-          rounded-2xl border border-neutral-200 bg-white
+          flex items-center justify-between
+          rounded-2xl bg-white
           px-3 py-2.5 text-[11px] shadow-sm
         "
       >
-        {/* Avatar with ring */}
-        <div className="relative h-8 w-8">
+        {/* Text block – right aligned */}
+        <div className="flex min-w-0 flex-col items-end text-right mr-2">
+          <span className="truncate text-[12px] font-semibold text-neutral-900">
+            {displayName}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1 text-[10px] text-neutral-500">
+            <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
+            <span className="max-w-[140px] truncate">
+              {shortenAddress(address)}
+            </span>
+          </span>
+        </div>
+
+        {/* Avatar on the right with ring */}
+        <div className="relative h-8 w-8 flex-shrink-0">
           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
           <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
             {user?.pfpUrl ? (
@@ -370,19 +383,6 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
             )}
           </div>
         </div>
-
-        {/* Name + wallet */}
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-[12px] font-semibold text-neutral-900">
-            {displayName}
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-neutral-500">
-            <span className="inline-block h-[10px] w-[10px] rounded-[3px] border border-neutral-400/70" />
-            <span className="max-w-[150px] truncate">
-              {shortenAddress(address)}
-            </span>
-          </span>
-        </div>
       </div>
     );
   }
@@ -395,11 +395,11 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
       className="
-        w-full rounded-2xl
-        bg-neutral-900 text-white
-        px-4 py-3 text-sm font-semibold
+        w-full rounded-2xl 
+        bg-neutral-900 text-white 
+        px-4 py-3 text-sm font-semibold 
         shadow-sm transition-all duration-150
-        hover:bg-neutral-800
+        hover:bg-neutral-800 
         disabled:cursor-not-allowed disabled:opacity-60
       "
     >
@@ -407,6 +407,7 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
     </button>
   );
 }
+
 
 /**
  * Chain selector: Base / Ethereum
