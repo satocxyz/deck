@@ -165,18 +165,41 @@ function App() {
         }}
       >
 
-      <header className="mb-3 flex items-baseline justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Deck</h1>
-          <p className="text-[11px] text-neutral-400">
-            NFTs from your Farcaster wallet
-          </p>
+      <header className="mb-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+              Deck
+            </h1>
+            <p className="text-[11px] text-neutral-500">
+              Sell NFTs from your Farcaster wallet
+            </p>
+          </div>
+
+          {/* Powered by OpenSea badge */}
+          <div
+            className="
+              inline-flex items-center gap-1 rounded-full 
+              bg-neutral-900 px-3 py-1
+              text-[10px] font-medium text-white
+              shadow-sm
+            "
+          >
+            <span className="text-[11px]">🌊</span>
+            <span>Powered by OpenSea</span>
+          </div>
+        </div>
+
+        {/* Wallet + chain row */}
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <ConnectMenu />
+          </div>
+          <div className="w-[40%] min-w-[130px]">
+            <ChainSelector chain={chain} onChange={setChain} />
+          </div>
         </div>
       </header>
-
-      <ConnectMenu />
-
-      <ChainSelector chain={chain} onChange={setChain} />
 
       <main className="mt-4">
         {!isConnected && (
@@ -295,11 +318,24 @@ function ConnectMenu() {
 
   if (isConnected) {
     return (
-      <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-[11px]">
-        <span className="text-neutral-200">Wallet connected</span>
-        <span className="max-w-[160px] truncate text-neutral-400">
-          {address}
-        </span>
+      <div
+        className="
+          flex items-center justify-between gap-2 
+          rounded-2xl border border-neutral-200 bg-white 
+          px-3 py-2.5 text-[11px] shadow-sm
+        "
+      >
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-emerald-400" />
+          <div className="flex flex-col">
+            <span className="font-medium text-neutral-900">
+              Wallet connected
+            </span>
+            <span className="max-w-[160px] truncate text-[10px] text-neutral-500">
+              {address}
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -311,12 +347,20 @@ function ConnectMenu() {
       type="button"
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
-      className="mt-2 w-full rounded-2xl border border-purple-500/60 bg-gradient-to-tr from-purple-600 via-indigo-500 to-slate-900 px-4 py-3 text-sm font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+      className="
+        w-full rounded-2xl 
+        bg-neutral-900 text-white 
+        px-4 py-3 text-sm font-semibold 
+        shadow-sm transition-all duration-150
+        hover:bg-neutral-800 
+        disabled:cursor-not-allowed disabled:opacity-60
+      "
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
     </button>
   );
 }
+
 
 /**
  * Chain selector: Base / Ethereum
@@ -334,7 +378,7 @@ function ChainSelector({
   ];
 
   return (
-    <div className="mt-2 flex gap-1 rounded-full border border-neutral-800 bg-neutral-900/80 p-1 text-[11px]">
+    <div className="mt-0 flex gap-1 rounded-full border border-neutral-200 bg-white p-1 text-[11px] shadow-sm">
       {options.map((opt) => {
         const active = opt.value === chain;
         return (
@@ -345,8 +389,8 @@ function ChainSelector({
             className={[
               "flex-1 rounded-full px-3 py-1 transition-colors",
               active
-                ? "bg-neutral-50 text-neutral-900 font-semibold"
-                : "text-neutral-300 hover:bg-neutral-800/70",
+                ? "bg-neutral-900 text-white font-semibold"
+                : "text-neutral-500 hover:bg-neutral-100",
             ].join(" ")}
           >
             {opt.label}
