@@ -168,6 +168,8 @@ function App() {
   const showGrid = isConnected && !loading && !error && nfts.length > 0;
   const showEmpty = isConnected && !loading && !error && nfts.length === 0;
 
+  const isDetailView = !!selectedNft;
+
   return (
     <div
       className="min-h-screen bg-neutral-50 text-neutral-900"
@@ -224,110 +226,116 @@ function App() {
         </div>
       </header>
 
-      {/* Soft fade separator between header and grid */}
+      {/* Soft fade separator between header and content */}
       <div className="pointer-events-none -mt-1 mb-2 h-[12px] bg-gradient-to-b from-neutral-100 to-transparent" />
 
       <main className="mt-4">
-        {!isConnected && (
-          <p className="text-[13px] text-neutral-400">
-            Connect your Farcaster wallet to see your NFTs.
-          </p>
-        )}
+        {!isDetailView && (
+          <>
+            {!isConnected && (
+              <p className="text-[13px] text-neutral-400">
+                Connect your Farcaster wallet to see your NFTs.
+              </p>
+            )}
 
-        {isConnected && loading && <NftSkeletonGrid />}
+            {isConnected && loading && <NftSkeletonGrid />}
 
-        {isConnected && !loading && error && (
-          <p className="text-[13px] text-red-400">
-            We couldn&apos;t load your NFTs. Try again in a moment.
-          </p>
-        )}
+            {isConnected && !loading && error && (
+              <p className="text-[13px] text-red-400">
+                We couldn&apos;t load your NFTs. Try again in a moment.
+              </p>
+            )}
 
-        {showEmpty && (
-          <p className="text-[13px] text-neutral-400">
-            You don&apos;t have any NFTs on {prettyChain(chain)} for this
-            wallet.
-          </p>
-        )}
+            {showEmpty && (
+              <p className="text-[13px] text-neutral-400">
+                You don&apos;t have any NFTs on {prettyChain(chain)} for this
+                wallet.
+              </p>
+            )}
 
-        {showGrid && (
-          <div className="grid grid-cols-2 gap-3 pb-10">
-            {nfts.map((nft) => (
-              <button
-                key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
-                type="button"
-                onClick={() => {
-                  console.log("NFT object:", nft);
-                  setSelectedNft(nft);
-                }}
-                className="
-                  group flex flex-col overflow-hidden rounded-2xl
-                  border border-neutral-200 bg-white/95
-                  shadow-sm transition-all duration-200
-                  hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg
-                  active:translate-y-0 active:shadow-sm
-                  focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
-                  p-2
-                "
-              >
-                {/* Inner image container */}
-                <div
-                  className="
-                    relative w-full pb-[100%]
-                    overflow-hidden rounded-xl
-                    bg-gradient-to-br from-neutral-100 to-neutral-200
-                  "
-                >
-                  {nft.image_url ? (
-                    <img
-                      src={nft.image_url}
-                      alt={nft.name || `NFT #${nft.identifier}`}
-                      className="
-                        absolute inset-0 h-full w-full object-cover
-                        transition-transform duration-200
-                        group-hover:scale-[1.03]
-                      "
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
-                      No image
-                    </div>
-                  )}
-
-                  {/* Token ID badge (top-right) */}
-                  <div
+            {showGrid && (
+              <div className="grid grid-cols-2 gap-3 pb-10">
+                {nfts.map((nft) => (
+                  <button
+                    key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+                    type="button"
+                    onClick={() => {
+                      console.log("NFT object:", nft);
+                      setSelectedNft(nft);
+                    }}
                     className="
-                      absolute right-2 top-2 rounded-full
-                      bg-black/70 px-2 py-0.5
-                      text-[9px] font-medium text-white
-                      backdrop-blur-sm
+                      group flex flex-col overflow-hidden rounded-2xl
+                      border border-neutral-200 bg-white/95
+                      shadow-sm transition-all duration-200
+                      hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg
+                      active:translate-y-0 active:shadow-sm
+                      focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
+                      p-2
                     "
                   >
-                    #{nft.identifier}
-                  </div>
-                </div>
+                    {/* Inner image container */}
+                    <div
+                      className="
+                        relative w-full pb-[100%]
+                        overflow-hidden rounded-xl
+                        bg-gradient-to-br from-neutral-100 to-neutral-200
+                      "
+                    >
+                      {nft.image_url ? (
+                        <img
+                          src={nft.image_url}
+                          alt={nft.name || `NFT #${nft.identifier}`}
+                          className="
+                            absolute inset-0 h-full w-full object-cover
+                            transition-transform duration-200
+                            group-hover:scale-[1.03]
+                          "
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-[11px] text-neutral-500">
+                          No image
+                        </div>
+                      )}
 
-                {/* Text area */}
-                <div className="space-y-0.5 px-0.5 pb-1.5 pt-2 text-left">
-                  <div className="truncate text-[12px] font-semibold text-neutral-900">
-                    {nft.name || `NFT #${nft.identifier}`}
-                  </div>
+                      {/* Token ID badge (top-right) */}
+                      <div
+                        className="
+                          absolute right-2 top-2 rounded-full
+                          bg-black/70 px-2 py-0.5
+                          text-[9px] font-medium text-white
+                          backdrop-blur-sm
+                        "
+                      >
+                        #{nft.identifier}
+                      </div>
+                    </div>
 
-                  <div className="truncate text-[11px] text-neutral-500">
-                    {getCollectionLabel(nft)}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                    {/* Text area */}
+                    <div className="space-y-0.5 px-0.5 pb-1.5 pt-2 text-left">
+                      <div className="truncate text-[12px] font-semibold text-neutral-900">
+                        {nft.name || `NFT #${nft.identifier}`}
+                      </div>
+
+                      <div className="truncate text-[11px] text-neutral-500">
+                        {getCollectionLabel(nft)}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {isDetailView && selectedNft && (
+          <NftDetailPage
+            chain={chain}
+            nft={selectedNft}
+            onBack={() => setSelectedNft(null)}
+          />
         )}
       </main>
-
-      <NftDetailModal
-        chain={chain}
-        nft={selectedNft}
-        onClose={() => setSelectedNft(null)}
-      />
     </div>
   );
 }
@@ -479,36 +487,38 @@ function NftSkeletonGrid() {
 }
 
 /**
- * NFT detail modal
+ * NFT detail page (full-screen view)
  */
 type NormalizedTrait = {
   label: string;
   value: string;
 };
 
-function NftDetailModal({
+type SimpleOffer = {
+  id: string;
+  priceEth: number;
+  priceFormatted: string;
+  maker: string | null;
+  expirationTime: number | null;
+  protocolAddress: string | null;
+};
+
+type FloorInfo = {
+  eth: number | null;
+  formatted: string | null;
+};
+
+type Timeframe = "1D" | "7D" | "30D" | "3M" | "1Y";
+
+function NftDetailPage({
   chain,
   nft,
-  onClose,
+  onBack,
 }: {
   chain: Chain;
-  nft: OpenSeaNft | null;
-  onClose: () => void;
+  nft: OpenSeaNft;
+  onBack: () => void;
 }) {
-  type SimpleOffer = {
-    id: string;
-    priceEth: number;
-    priceFormatted: string;
-    maker: string | null;
-    expirationTime: number | null;
-    protocolAddress: string | null; // now non-optional
-  };
-
-  type FloorInfo = {
-    eth: number | null;
-    formatted: string | null;
-  };
-
   const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
   const [floor, setFloor] = useState<FloorInfo>({
     eth: null,
@@ -521,6 +531,9 @@ function NftDetailModal({
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
   const [showSellSheet, setShowSellSheet] = useState(false);
+
+  // For future chart data: timeframe tabs only (UI)
+  const [timeframe, setTimeframe] = useState<Timeframe>("7D");
 
   // Offers + floor
   useEffect(() => {
@@ -712,20 +725,48 @@ function NftDetailModal({
     collectionUrl = null;
   }
 
+  const timeframeOptions: Timeframe[] = ["1D", "7D", "30D", "3M", "1Y"];
+
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/25 backdrop-blur-sm">
-      <button
-        type="button"
-        className="absolute inset-0 h-full w-full cursor-default"
-        onClick={onClose}
-      />
-      <div
-        className="relative z-30 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pb-5 pt-3 shadow-xl"
-        style={{ opacity: isBusy ? 0.96 : 1 }}
+    <div
+      className="relative space-y-4 pb-20"
+      style={{ opacity: isBusy ? 0.96 : 1 }}
+    >
+      {/* Top bar */}
+      <div className="mb-1 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="
+            inline-flex items-center gap-1 rounded-full border border-neutral-200
+            bg-white px-3 py-1.5 text-[11px] text-neutral-700
+            shadow-sm hover:border-neutral-300 hover:bg-neutral-50
+          "
+        >
+          <span className="text-xs">←</span>
+          <span>Back to gallery</span>
+        </button>
+
+        <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+          <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] text-white">
+            <span>🌊</span>
+            <span>OpenSea</span>
+          </span>
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5">
+            {chainLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Hero section */}
+      <section
+        className="
+          flex flex-col gap-3 rounded-3xl border border-neutral-200
+          bg-white/95 p-3 shadow-sm
+        "
       >
-        <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-neutral-300" />
-        <div className="flex items-start gap-3">
-          <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-neutral-100">
+        <div className="flex gap-3">
+          <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-neutral-100">
             {nft.image_url ? (
               <img
                 src={nft.image_url}
@@ -738,130 +779,30 @@ function NftDetailModal({
               </div>
             )}
           </div>
-          <div className="flex-1 space-y-0.5">
-            <div className="text-sm font-semibold text-neutral-900">
-              {nft.name || `Token #${nft.identifier}`}
+
+          <div className="flex min-w-0 flex-1 flex-col justify-between">
+            <div>
+              <div className="text-sm font-semibold text-neutral-900">
+                {nft.name || `Token #${nft.identifier}`}
+              </div>
+              <div className="mt-0.5 text-[11px] text-neutral-500">
+                {collectionName}
+              </div>
+              <div className="mt-0.5 text-[10px] text-neutral-400">
+                {chainLabel} • ID {nft.identifier}
+              </div>
             </div>
-            <div className="text-[11px] text-neutral-500">
-              {collectionName}
-            </div>
-            <div className="text-[10px] text-neutral-400">
-              {chainLabel} • ID {nft.identifier}
-            </div>
+
+            {nft.description && (
+              <p className="mt-2 line-clamp-3 text-[11px] text-neutral-600">
+                {nft.description}
+              </p>
+            )}
           </div>
         </div>
 
-        {nft.description && (
-          <p className="mt-3 line-clamp-3 text-[11px] text-neutral-600">
-            {nft.description}
-          </p>
-        )}
-
-        {/* Traits section */}
-        {traitsLoading && (
-          <div className="mt-3 px-1 text-[11px] text-neutral-500">
-            Loading traits…
-          </div>
-        )}
-
-        {!traitsLoading && traitsError && (
-          <div className="mt-3 px-1 text-[11px] text-neutral-500">
-            We can&apos;t show traits right now.
-          </div>
-        )}
-
-        {!traitsLoading && !traitsError && traits.length > 0 && (
-          <div className="mt-3 space-y-1">
-            <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
-              Traits
-            </div>
-            <div className="flex flex-wrap gap-1.5 px-1">
-              {traits.map((trait) => (
-                <div
-                  key={`${trait.label}-${trait.value}`}
-                  className="
-                    rounded-xl border border-neutral-200 bg-neutral-50 
-                    px-2 py-1 text-[10px]
-                  "
-                >
-                  <div className="text-[9px] uppercase tracking-wide text-neutral-500">
-                    {trait.label}
-                  </div>
-                  <div className="text-[11px] text-neutral-900">
-                    {trait.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Price section */}
-        <div className="mt-4 space-y-1">
-          <div className="px-1 text-[10px] uppercase tracking-wide text-neutral-500">
-            Price
-          </div>
-
-          {offersLoading && (
-            <div className="px-1 text-[11px] text-neutral-500">
-              Loading price data…
-            </div>
-          )}
-
-          {!offersLoading && offersError && (
-            <div className="px-1 text-[11px] text-neutral-500">
-              We can&apos;t show price data right now.
-            </div>
-          )}
-
-          {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
-            <div className="px-1 text-[11px] text-neutral-500">
-              No price data available for this NFT.
-            </div>
-          )}
-
-          {!offersLoading && !offersError && (bestOffer || floor.formatted) && (
-            <div className="space-y-1 px-1 text-[11px]">
-              {bestOffer && (
-                <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-600">Best offer</span>
-                  <div className="flex flex-col items-end">
-                    <span className="font-semibold text-emerald-600">
-                      {bestOffer.priceFormatted} WETH
-                    </span>
-                    {formatTimeRemaining(bestOffer.expirationTime) && (
-                      <span className="text-[10px] text-neutral-500">
-                        Expires in{" "}
-                        {formatTimeRemaining(bestOffer.expirationTime)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-              {floor.formatted && (
-                <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-600">Floor</span>
-                  <span className="text-neutral-800">
-                    {floor.formatted} ETH
-                  </span>
-                </div>
-              )}
-              {bestOffer &&
-                floor.formatted &&
-                formatBestVsFloorDiff(bestOffer, floor) && (
-                  <div className="flex items-baseline justify-between pt-0.5">
-                    <span className="text-neutral-500">Context</span>
-                    <span className="text-[10px] text-neutral-500">
-                      {formatBestVsFloorDiff(bestOffer, floor)}
-                    </span>
-                  </div>
-                )}
-            </div>
-          )}
-        </div>
-
-        {/* OpenSea actions */}
-        <div className="mt-4 space-y-2">
+        {/* External links + primary action */}
+        <div className="mt-2 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             {nftUrl && (
               <a
@@ -875,7 +816,7 @@ function NftDetailModal({
                   hover:border-purple-400/60 hover:bg-purple-50 hover:text-neutral-900
                 "
               >
-                View NFT
+                View on OpenSea
               </a>
             )}
 
@@ -901,7 +842,7 @@ function NftDetailModal({
             disabled={!bestOffer || !contractAddress}
             onClick={() => setShowSellSheet(true)}
             className={[
-              "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
+              "mt-1 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
               bestOffer && contractAddress
                 ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
                 : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
@@ -912,31 +853,273 @@ function NftDetailModal({
               : "No offer available"}
           </button>
         </div>
+      </section>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-3 w-full text-center text-[11px] text-neutral-500"
+      {/* Traits + price + activity + market sections */}
+      <section className="space-y-3">
+        {/* Traits */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
         >
-          Close
-        </button>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Traits
+            </div>
+            {traitsLoading && (
+              <div className="text-[10px] text-neutral-500">Loading…</div>
+            )}
+          </div>
 
-        {showSellSheet && bestOffer && contractAddress && (
-          <SellConfirmSheet
-            chain={chain}
-            orderHash={bestOffer.id}
-            contractAddress={contractAddress}
-            tokenId={String(nft.identifier)}
-            protocolAddress={bestOffer.protocolAddress ?? ""}
-            offer={{
-              priceEth: bestOffer.priceEth,
-              priceFormatted: bestOffer.priceFormatted,
-              expirationTime: bestOffer.expirationTime,
-            }}
-            onClose={() => setShowSellSheet(false)}
-          />
-        )}
-      </div>
+          {traitsError && !traitsLoading && (
+            <div className="text-[11px] text-neutral-500">
+              We can&apos;t show traits right now.
+            </div>
+          )}
+
+          {!traitsLoading && !traitsError && traits.length === 0 && (
+            <div className="text-[11px] text-neutral-500">
+              No traits available for this NFT.
+            </div>
+          )}
+
+          {!traitsLoading && !traitsError && traits.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {traits.map((trait) => (
+                <div
+                  key={`${trait.label}-${trait.value}`}
+                  className="
+                    rounded-xl border border-neutral-200 bg-neutral-50 
+                    px-2 py-1 text-[10px]
+                  "
+                >
+                  <div className="text-[9px] uppercase tracking-wide text-neutral-500">
+                    {trait.label}
+                  </div>
+                  <div className="text-[11px] text-neutral-900">
+                    {trait.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Price summary */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            Price
+          </div>
+
+          {offersLoading && (
+            <div className="text-[11px] text-neutral-500">
+              Loading price data…
+            </div>
+          )}
+
+          {!offersLoading && offersError && (
+            <div className="text-[11px] text-neutral-500">
+              We can&apos;t show price data right now.
+            </div>
+          )}
+
+          {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
+            <div className="text-[11px] text-neutral-500">
+              No price data available for this NFT.
+            </div>
+          )}
+
+          {!offersLoading && !offersError && (bestOffer || floor.formatted) && (
+            <div className="space-y-1 text-[11px]">
+              {bestOffer && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-600">Best offer</span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-semibold text-emerald-600">
+                      {bestOffer.priceFormatted} WETH
+                    </span>
+                    {formatTimeRemaining(bestOffer.expirationTime) && (
+                      <span className="text-[10px] text-neutral-500">
+                        Expires in{" "}
+                        {formatTimeRemaining(bestOffer.expirationTime)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {floor.formatted && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-600">Collection floor</span>
+                  <span className="text-neutral-800">
+                    {floor.formatted} ETH
+                  </span>
+                </div>
+              )}
+              {bestOffer &&
+                floor.formatted &&
+                formatBestVsFloorDiff(bestOffer, floor) && (
+                  <div className="flex items-baseline justify-between pt-0.5">
+                    <span className="text-neutral-500">Context</span>
+                    <span className="text-[10px] text-neutral-500">
+                      {formatBestVsFloorDiff(bestOffer, floor)}
+                    </span>
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
+
+        {/* Activity: last 5 sales + top 5 offers (UI scaffold only) */}
+        <div
+          className="
+            space-y-3 rounded-2xl border border-neutral-200
+            bg-white/95 p-3 shadow-sm
+          "
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Activity
+            </div>
+            <span className="text-[10px] text-neutral-400">
+              Last 5 sales · Top 5 offers
+            </span>
+          </div>
+
+          {/* Last 5 sales (placeholder UI) */}
+          <div>
+            <div className="mb-1 text-[11px] font-medium text-neutral-700">
+              Last 5 sales
+            </div>
+            <div className="space-y-1.5">
+              {/* Placeholder rows for now – replace with real data later */}
+              {[0, 1, 2].map((idx) => (
+                <div
+                  key={idx}
+                  className="
+                    flex items-center justify-between rounded-xl
+                    bg-neutral-50 px-2 py-1.5 text-[11px]
+                  "
+                >
+                  <div className="flex flex-col">
+                    <span className="text-neutral-700">
+                      — WETH
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      —
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-neutral-400">
+                    coming soon
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top 5 offers (placeholder UI) */}
+          <div>
+            <div className="mb-1 mt-1 text-[11px] font-medium text-neutral-700">
+              Top 5 offers
+            </div>
+            <div className="space-y-1.5">
+              {/* We can later wire real offers here from backend */}
+              {[0, 1, 2].map((idx) => (
+                <div
+                  key={idx}
+                  className="
+                    flex items-center justify-between rounded-xl
+                    bg-neutral-50 px-2 py-1.5 text-[11px]
+                  "
+                >
+                  <div className="flex flex-col">
+                    <span className="text-neutral-700">
+                      — WETH
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      —
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-neutral-400">
+                    coming soon
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Market: floor / price chart with timeframe tabs (UI scaffold) */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Market
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-neutral-100 p-0.5 text-[10px]">
+              {timeframeOptions.map((tf) => {
+                const active = tf === timeframe;
+                return (
+                  <button
+                    key={tf}
+                    type="button"
+                    onClick={() => setTimeframe(tf)}
+                    className={[
+                      "rounded-full px-2 py-0.5 transition-colors",
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:bg-neutral-200",
+                    ].join(" ")}
+                  >
+                    {tf}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            className="
+              flex h-32 items-center justify-center rounded-2xl
+              bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50
+              text-[11px] text-neutral-500
+            "
+          >
+            Floor / market price chart for {timeframe} will appear here.
+          </div>
+
+          <p className="mt-2 text-[10px] text-neutral-400">
+            We’ll use historical floor and offer data to plot this chart. No
+            trades are executed from this section.
+          </p>
+        </div>
+      </section>
+
+      {showSellSheet && bestOffer && contractAddress && (
+        <SellConfirmSheet
+          chain={chain}
+          orderHash={bestOffer.id}
+          contractAddress={contractAddress}
+          tokenId={String(nft.identifier)}
+          protocolAddress={bestOffer.protocolAddress ?? ""}
+          offer={{
+            priceEth: bestOffer.priceEth,
+            priceFormatted: bestOffer.priceFormatted,
+            expirationTime: bestOffer.expirationTime,
+          }}
+          onClose={() => setShowSellSheet(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1080,7 +1263,7 @@ function SellConfirmSheet({
 
       if (!tx || !tx.to) {
         setError("Backend did not return a transaction to send.");
-        return;
+               return;
       }
 
       if (tx.data) {
