@@ -229,7 +229,7 @@ function App() {
       {/* Soft fade separator between header and content */}
       <div className="pointer-events-none -mt-1 mb-2 h-[12px] bg-gradient-to-b from-neutral-100 to-transparent" />
 
-      <main className="mt-4">
+      <main className={isDetailView ? "mt-2" : "mt-4"}>
         {!isDetailView && (
           <>
             {!isConnected && (
