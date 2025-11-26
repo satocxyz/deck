@@ -186,7 +186,7 @@ function App() {
 <div className="flex-1 min-w-0 flex flex-col justify-center">
   <div className="flex items-center gap-2">
     <img
-      src="/deck-icon.png"
+      src="/deck-logo.png"
       alt="Deck"
       className="h-7 w-auto"
     />
