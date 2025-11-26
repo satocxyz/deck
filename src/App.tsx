@@ -183,22 +183,23 @@ function App() {
 <header className="mb-4 space-y-3">
   {/* Row 1: Logo + profile */}
   <div className="flex items-center justify-between gap-3">
-<div className="flex-1 min-w-0 flex flex-col justify-center">
-  <div className="flex items-center gap-2">
-    <img
-      src="/deck-logo.png"
-      alt="Deck"
-      className="h-7 w-auto"
-    />
-    <span className="text-xl font-semibold tracking-tight text-neutral-900">
-      Deck
-    </span>
-  </div>
+    <div className="flex-1 min-w-0 flex flex-col justify-start">
+      <div className="flex items-start gap-2 -mt-[2px]">
+        <img
+          src="/deck-icon.png"
+          alt="Deck"
+          className="h-7 w-auto"
+        />
+        <span className="text-xl font-semibold tracking-tight text-neutral-900">
+          Deck
+        </span>
+      </div>
 
-  <p className="mt-1 text-[11px] text-neutral-500 leading-tight">
-    Sell your NFTs directly inside Farcaster.
-  </p>
-</div>
+      <p className="mt-1 text-[11px] text-neutral-500 leading-tight">
+        Sell your NFTs directly inside Farcaster.
+      </p>
+    </div>
+
 
 
     {/* Farcaster profile pill */}
