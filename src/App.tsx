@@ -166,8 +166,7 @@ function App() {
   const nfts = useMemo(() => data?.nfts ?? [], [data]);
 
   const showGrid = isConnected && !loading && !error && nfts.length > 0;
-  const showEmpty =
-    isConnected && !loading && !error && nfts.length === 0;
+  const showEmpty = isConnected && !loading && !error && nfts.length === 0;
 
   return (
     <div
@@ -177,58 +176,56 @@ function App() {
         paddingBottom: 16 + safeArea.bottom,
         paddingLeft: 16 + safeArea.left,
         paddingRight: 16 + safeArea.right,
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-<header className="mb-4 space-y-3">
-  {/* Row 1: Logo + profile */}
-  <div className="flex items-center justify-between gap-3">
-<div className="flex-1 min-w-0 flex flex-col justify-start">
-  <div className="flex items-start gap-2 -mt-[1px]">
-    <img
-      src="/deck-icon.png"
-      alt="Deck"
-      className="h-7 w-auto"
-    />
-    <span className="text-xl font-semibold tracking-tight text-neutral-900">
-      Deck
-    </span>
-  </div>
+      <header className="mb-4 space-y-3">
+        {/* Row 1: Logo + profile */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-col justify-start">
+            <div className="flex items-start gap-2 -mt-[1px]">
+              <img src="/deck-icon.png" alt="Deck" className="h-7 w-auto" />
+              <span className="text-xl font-semibold tracking-tight text-neutral-900">
+                Deck
+              </span>
+            </div>
 
-  <p className="mt-1 text-[11px] text-neutral-500 leading-tight">
-    Sell your NFTs directly inside Farcaster.
-  </p>
-</div>
+            <p className="mt-1 text-[11px] leading-tight text-neutral-500">
+              Sell your NFTs directly inside Farcaster.
+            </p>
+          </div>
 
-    {/* Farcaster profile pill */}
-    <div className="w-[55%] max-w-[240px]">
-      <ConnectMenu user={fcUser} />
-    </div>
-  </div>
+          {/* Farcaster profile pill */}
+          <div className="w-[55%] max-w-[240px]">
+            <ConnectMenu user={fcUser} />
+          </div>
+        </div>
 
-  {/* Row 2: Powered by OpenSea + chain selector */}
-  <div className="flex items-center gap-2">
-    <div
-      className="
-        inline-flex items-center gap-1 rounded-full 
-        bg-neutral-900 px-3 py-1
-        text-[10px] font-medium text-white
-        shadow-sm
-      "
-    >
-      <span className="text-[11px]">🌊</span>
-      <span>Powered by OpenSea</span>
-    </div>
+        {/* Row 2: Powered by OpenSea + chain selector */}
+        <div className="flex items-center gap-2">
+          <div
+            className="
+              inline-flex items-center gap-1 rounded-full 
+              bg-neutral-900 px-3 py-1
+              text-[10px] font-medium text-white
+              shadow-sm
+            "
+          >
+            <span className="text-[11px]">🌊</span>
+            <span>Powered by OpenSea</span>
+          </div>
 
-    <div className="flex-1 flex justify-end">
-      <div className="w-[40%] min-w-[130px]">
-        <ChainSelector chain={chain} onChange={setChain} />
-      </div>
-    </div>
-  </div>
-</header>
+          <div className="flex flex-1 justify-end">
+            <div className="w-[40%] min-w-[130px]">
+              <ChainSelector chain={chain} onChange={setChain} />
+            </div>
+          </div>
+        </div>
+      </header>
 
-<div className="h-[12px] -mt-1 mb-2 bg-gradient-to-b from-black/5 to-transparent pointer-events-none" />
+      {/* Soft fade separator between header and grid */}
+      <div className="pointer-events-none -mt-1 mb-2 h-[12px] bg-gradient-to-b from-neutral-100 to-transparent" />
 
       <main className="mt-4">
         {!isConnected && (
@@ -264,9 +261,9 @@ function App() {
                 }}
                 className="
                   group flex flex-col overflow-hidden rounded-2xl
-                  bg-white/95 border border-neutral-200
+                  border border-neutral-200 bg-white/95
                   shadow-sm transition-all duration-200
-                  hover:-translate-y-[2px] hover:shadow-lg hover:border-purple-400/40
+                  hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg
                   active:translate-y-0 active:shadow-sm
                   focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
                   p-2
@@ -276,7 +273,7 @@ function App() {
                 <div
                   className="
                     relative w-full pb-[100%]
-                    rounded-xl overflow-hidden
+                    overflow-hidden rounded-xl
                     bg-gradient-to-br from-neutral-100 to-neutral-200
                   "
                 >
@@ -364,11 +361,11 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       >
         {/* Text block – fully right aligned */}
         <div className="flex min-w-0 flex-col items-end text-right">
-          <span className="truncate text-[12px] font-semibold text-neutral-900 leading-tight">
+          <span className="truncate text-[12px] font-semibold leading-tight text-neutral-900">
             {displayName}
           </span>
 
-          <span className="flex items-center gap-1 text-[10px] text-neutral-500 leading-tight">
+          <span className="flex items-center gap-1 text-[10px] leading-tight text-neutral-500">
             <span className="inline-block h-[9px] w-[9px] rounded-[3px] border border-neutral-400/70" />
             <span className="max-w-[130px] truncate">
               {shortenAddress(address)}
@@ -377,7 +374,7 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
         </div>
 
         {/* Avatar on the far right */}
-        <div className="relative h-8 w-8 flex-shrink-0">
+        <div className="relative h-9 w-9 flex-shrink-0">
           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
           <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
             {user?.pfpUrl ? (
@@ -406,8 +403,8 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       onClick={() => connect({ connector })}
       className="
         w-full rounded-2xl 
-        bg-neutral-900 text-white 
-        px-4 py-3 text-sm font-semibold 
+        bg-neutral-900 px-4 py-3
+        text-sm font-semibold text-white
         shadow-sm transition-all duration-150
         hover:bg-neutral-800 
         disabled:cursor-not-allowed disabled:opacity-60
@@ -445,7 +442,7 @@ function ChainSelector({
             className={[
               "flex-1 rounded-full px-3 py-1 transition-colors",
               active
-                ? "bg-neutral-900 text-white font-semibold"
+                ? "bg-neutral-900 font-semibold text-white"
                 : "text-neutral-500 hover:bg-neutral-100",
             ].join(" ")}
           >
@@ -513,7 +510,10 @@ function NftDetailModal({
   };
 
   const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
-  const [floor, setFloor] = useState<FloorInfo>({ eth: null, formatted: null });
+  const [floor, setFloor] = useState<FloorInfo>({
+    eth: null,
+    formatted: null,
+  });
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
 
@@ -742,7 +742,9 @@ function NftDetailModal({
             <div className="text-sm font-semibold text-neutral-900">
               {nft.name || `Token #${nft.identifier}`}
             </div>
-            <div className="text-[11px] text-neutral-500">{collectionName}</div>
+            <div className="text-[11px] text-neutral-500">
+              {collectionName}
+            </div>
             <div className="text-[10px] text-neutral-400">
               {chainLabel} • ID {nft.identifier}
             </div>
@@ -901,8 +903,8 @@ function NftDetailModal({
             className={[
               "mt-2 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
               bestOffer && contractAddress
-                ? "bg-purple-600 text-white hover:bg-purple-500 border border-purple-500/60"
-                : "border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60 cursor-not-allowed",
+                ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
+                : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
             ].join(" ")}
           >
             {bestOffer && contractAddress
@@ -1207,7 +1209,7 @@ function SellConfirmSheet({
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 hover:bg-purple-500"
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={submitting}
           onClick={handleConfirm}
         >
