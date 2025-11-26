@@ -180,48 +180,48 @@ function App() {
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-    <header className="mb-4 space-y-3">
-      {/* Row 1: Logo + profile */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0 flex flex-col items-start">
-          <img
-            src="/deck-logo.png"
-            alt="Deck"
-            className="h-16 w-auto mb-2"
-          />
+<header className="mb-4 space-y-3">
+  {/* Row 1: Logo + profile */}
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex-1 min-w-0 flex flex-col justify-center">
+      <img
+        src="/deck-logo.png"
+        alt="Deck"
+        className="h-12 w-auto"
+      />
+      <p className="mt-1 text-[11px] text-neutral-500 leading-tight">
+        Sell your NFTs directly inside Farcaster.
+      </p>
+    </div>
 
-          <p className="text-[11px] text-neutral-500 leading-tight">
-            Sell your NFTs directly inside Farcaster.
-          </p>
-        </div>
-        
-        {/* Farcaster profile pill */}
-        <div className="w-[55%] max-w-[240px]">
-          <ConnectMenu user={fcUser} />
-        </div>
+    {/* Farcaster profile pill */}
+    <div className="w-[55%] max-w-[240px]">
+      <ConnectMenu user={fcUser} />
+    </div>
+  </div>
+
+  {/* Row 2: Powered by OpenSea + chain selector */}
+  <div className="flex items-center gap-2">
+    <div
+      className="
+        inline-flex items-center gap-1 rounded-full 
+        bg-neutral-900 px-3 py-1
+        text-[10px] font-medium text-white
+        shadow-sm
+      "
+    >
+      <span className="text-[11px]">🌊</span>
+      <span>Powered by OpenSea</span>
+    </div>
+
+    <div className="flex-1 flex justify-end">
+      <div className="w-[40%] min-w-[130px]">
+        <ChainSelector chain={chain} onChange={setChain} />
       </div>
+    </div>
+  </div>
+</header>
 
-      {/* Row 2: Powered by OpenSea + chain selector */}
-      <div className="flex items-center gap-2">
-        <div
-          className="
-            inline-flex items-center gap-1 rounded-full 
-            bg-neutral-900 px-3 py-1
-            text-[10px] font-medium text-white
-            shadow-sm
-          "
-        >
-          <span className="text-[11px]">🌊</span>
-          <span>Powered by OpenSea</span>
-        </div>
-
-        <div className="flex-1 flex justify-end">
-          <div className="w-[40%] min-w-[130px]">
-            <ChainSelector chain={chain} onChange={setChain} />
-          </div>
-        </div>
-      </div>
-    </header>
 
 
       <main className="mt-4">
