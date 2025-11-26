@@ -746,16 +746,6 @@ function NftDetailPage({
           <span className="text-xs">←</span>
           <span>Back to gallery</span>
         </button>
-
-        <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-          <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] text-white">
-            <span>🌊</span>
-            <span>OpenSea</span>
-          </span>
-          <span className="rounded-full bg-neutral-100 px-2 py-0.5">
-            {chainLabel}
-          </span>
-        </div>
       </div>
 
       {/* Hero section */}
