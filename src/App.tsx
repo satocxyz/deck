@@ -228,6 +228,7 @@ function App() {
   </div>
 </header>
 
+<div className="h-[12px] -mt-2 mb-2 bg-gradient-to-b from-neutral-50 to-transparent pointer-events-none" />
 
 
       <main className="mt-4">
