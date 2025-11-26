@@ -184,7 +184,7 @@ function App() {
   {/* Row 1: Logo + profile */}
   <div className="flex items-center justify-between gap-3">
 <div className="flex-1 min-w-0 flex flex-col justify-start">
-  <div className="flex items-start gap-2 mt-[1px]">
+  <div className="flex items-start gap-2 -mt-[1px]">
     <img
       src="/deck-icon.png"
       alt="Deck"
@@ -199,9 +199,6 @@ function App() {
     Sell your NFTs directly inside Farcaster.
   </p>
 </div>
-
-
-
 
     {/* Farcaster profile pill */}
     <div className="w-[55%] max-w-[240px]">
