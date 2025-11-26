@@ -184,18 +184,17 @@ function App() {
       {/* Row 1: Logo + profile */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0 flex flex-col items-start">
-          {/* Big Deck logo only */}
           <img
             src="/deck-logo.png"
             alt="Deck"
-            className="h-12 w-auto mb-1"
+            className="h-16 w-auto mb-2"
           />
 
           <p className="text-[11px] text-neutral-500 leading-tight">
             Sell your NFTs directly inside Farcaster.
           </p>
         </div>
-
+        
         {/* Farcaster profile pill */}
         <div className="w-[55%] max-w-[240px]">
           <ConnectMenu user={fcUser} />
