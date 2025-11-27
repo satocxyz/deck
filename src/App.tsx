@@ -648,7 +648,7 @@ function NftDetailPage({
     const params = new URLSearchParams({
       chain,
       collection: collectionSlug,
-      identifier: nft.identifier,
+      identifier: String(nft.identifier),
     });
 
     fetch(`/api/opensea/offers?${params.toString()}`)
@@ -707,7 +707,7 @@ function NftDetailPage({
     const params = new URLSearchParams({
       chain,
       contract: contractAddress,
-      identifier: nft.identifier,
+      identifier: String(nft.identifier),
     });
 
     fetch(`/api/opensea/nft-details?${params.toString()}`)
@@ -734,18 +734,11 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-  // Active listings: best listings for this collection (top 3 cheapest)
+  // Active listings: best listings for this *collection* (top 3 by price)
   useEffect(() => {
-    if (!nft) {
-      setListings([]);
-      setListingsError(null);
-      setListingsLoading(false);
-      return;
-    }
-
     const collectionSlug = getCollectionSlug(nft);
 
-    if (!collectionSlug) {
+    if (!nft || !collectionSlug) {
       setListings([]);
       setListingsError(null);
       setListingsLoading(false);
@@ -790,7 +783,7 @@ function NftDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [chain, nft?.collection]);
+  }, [chain, nft]);
 
   const isBusy = offersLoading || traitsLoading || listingsLoading;
 
@@ -935,7 +928,7 @@ function NftDetailPage({
           </div>
         </div>
 
-        {/* External links (no primary CTA here anymore) */}
+        {/* External links */}
         <div className="mt-2 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             {nftUrl && (
@@ -1025,7 +1018,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Listing – best collection listings */}
+        {/* Listing (collection best listings) */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1037,7 +1030,7 @@ function NftDetailPage({
               Listing
             </div>
             <span className="text-[10px] text-neutral-400">
-              Top 3 collection listings
+              Top 3 cheapest listings
             </span>
           </div>
 
@@ -1057,7 +1050,7 @@ function NftDetailPage({
             !listingsError &&
             listings.length === 0 && (
               <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
-                No active listings found for this collection.
+                No active listings for this collection.
               </div>
             )}
 

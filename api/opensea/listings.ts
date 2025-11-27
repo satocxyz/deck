@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 
 const querySchema = z.object({
+  // we still accept chain for consistency, but OpenSea endpoint doesn't use it
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
   collection: z.string().min(1, "Missing collection slug"),
   limit: z
@@ -11,13 +12,6 @@ const querySchema = z.object({
     .pipe(z.number().int().min(1).max(20))
     .optional(),
 });
-
-const chainSlug: Record<string, string> = {
-  base: "base",
-  ethereum: "ethereum",
-  arbitrum: "arbitrum",
-  optimism: "optimism",
-};
 
 type OpenSeaOrder = {
   order_hash?: string;
@@ -38,7 +32,7 @@ type OpenSeaOrder = {
 };
 
 function extractEthPrice(order: OpenSeaOrder): number | null {
-  // Preferred: price.current.value + decimals (v2 docs)
+  // Preferred: price.current.value + decimals (new v2 shape)
   const val = order.price?.current?.value;
   const decimals = order.price?.current?.decimals;
 
@@ -96,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const { chain, collection } = parse.data;
+  const { collection } = parse.data;
   const limit = parse.data.limit ?? 3;
 
   const apiKey = process.env.OPENSEA_API_KEY;
@@ -107,13 +101,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const chainParam = chainSlug[chain];
-  const searchParams = new URLSearchParams({
-    collection_slug: collection,
-    limit: String(limit),
-  });
+  // Get best listings by collection:
+  // GET https://api.opensea.io/api/v2/listings/collection/{slug}/best
+  const baseUrl = `https://api.opensea.io/api/v2/listings/collection/${encodeURIComponent(
+    collection,
+  )}/best`;
 
-  const url = `https://api.opensea.io/api/v2/orders/${chainParam}/seaport/listings/collection?${searchParams.toString()}`;
+  const url = `${baseUrl}?limit=${encodeURIComponent(String(limit))}`;
 
   try {
     const resp = await fetch(url, {
@@ -125,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      console.error("OpenSea best-collection-listings error", resp.status, text);
+      console.error("OpenSea best listings error", resp.status, text);
       return res.status(502).json({
         ok: false,
         message: "Failed to fetch listings from OpenSea",
@@ -135,20 +129,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const json: any = await resp.json();
 
-    // v2 shape is usually { orders, next, previous }; some wrappers nest under body.orders
-    const orders: OpenSeaOrder[] = json.orders ?? json.body?.orders ?? [];
+    // Different OpenSea endpoints sometimes use different root keys,
+    // so we defensively try several common ones.
+    const rawOrders: OpenSeaOrder[] =
+      json.listings ??
+      json.orders ??
+      json.results ??
+      json.body?.listings ??
+      json.body?.orders ??
+      [];
 
-    const listings = orders
+    const listings = rawOrders
       .map((order) => {
         const priceEth = extractEthPrice(order);
         if (priceEth == null || priceEth <= 0) return null;
 
         const expirationTime = extractExpiration(order);
         const maker =
-          order.maker?.address ??
-          (order as any)["maker address"] ??
-          null;
-
+          order.maker?.address ?? (order as any)["maker address"] ?? null;
         const protocolAddress =
           order.protocol_address ?? (order as any).protocol_address ?? null;
 
@@ -172,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       listings,
     });
   } catch (err) {
-    console.error("Unexpected error fetching listings (collection)", err);
+    console.error("Unexpected error fetching listings", err);
     return res.status(500).json({
       ok: false,
       message: "Unexpected error while fetching listings",
