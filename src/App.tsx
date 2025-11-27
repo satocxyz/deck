@@ -503,34 +503,37 @@ function ChainSelector({
               {options.map((opt) => {
                 const active = opt.value === chain;
                 return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      onChange(opt.value);
-                      setOpen(false);
-                    }}
-                    className={[
-                      "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
-                      active
-                        ? "bg-neutral-900 text-white"
-                        : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <img src={opt.icon} className="h-4 w-4" alt="" />
-                      <span>{opt.label}</span>
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => !disabled && setOpen(true)}
+                  disabled={disabled}
+                  className="
+                    flex w-full items-center
+                    rounded-full border border-neutral-200 bg-white
+                    px-3 py-1.5
+                    text-[11px] font-medium text-neutral-800 shadow-sm
+                    hover:bg-neutral-50 active:bg-neutral-100
+                    disabled:cursor-not-allowed disabled:opacity-60
+                  "
+                >
+                  {/* Left side: icon + label */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <img src={current.icon} className="h-3.5 w-3.5" alt="" />
 
-                    <div className="flex items-center gap-2 text-[10px]">
-                      {opt.badge && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                          {opt.badge}
-                        </span>
-                      )}
-                      {active && <span>✓</span>}
-                    </div>
-                  </button>
+                    {/* Ensure label truncates if needed */}
+                    <span className="truncate">{current.label}</span>
+                  </div>
+
+                  {/* Spacer pushes Change to the right perfectly */}
+                  <div className="flex-1" />
+
+                  {/* Right side: Change */}
+                  <div className="flex items-center gap-0.5 text-[10px] leading-none text-neutral-400">
+                    <span>Change</span>
+                    <span className="text-[8px]">▾</span>
+                  </div>
+                </button>
+
                 );
               })}
             </div>
