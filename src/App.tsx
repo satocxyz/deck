@@ -441,13 +441,12 @@ function ChainSelector({
 }) {
   const [open, setOpen] = useState(false);
 
-const options: { label: string; value: Chain; badge?: string; icon: string }[] = [
-  { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
-  { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
-  { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
-  { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
-];
-
+  const options: { label: string; value: Chain; badge?: string; icon: string }[] = [
+    { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
+    { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
+    { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
+    { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
+  ];
 
   const current = options.find((opt) => opt.value === chain) ?? options[0];
 
@@ -462,12 +461,14 @@ const options: { label: string; value: Chain; badge?: string; icon: string }[] =
       {/* Compact pill in header */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => !disabled && setOpen(true)}
+        disabled={disabled}
         className="
           flex w-full items-center justify-between gap-2
           rounded-full border border-neutral-200 bg-white px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
           hover:bg-neutral-50 active:bg-neutral-100
+          disabled:cursor-not-allowed disabled:opacity-60
         "
       >
         <div className="flex items-center gap-1.5">
@@ -476,7 +477,6 @@ const options: { label: string; value: Chain; badge?: string; icon: string }[] =
         </div>
         <span className="text-[9px] text-neutral-400">Change ▾</span>
       </button>
-
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
@@ -525,7 +525,6 @@ const options: { label: string; value: Chain; badge?: string; icon: string }[] =
                       {active && <span>✓</span>}
                     </div>
                   </button>
-
                 );
               })}
             </div>
@@ -865,7 +864,7 @@ function NftDetailPage({
           </div>
         </div>
 
-        {/* External links + primary action */}
+        {/* External links (no primary CTA here anymore) */}
         <div className="mt-2 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             {nftUrl && (
@@ -900,26 +899,10 @@ function NftDetailPage({
               </a>
             )}
           </div>
-
-          <button
-            type="button"
-            disabled={!bestOffer || !contractAddress}
-            onClick={() => setShowSellSheet(true)}
-            className={[
-              "mt-1 w-full rounded-2xl px-3 py-2 text-center text-[12px] font-semibold shadow-sm",
-              bestOffer && contractAddress
-                ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
-                : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
-            ].join(" ")}
-          >
-            {bestOffer && contractAddress
-              ? "Accept best offer"
-              : "No offer available"}
-          </button>
         </div>
       </section>
 
-      {/* Traits + price + activity + market sections */}
+      {/* Traits + market sections */}
       <section className="space-y-3">
         {/* Traits */}
         <div
@@ -971,7 +954,163 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Price summary */}
+        {/* Listing (UI stub, will later show up to 5 active listings) */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Listing
+            </div>
+            <span className="text-[10px] text-neutral-400">
+              Up to 5 active listings
+            </span>
+          </div>
+
+          <div className="space-y-1.5 text-[11px]">
+            {[0, 1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="
+                  flex items-center justify-between rounded-xl
+                  bg-neutral-50 px-2 py-1.5
+                "
+              >
+                <div className="flex flex-col">
+                  <span className="text-neutral-700">— ETH</span>
+                  <span className="text-[10px] text-neutral-500">—</span>
+                </div>
+                <span className="text-[10px] text-neutral-400">
+                  coming soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Offers (UI stub for top 5 offers list, separate from price summary) */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Offers
+            </div>
+            <span className="text-[10px] text-neutral-400">Top 5 offers</span>
+          </div>
+
+          <div className="space-y-1.5 text-[11px]">
+            {[0, 1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="
+                  flex items-center justify-between rounded-xl
+                  bg-neutral-50 px-2 py-1.5
+                "
+              >
+                <div className="flex flex-col">
+                  <span className="text-neutral-700">— WETH</span>
+                  <span className="text-[10px] text-neutral-500">—</span>
+                </div>
+                <span className="text-[10px] text-neutral-400">
+                  coming soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sales (UI stub for last 5 sales) */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Sales
+            </div>
+            <span className="text-[10px] text-neutral-400">Last 5 sales</span>
+          </div>
+
+          <div className="space-y-1.5 text-[11px]">
+            {[0, 1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="
+                  flex items-center justify-between rounded-xl
+                  bg-neutral-50 px-2 py-1.5
+                "
+              >
+                <div className="flex flex-col">
+                  <span className="text-neutral-700">— ETH</span>
+                  <span className="text-[10px] text-neutral-500">—</span>
+                </div>
+                <span className="text-[10px] text-neutral-400">
+                  coming soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Market: floor / price chart with timeframe tabs (UI scaffold) */}
+        <div
+          className="
+            rounded-2xl border border-neutral-200 bg-white/95
+            p-3 shadow-sm
+          "
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              Market
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-neutral-100 p-0.5 text-[10px]">
+              {timeframeOptions.map((tf) => {
+                const active = tf === timeframe;
+                return (
+                  <button
+                    key={tf}
+                    type="button"
+                    onClick={() => setTimeframe(tf)}
+                    className={[
+                      "rounded-full px-2 py-0.5 transition-colors",
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:bg-neutral-200",
+                    ].join(" ")}
+                  >
+                    {tf}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            className="
+              flex h-32 items-center justify-center rounded-2xl
+              bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50
+              text-[11px] text-neutral-500
+            "
+          >
+            Floor / market price chart for {timeframe} will appear here.
+          </div>
+
+          <p className="mt-2 text-[10px] text-neutral-400">
+            We’ll use historical floor and offer data to plot this chart. No
+            trades are executed from this section.
+          </p>
+        </div>
+
+        {/* Price summary – moved to bottom, with primary actions */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1038,134 +1177,37 @@ function NftDetailPage({
                 )}
             </div>
           )}
-        </div>
 
-        {/* Activity: last 5 sales + top 5 offers (UI scaffold only) */}
-        <div
-          className="
-            space-y-3 rounded-2xl border border-neutral-200
-            bg-white/95 p-3 shadow-sm
-          "
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
-              Activity
-            </div>
-            <span className="text-[10px] text-neutral-400">
-              Last 5 sales · Top 5 offers
-            </span>
+          {/* Action buttons */}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={!bestOffer || !contractAddress || offersLoading}
+              onClick={() => setShowSellSheet(true)}
+              className={[
+                "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
+                bestOffer && contractAddress && !offersLoading
+                  ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
+                  : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
+              ].join(" ")}
+            >
+              {bestOffer && contractAddress
+                ? "Accept best offer"
+                : "No offer available"}
+            </button>
+
+            <button
+              type="button"
+              disabled
+              className="
+                flex-1 rounded-xl border border-dashed border-neutral-300
+                bg-neutral-50 px-3 py-2 text-[12px] font-semibold
+                text-neutral-400
+              "
+            >
+              List (coming soon)
+            </button>
           </div>
-
-          {/* Last 5 sales (placeholder UI) */}
-          <div>
-            <div className="mb-1 text-[11px] font-medium text-neutral-700">
-              Last 5 sales
-            </div>
-            <div className="space-y-1.5">
-              {/* Placeholder rows for now – replace with real data later */}
-              {[0, 1, 2].map((idx) => (
-                <div
-                  key={idx}
-                  className="
-                    flex items-center justify-between rounded-xl
-                    bg-neutral-50 px-2 py-1.5 text-[11px]
-                  "
-                >
-                  <div className="flex flex-col">
-                    <span className="text-neutral-700">
-                      — WETH
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      —
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-neutral-400">
-                    coming soon
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top 5 offers (placeholder UI) */}
-          <div>
-            <div className="mb-1 mt-1 text-[11px] font-medium text-neutral-700">
-              Top 5 offers
-            </div>
-            <div className="space-y-1.5">
-              {/* We can later wire real offers here from backend */}
-              {[0, 1, 2].map((idx) => (
-                <div
-                  key={idx}
-                  className="
-                    flex items-center justify-between rounded-xl
-                    bg-neutral-50 px-2 py-1.5 text-[11px]
-                  "
-                >
-                  <div className="flex flex-col">
-                    <span className="text-neutral-700">
-                      — WETH
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      —
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-neutral-400">
-                    coming soon
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Market: floor / price chart with timeframe tabs (UI scaffold) */}
-        <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
-              Market
-            </div>
-            <div className="flex items-center gap-1 rounded-full bg-neutral-100 p-0.5 text-[10px]">
-              {timeframeOptions.map((tf) => {
-                const active = tf === timeframe;
-                return (
-                  <button
-                    key={tf}
-                    type="button"
-                    onClick={() => setTimeframe(tf)}
-                    className={[
-                      "rounded-full px-2 py-0.5 transition-colors",
-                      active
-                        ? "bg-neutral-900 text-white"
-                        : "text-neutral-600 hover:bg-neutral-200",
-                    ].join(" ")}
-                  >
-                    {tf}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div
-            className="
-              flex h-32 items-center justify-center rounded-2xl
-              bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50
-              text-[11px] text-neutral-500
-            "
-          >
-            Floor / market price chart for {timeframe} will appear here.
-          </div>
-
-          <p className="mt-2 text-[10px] text-neutral-400">
-            We’ll use historical floor and offer data to plot this chart. No
-            trades are executed from this section.
-          </p>
         </div>
       </section>
 
@@ -1418,7 +1460,7 @@ function SellConfirmSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items=end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
