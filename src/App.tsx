@@ -218,16 +218,16 @@ function App() {
             <span>Powered by OpenSea</span>
           </div>
 
-          <div className="flex flex-1 justify-end">
-            <div className="w-[40%] min-w-[130px]">
-              <ChainSelector
-                chain={chain}
-                onChange={setChain}
-                disabled={isDetailView}
-              />
-            </div>
+        <div className="flex flex-1 justify-end">
+          <div className="min-w-[180px] max-w-[230px]">
+            <ChainSelector
+              chain={chain}
+              onChange={setChain}
+              disabled={isDetailView}
+            />
           </div>
         </div>
+
       </header>
 
       {/* Soft fade separator between header and content */}
@@ -479,8 +479,9 @@ function ChainSelector({
         {/* Left: icon + label */}
         <div className="flex items-center gap-1.5 min-w-0">
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
-          <span className="truncate">{current.label}</span>
+          <span>{current.label}</span>
         </div>
+
 
         {/* Spacer pushes Change to the right */}
         <div className="flex-1" />
