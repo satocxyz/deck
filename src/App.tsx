@@ -481,7 +481,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justifycenter bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -584,6 +584,7 @@ type FloorInfo = {
 
 type Timeframe = "1D" | "7D" | "30D" | "3M" | "1Y";
 
+// 🔹 updated Listing type: include optional name + image fields
 type Listing = {
   id: string;
   priceEth: number;
@@ -593,6 +594,10 @@ type Listing = {
   protocolAddress: string | null;
   tokenId?: string | null;
   tokenContract?: string | null;
+  name?: string | null;
+  imageUrl?: string | null;
+  image_url?: string | null;
+  image?: string | null;
 };
 
 function NftDetailPage({
@@ -1060,38 +1065,70 @@ function NftDetailPage({
             !listingsError &&
             listings.length > 0 && (
               <div className="space-y-1.5 text-[11px]">
-                {listings.map((listing) => (
-                  <div
-                    key={listing.id}
-                    className="
-                      flex items-center justify-between rounded-xl
-                      bg-neutral-50 px-2 py-1.5
-                    "
-                  >
-                    {/* Left: price + seller */}
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-neutral-900">
-                        {listing.priceFormatted} ETH
-                      </span>
-                      <span className="text-[10px] text-neutral-500">
-                        {listing.maker
-                          ? `From ${shortenAddress(listing.maker)}`
-                          : "Unknown seller"}
-                      </span>
-                    </div>
+                {listings.map((listing) => {
+                  // pick the best available thumbnail
+                  const thumb =
+                    listing.imageUrl ||
+                    listing.image_url ||
+                    listing.image ||
+                    nft.image_url ||
+                    null;
 
-                    {/* Right: token label + time remaining */}
-                    <div className="flex flex-col items-end text-right text-[10px]">
-                      <span className="text-neutral-600">
-                        {collectionName}{" "}
-                        {listing.tokenId ? `#${listing.tokenId}` : ""}
-                      </span>
-                      <span className="text-neutral-400">
-                        {formatTimeRemaining(listing.expirationTime) ?? "—"}
-                      </span>
+                  const tokenLabel = listing.tokenId
+                    ? `${collectionName} #${listing.tokenId}`
+                    : collectionName;
+
+                  return (
+                    <div
+                      key={listing.id}
+                      className="
+                        flex items-center gap-2 rounded-xl
+                        bg-neutral-50 px-2 py-1.5
+                      "
+                    >
+                      {/* Thumbnail */}
+                      <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt={tokenLabel}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                            —
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Middle + right content */}
+                      <div className="flex flex-1 items-center justify-between gap-2">
+                        {/* Left: price + seller */}
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-neutral-900">
+                            {listing.priceFormatted} ETH
+                          </span>
+                          <span className="text-[10px] text-neutral-500">
+                            {listing.maker
+                              ? `From ${shortenAddress(listing.maker)}`
+                              : "Unknown seller"}
+                          </span>
+                        </div>
+
+                        {/* Right: token label + time remaining */}
+                        <div className="flex flex-col items-end text-right text-[10px]">
+                          <span className="max-w-[120px] truncate text-neutral-600">
+                            {tokenLabel}
+                          </span>
+                          <span className="text-neutral-400">
+                            {formatTimeRemaining(listing.expirationTime) ?? "—"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
         </div>
