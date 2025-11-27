@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const querySchema = z.object({
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
-  collection: z.string().min(1, "Missing collection slug"),
+  collection: z.string().min(1),
   limit: z
     .string()
     .transform((v) => parseInt(v, 10))
@@ -19,45 +19,7 @@ const chainSlug: Record<string, string> = {
   optimism: "optimism",
 };
 
-type OpenSeaBestListing = {
-  order_hash?: string;
-  chain?: string;
-  protocol_data?: {
-    parameters?: {
-      offerer?: string;
-      offer?: {
-        itemType?: number;
-        token?: string;
-        identifierOrCriteria?: string;
-        startAmount?: string;
-        endAmount?: string;
-      }[];
-      consideration?: unknown[];
-      startTime?: string;
-      endTime?: string; // unix seconds as string
-      orderType?: number;
-      zone?: string;
-      zoneHash?: string;
-      salt?: string;
-      conduitKey?: string;
-      totalOriginalConsiderationItems?: number;
-      counter?: number;
-    };
-    signature?: string | null;
-  };
-  protocol_address?: string | null;
-  remaining_quantity?: number;
-  price?: {
-    current?: {
-      currency?: string;
-      decimals?: number;
-      value?: string;
-    };
-  };
-  status?: string;
-};
-
-function extractEthPrice(order: OpenSeaBestListing): number | null {
+function extractEthPrice(order: any): number | null {
   const val = order.price?.current?.value;
   const decimals = order.price?.current?.decimals;
 
@@ -65,9 +27,7 @@ function extractEthPrice(order: OpenSeaBestListing): number | null {
     try {
       const bn = BigInt(val);
       const denom = 10n ** BigInt(decimals);
-      const asNumber = Number(bn) / Number(denom);
-      if (!Number.isFinite(asNumber) || asNumber <= 0) return null;
-      return asNumber;
+      return Number(bn) / Number(denom);
     } catch {
       return null;
     }
@@ -76,13 +36,13 @@ function extractEthPrice(order: OpenSeaBestListing): number | null {
   return null;
 }
 
-function extractExpiration(order: OpenSeaBestListing): number | null {
+function extractExpiration(order: any): number | null {
   const endTime = order.protocol_data?.parameters?.endTime;
-  if (!endTime) return null;
-
-  const n = Number(endTime);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.floor(n);
+  if (endTime) {
+    const n = Number(endTime);
+    if (!Number.isNaN(n)) return n;
+  }
+  return null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -92,7 +52,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const parse = querySchema.safeParse(req.query);
-
   if (!parse.success) {
     return res.status(400).json({
       ok: false,
@@ -108,20 +67,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!apiKey) {
     return res.status(500).json({
       ok: false,
-      message: "Missing OPENSEA_API_KEY environment variable",
+      message: "Missing OPENSEA_API_KEY",
     });
   }
 
   const chainParam = chainSlug[chain];
 
-  const searchParams = new URLSearchParams({
-    limit: String(limit),
-    chain: chainParam,
-  });
-
-  const url = `https://api.opensea.io/api/v2/listings/collection/${encodeURIComponent(
-    collection,
-  )}/best?${searchParams.toString()}`;
+  const url = `https://api.opensea.io/api/v2/listings/collection/${collection}?limit=${limit}&chain=${chainParam}&sort=PRICE&order=ASC`;
 
   try {
     const resp = await fetch(url, {
@@ -132,64 +84,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      console.error("OpenSea best listings error", resp.status, text);
+      const txt = await resp.text().catch(() => "");
+      console.error("OpenSea listings error", resp.status, txt);
       return res.status(502).json({
         ok: false,
-        message: "Failed to fetch listings from OpenSea",
-        statusCode: resp.status,
+        message: "Failed to fetch best listings",
+        status: resp.status,
       });
     }
 
-    const json: any = await resp.json();
-    const rawListings: OpenSeaBestListing[] =
-      json.listings ?? json.body?.listings ?? [];
+    const json = await resp.json();
+    const rows: any[] = json.listings ?? [];
 
-    const listings = rawListings
-      .map((order) => {
+    // Enrich each listing with metadata
+    const enriched = await Promise.all(
+      rows.slice(0, limit).map(async (order) => {
+        const parameters = order.protocol_data?.parameters;
+        const offer = parameters?.offer?.[0];
+        const maker = parameters?.offerer ?? null;
+
+        const tokenId = offer?.identifierOrCriteria ?? null;
+        const contract = offer?.token ?? null;
+
+        let name: string | null = null;
+        let imageUrl: string | null = null;
+
+        if (tokenId && contract) {
+          try {
+            const metaRes = await fetch(
+              `${process.env.VERCEL_URL}/api/opensea/nft-details?chain=${chain}&contract=${contract}&identifier=${tokenId}`,
+            );
+
+            if (metaRes.ok) {
+              const meta = await metaRes.json();
+              name = meta.name ?? null;
+              imageUrl = meta.image_url ?? meta.image ?? null;
+            }
+          } catch (err) {
+            console.error("Metadata fetch failed", err);
+          }
+        }
+
         const priceEth = extractEthPrice(order);
-        if (priceEth == null || priceEth <= 0) return null;
-
-        const expirationTime = extractExpiration(order);
-        const maker =
-          order.protocol_data?.parameters?.offerer ??
-          (order as any)["maker address"] ??
-          null;
-
-        const protocolAddress =
-          order.protocol_address ?? (order as any).protocol_address ?? null;
-
-        // Try to extract the NFT contract + token id from the first offer item
-        const offerItem = order.protocol_data?.parameters?.offer?.[0];
-        const tokenContract = offerItem?.token ?? null;
-        const tokenId = offerItem?.identifierOrCriteria ?? null;
-
-        const priceFormatted =
-          priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
+        const expiration = extractExpiration(order);
 
         return {
-          id: order.order_hash || "",
+          id: order.order_hash,
           priceEth,
-          priceFormatted,
+          priceFormatted:
+            priceEth != null
+              ? priceEth >= 1
+                ? priceEth.toFixed(3)
+                : priceEth.toFixed(4)
+              : "0",
           maker,
-          expirationTime,
-          protocolAddress,
-          tokenContract,
+          expirationTime: expiration,
+          protocolAddress: order.protocol_address ?? null,
           tokenId,
+          name,
+          imageUrl,
         };
-      })
-      .filter(Boolean)
-      .slice(0, limit);
+      }),
+    );
 
     return res.status(200).json({
       ok: true,
-      listings,
+      listings: enriched.filter((x) => x != null),
     });
   } catch (err) {
-    console.error("Unexpected error fetching best listings", err);
+    console.error("Unexpected error", err);
     return res.status(500).json({
       ok: false,
-      message: "Unexpected error while fetching listings",
+      message: "Unexpected error while fetching best listings",
     });
   }
 }
