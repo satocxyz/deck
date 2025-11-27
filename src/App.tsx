@@ -205,18 +205,18 @@ function App() {
         </div>
 
         {/* Row 2: Powered by OpenSea + chain selector */}
-        <div className="flex items-center gap-2">
-          <div
-            className="
-              inline-flex items-center gap-1 rounded-full 
-              bg-neutral-900 px-3 py-1
-              text-[10px] font-medium text-white
-              shadow-sm
-            "
-          >
-            <span className="text-[11px]">🌊</span>
-            <span>Powered by OpenSea</span>
-          </div>
+      <div className="flex items-center gap-2">
+        <div
+          className="
+            inline-flex items-center gap-1 rounded-full 
+            bg-neutral-900 px-3 py-1
+            text-[10px] font-medium text-white
+            shadow-sm
+          "
+        >
+          <span className="text-[11px]">🌊</span>
+          <span>Powered by OpenSea</span>
+        </div>
 
         <div className="flex flex-1 justify-end">
           <div className="min-w-[180px] max-w-[230px]">
@@ -227,6 +227,8 @@ function App() {
             />
           </div>
         </div>
+      </div>
+
 
       </header>
 
