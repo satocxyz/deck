@@ -41,23 +41,23 @@ type OpenSeaOrder = {
 };
 
 function extractEthPrice(order: OpenSeaOrder): number | null {
-  // Preferred: price.current.value + decimals (v2 docs)
   const val = order.price?.current?.value;
   const decimals = order.price?.current?.decimals;
 
   if (val && decimals != null) {
-    const bn = BigInt(val);
-    const denom = 10n ** BigInt(decimals);
-    const asNumber = Number(bn) / Number(denom);
-    return asNumber;
+    try {
+      const bn = BigInt(val);
+      const denom = 10n ** BigInt(decimals);
+      return Number(bn) / Number(denom);
+    } catch {
+      return null;
+    }
   }
 
-  // Fallback: current_price (wei)
   if (order.current_price) {
     try {
       const wei = BigInt(order.current_price);
-      const asNumber = Number(wei) / 1e18;
-      return asNumber;
+      return Number(wei) / 1e18;
     } catch {
       return null;
     }
@@ -111,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     asset_contract_address: contract,
     token_ids: identifier,
     limit: String(limit),
-    order_by: "eth_price", // cheapest first
+    order_by: "eth_price",
     order_direction: "asc",
   });
 
@@ -137,9 +137,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const json: any = await resp.json();
 
-    // v2 shape is usually { orders, next, previous }; some wrappers nest under body.orders
+    // Debug for you in dev:
+    console.log(
+      "OpenSea listings raw",
+      JSON.stringify(json).slice(0, 1200)
+    );
+
+    // Try a few common shapes
     const orders: OpenSeaOrder[] =
-      json.orders ?? json.body?.orders ?? [];
+      json.orders ??
+      json.listings ??
+      json.seaport_listings ??
+      json.body?.orders ??
+      [];
+
+    const nowSec = Math.floor(Date.now() / 1000);
 
     const listings = orders
       .map((order) => {
@@ -147,6 +159,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (priceEth == null || priceEth <= 0) return null;
 
         const expirationTime = extractExpiration(order);
+        // Keep only active listings (optional but probably what you want)
+        if (expirationTime != null && expirationTime <= nowSec) {
+          return null;
+        }
+
         const maker =
           order.maker?.address ??
           (order as any)["maker address"] ??
