@@ -302,7 +302,7 @@ function App() {
                         </div>
                       )}
 
-                      {/* Token ID badge (top-right) */}
+                      {/* Token ID badge */}
                       <div
                         className="
                           absolute right-2 top-2 rounded-full
@@ -591,6 +591,8 @@ type Listing = {
   maker: string | null;
   expirationTime: number | null;
   protocolAddress: string | null;
+  tokenId?: string | null;
+  tokenContract?: string | null;
 };
 
 function NftDetailPage({
@@ -734,7 +736,7 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-  // Active listings: best listings for this *collection* (top 3 by price)
+  // Top 3 cheapest listings in this collection (using best listings by collection)
   useEffect(() => {
     const collectionSlug = getCollectionSlug(nft);
 
@@ -1018,7 +1020,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Listing (collection best listings) */}
+        {/* Listing – top 3 cheapest listings in this collection */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1050,7 +1052,7 @@ function NftDetailPage({
             !listingsError &&
             listings.length === 0 && (
               <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
-                No active listings for this collection.
+                No active listings found for this collection.
               </div>
             )}
 
@@ -1066,6 +1068,7 @@ function NftDetailPage({
                       bg-neutral-50 px-2 py-1.5
                     "
                   >
+                    {/* Left: price + seller */}
                     <div className="flex flex-col">
                       <span className="font-semibold text-neutral-900">
                         {listing.priceFormatted} ETH
@@ -1076,9 +1079,17 @@ function NftDetailPage({
                           : "Unknown seller"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-neutral-400">
-                      {formatTimeRemaining(listing.expirationTime) ?? "—"}
-                    </span>
+
+                    {/* Right: token label + time remaining */}
+                    <div className="flex flex-col items-end text-right text-[10px]">
+                      <span className="text-neutral-600">
+                        {collectionName}{" "}
+                        {listing.tokenId ? `#${listing.tokenId}` : ""}
+                      </span>
+                      <span className="text-neutral-400">
+                        {formatTimeRemaining(listing.expirationTime) ?? "—"}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1155,7 +1166,7 @@ function NftDetailPage({
           </div>
         </div>
 
-        {/* Market: floor / price chart with timeframe tabs (UI scaffold) */}
+        {/* Market: floor / price chart with timeframe tabs */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95

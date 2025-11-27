@@ -3,7 +3,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 
 const querySchema = z.object({
-  // we still accept chain for consistency, but OpenSea endpoint doesn't use it
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
   collection: z.string().min(1, "Missing collection slug"),
   limit: z
@@ -13,26 +12,52 @@ const querySchema = z.object({
     .optional(),
 });
 
-type OpenSeaOrder = {
-  order_hash?: string;
-  current_price?: string;
-  price?: {
-    current?: {
-      value?: string;
-      decimals?: number;
-      currency?: string;
-    };
-  };
-  expiration_time?: number;
-  closing_date?: string | null;
-  maker?: {
-    address?: string | null;
-  };
-  protocol_address?: string | null;
+const chainSlug: Record<string, string> = {
+  base: "base",
+  ethereum: "ethereum",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
 };
 
-function extractEthPrice(order: OpenSeaOrder): number | null {
-  // Preferred: price.current.value + decimals (new v2 shape)
+type OpenSeaBestListing = {
+  order_hash?: string;
+  chain?: string;
+  protocol_data?: {
+    parameters?: {
+      offerer?: string;
+      offer?: {
+        itemType?: number;
+        token?: string;
+        identifierOrCriteria?: string;
+        startAmount?: string;
+        endAmount?: string;
+      }[];
+      consideration?: unknown[];
+      startTime?: string;
+      endTime?: string; // unix seconds as string
+      orderType?: number;
+      zone?: string;
+      zoneHash?: string;
+      salt?: string;
+      conduitKey?: string;
+      totalOriginalConsiderationItems?: number;
+      counter?: number;
+    };
+    signature?: string | null;
+  };
+  protocol_address?: string | null;
+  remaining_quantity?: number;
+  price?: {
+    current?: {
+      currency?: string;
+      decimals?: number;
+      value?: string;
+    };
+  };
+  status?: string;
+};
+
+function extractEthPrice(order: OpenSeaBestListing): number | null {
   const val = order.price?.current?.value;
   const decimals = order.price?.current?.decimals;
 
@@ -41,17 +66,7 @@ function extractEthPrice(order: OpenSeaOrder): number | null {
       const bn = BigInt(val);
       const denom = 10n ** BigInt(decimals);
       const asNumber = Number(bn) / Number(denom);
-      return asNumber;
-    } catch {
-      // fall through to current_price
-    }
-  }
-
-  // Fallback: current_price (wei)
-  if (order.current_price) {
-    try {
-      const wei = BigInt(order.current_price);
-      const asNumber = Number(wei) / 1e18;
+      if (!Number.isFinite(asNumber) || asNumber <= 0) return null;
       return asNumber;
     } catch {
       return null;
@@ -61,17 +76,13 @@ function extractEthPrice(order: OpenSeaOrder): number | null {
   return null;
 }
 
-function extractExpiration(order: OpenSeaOrder): number | null {
-  if (typeof order.expiration_time === "number") {
-    return order.expiration_time;
-  }
-  if (order.closing_date) {
-    const ts = Date.parse(order.closing_date);
-    if (!Number.isNaN(ts)) {
-      return Math.floor(ts / 1000);
-    }
-  }
-  return null;
+function extractExpiration(order: OpenSeaBestListing): number | null {
+  const endTime = order.protocol_data?.parameters?.endTime;
+  if (!endTime) return null;
+
+  const n = Number(endTime);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -90,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const { collection } = parse.data;
+  const { chain, collection } = parse.data;
   const limit = parse.data.limit ?? 3;
 
   const apiKey = process.env.OPENSEA_API_KEY;
@@ -101,13 +112,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Get best listings by collection:
-  // GET https://api.opensea.io/api/v2/listings/collection/{slug}/best
-  const baseUrl = `https://api.opensea.io/api/v2/listings/collection/${encodeURIComponent(
-    collection,
-  )}/best`;
+  const chainParam = chainSlug[chain];
 
-  const url = `${baseUrl}?limit=${encodeURIComponent(String(limit))}`;
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    chain: chainParam,
+  });
+
+  const url = `https://api.opensea.io/api/v2/listings/collection/${encodeURIComponent(
+    collection,
+  )}/best?${searchParams.toString()}`;
 
   try {
     const resp = await fetch(url, {
@@ -128,27 +142,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const json: any = await resp.json();
+    const rawListings: OpenSeaBestListing[] =
+      json.listings ?? json.body?.listings ?? [];
 
-    // Different OpenSea endpoints sometimes use different root keys,
-    // so we defensively try several common ones.
-    const rawOrders: OpenSeaOrder[] =
-      json.listings ??
-      json.orders ??
-      json.results ??
-      json.body?.listings ??
-      json.body?.orders ??
-      [];
-
-    const listings = rawOrders
+    const listings = rawListings
       .map((order) => {
         const priceEth = extractEthPrice(order);
         if (priceEth == null || priceEth <= 0) return null;
 
         const expirationTime = extractExpiration(order);
         const maker =
-          order.maker?.address ?? (order as any)["maker address"] ?? null;
+          order.protocol_data?.parameters?.offerer ??
+          (order as any)["maker address"] ??
+          null;
+
         const protocolAddress =
           order.protocol_address ?? (order as any).protocol_address ?? null;
+
+        // Try to extract the NFT contract + token id from the first offer item
+        const offerItem = order.protocol_data?.parameters?.offer?.[0];
+        const tokenContract = offerItem?.token ?? null;
+        const tokenId = offerItem?.identifierOrCriteria ?? null;
 
         const priceFormatted =
           priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
@@ -160,6 +174,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           maker,
           expirationTime,
           protocolAddress,
+          tokenContract,
+          tokenId,
         };
       })
       .filter(Boolean)
@@ -170,7 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       listings,
     });
   } catch (err) {
-    console.error("Unexpected error fetching listings", err);
+    console.error("Unexpected error fetching best listings", err);
     return res.status(500).json({
       ok: false,
       message: "Unexpected error while fetching listings",
