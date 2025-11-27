@@ -441,12 +441,13 @@ function ChainSelector({
 }) {
   const [open, setOpen] = useState(false);
 
-  const options: { label: string; value: Chain; badge?: string; icon: string }[] = [
-    { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
-    { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
-    { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
-    { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
-  ];
+  const options: { label: string; value: Chain; badge?: string; icon: string }[] =
+    [
+      { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
+      { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
+      { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
+      { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
+    ];
 
   const current = options.find((opt) => opt.value === chain) ?? options[0];
 
@@ -583,6 +584,15 @@ type FloorInfo = {
 
 type Timeframe = "1D" | "7D" | "30D" | "3M" | "1Y";
 
+type Listing = {
+  id: string;
+  priceEth: number;
+  priceFormatted: string;
+  maker: string | null;
+  expirationTime: number | null;
+  protocolAddress: string | null;
+};
+
 function NftDetailPage({
   chain,
   nft,
@@ -605,8 +615,11 @@ function NftDetailPage({
   const [traitsError, setTraitsError] = useState<string | null>(null);
   const [showSellSheet, setShowSellSheet] = useState(false);
 
-  // For future chart data: timeframe tabs only (UI)
   const [timeframe, setTimeframe] = useState<Timeframe>("7D");
+
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [listingsError, setListingsError] = useState<string | null>(null);
 
   // Offers + floor
   useEffect(() => {
@@ -721,7 +734,60 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-  const isBusy = offersLoading || traitsLoading;
+  // Active listings for this NFT (top 3 cheapest)
+  useEffect(() => {
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!nft || !contractAddress) {
+      setListings([]);
+      setListingsError(null);
+      setListingsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setListingsLoading(true);
+    setListingsError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      contract: contractAddress,
+      identifier: String(nft.identifier),
+      limit: "3",
+    });
+
+    fetch(`/api/opensea/listings?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch listings");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json.ok) {
+          setListingsError("open_sea_error");
+          setListings([]);
+          return;
+        }
+        setListings(Array.isArray(json.listings) ? json.listings : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load listings", err);
+        setListingsError("open_sea_error");
+        setListings([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setListingsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft?.identifier, nft?.contract]);
+
+  const isBusy = offersLoading || traitsLoading || listingsLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -954,7 +1020,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Listing (UI stub, will later show up to 5 active listings) */}
+        {/* Listing */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -970,28 +1036,58 @@ function NftDetailPage({
             </span>
           </div>
 
-          <div className="space-y-1.5 text-[11px]">
-            {[0, 1, 2].map((idx) => (
-              <div
-                key={idx}
-                className="
-                  flex items-center justify-between rounded-xl
-                  bg-neutral-50 px-2 py-1.5
-                "
-              >
-                <div className="flex flex-col">
-                  <span className="text-neutral-700">— ETH</span>
-                  <span className="text-[10px] text-neutral-500">—</span>
-                </div>
-                <span className="text-[10px] text-neutral-400">
-                  coming soon
-                </span>
+          {listingsLoading && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              Loading listings…
+            </div>
+          )}
+
+          {!listingsLoading && listingsError && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              We can&apos;t show listings right now.
+            </div>
+          )}
+
+          {!listingsLoading &&
+            !listingsError &&
+            listings.length === 0 && (
+              <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+                No active listings for this NFT.
               </div>
-            ))}
-          </div>
+            )}
+
+          {!listingsLoading &&
+            !listingsError &&
+            listings.length > 0 && (
+              <div className="space-y-1.5 text-[11px]">
+                {listings.map((listing) => (
+                  <div
+                    key={listing.id}
+                    className="
+                      flex items-center justify-between rounded-xl
+                      bg-neutral-50 px-2 py-1.5
+                    "
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-neutral-900">
+                        {listing.priceFormatted} ETH
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        {listing.maker
+                          ? `From ${shortenAddress(listing.maker)}`
+                          : "Unknown seller"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-400">
+                      {formatTimeRemaining(listing.expirationTime) ?? "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
 
-        {/* Offers (UI stub for top 5 offers list, separate from price summary) */}
+        {/* Offers (placeholder for separate offers list) */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1026,7 +1122,7 @@ function NftDetailPage({
           </div>
         </div>
 
-        {/* Sales (UI stub for last 5 sales) */}
+        {/* Sales (placeholder) */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1110,7 +1206,7 @@ function NftDetailPage({
           </p>
         </div>
 
-        {/* Price summary – moved to bottom, with primary actions */}
+        {/* Price summary – bottom with actions */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1460,7 +1556,7 @@ function SellConfirmSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items=end justify-center bg-black/25 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
       <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
