@@ -734,12 +734,18 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-  // Active listings for this NFT (top 3 cheapest)
+  // Active listings: best listings for this collection (top 3 cheapest)
   useEffect(() => {
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
+    if (!nft) {
+      setListings([]);
+      setListingsError(null);
+      setListingsLoading(false);
+      return;
+    }
 
-    if (!nft || !contractAddress) {
+    const collectionSlug = getCollectionSlug(nft);
+
+    if (!collectionSlug) {
       setListings([]);
       setListingsError(null);
       setListingsLoading(false);
@@ -752,8 +758,7 @@ function NftDetailPage({
 
     const params = new URLSearchParams({
       chain,
-      contract: contractAddress,
-      identifier: String(nft.identifier),
+      collection: collectionSlug,
       limit: "3",
     });
 
@@ -785,7 +790,7 @@ function NftDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [chain, nft?.identifier, nft?.contract]);
+  }, [chain, nft?.collection]);
 
   const isBusy = offersLoading || traitsLoading || listingsLoading;
 
@@ -1020,7 +1025,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Listing */}
+        {/* Listing – best collection listings */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1032,7 +1037,7 @@ function NftDetailPage({
               Listing
             </div>
             <span className="text-[10px] text-neutral-400">
-              Up to 3 active listings
+              Top 3 collection listings
             </span>
           </div>
 
@@ -1052,7 +1057,7 @@ function NftDetailPage({
             !listingsError &&
             listings.length === 0 && (
               <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
-                No active listings for this NFT.
+                No active listings found for this collection.
               </div>
             )}
 

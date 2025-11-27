@@ -4,10 +4,7 @@ import { z } from "zod";
 
 const querySchema = z.object({
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
-  contract: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid contract address"),
-  identifier: z.string().min(1, "Missing token id"),
+  collection: z.string().min(1, "Missing collection slug"),
   limit: z
     .string()
     .transform((v) => parseInt(v, 10))
@@ -41,6 +38,7 @@ type OpenSeaOrder = {
 };
 
 function extractEthPrice(order: OpenSeaOrder): number | null {
+  // Preferred: price.current.value + decimals (v2 docs)
   const val = order.price?.current?.value;
   const decimals = order.price?.current?.decimals;
 
@@ -48,16 +46,19 @@ function extractEthPrice(order: OpenSeaOrder): number | null {
     try {
       const bn = BigInt(val);
       const denom = 10n ** BigInt(decimals);
-      return Number(bn) / Number(denom);
+      const asNumber = Number(bn) / Number(denom);
+      return asNumber;
     } catch {
-      return null;
+      // fall through to current_price
     }
   }
 
+  // Fallback: current_price (wei)
   if (order.current_price) {
     try {
       const wei = BigInt(order.current_price);
-      return Number(wei) / 1e18;
+      const asNumber = Number(wei) / 1e18;
+      return asNumber;
     } catch {
       return null;
     }
@@ -95,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const { chain, contract, identifier } = parse.data;
+  const { chain, collection } = parse.data;
   const limit = parse.data.limit ?? 3;
 
   const apiKey = process.env.OPENSEA_API_KEY;
@@ -108,14 +109,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const chainParam = chainSlug[chain];
   const searchParams = new URLSearchParams({
-    asset_contract_address: contract,
-    token_ids: identifier,
+    collection_slug: collection,
     limit: String(limit),
-    order_by: "eth_price",
-    order_direction: "asc",
   });
 
-  const url = `https://api.opensea.io/api/v2/orders/${chainParam}/seaport/listings?${searchParams.toString()}`;
+  const url = `https://api.opensea.io/api/v2/orders/${chainParam}/seaport/listings/collection?${searchParams.toString()}`;
 
   try {
     const resp = await fetch(url, {
@@ -127,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      console.error("OpenSea listings error", resp.status, text);
+      console.error("OpenSea best-collection-listings error", resp.status, text);
       return res.status(502).json({
         ok: false,
         message: "Failed to fetch listings from OpenSea",
@@ -137,21 +135,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const json: any = await resp.json();
 
-    // Debug for you in dev:
-    console.log(
-      "OpenSea listings raw",
-      JSON.stringify(json).slice(0, 1200)
-    );
-
-    // Try a few common shapes
-    const orders: OpenSeaOrder[] =
-      json.orders ??
-      json.listings ??
-      json.seaport_listings ??
-      json.body?.orders ??
-      [];
-
-    const nowSec = Math.floor(Date.now() / 1000);
+    // v2 shape is usually { orders, next, previous }; some wrappers nest under body.orders
+    const orders: OpenSeaOrder[] = json.orders ?? json.body?.orders ?? [];
 
     const listings = orders
       .map((order) => {
@@ -159,11 +144,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (priceEth == null || priceEth <= 0) return null;
 
         const expirationTime = extractExpiration(order);
-        // Keep only active listings (optional but probably what you want)
-        if (expirationTime != null && expirationTime <= nowSec) {
-          return null;
-        }
-
         const maker =
           order.maker?.address ??
           (order as any)["maker address"] ??
@@ -192,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       listings,
     });
   } catch (err) {
-    console.error("Unexpected error fetching listings", err);
+    console.error("Unexpected error fetching listings (collection)", err);
     return res.status(500).json({
       ok: false,
       message: "Unexpected error while fetching listings",
