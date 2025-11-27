@@ -1061,76 +1061,76 @@ function NftDetailPage({
               </div>
             )}
 
-          {!listingsLoading &&
-            !listingsError &&
-            listings.length > 0 && (
-              <div className="space-y-1.5 text-[11px]">
-                {listings.map((listing) => {
-                  // pick the best available thumbnail
-                  const thumb =
-                    listing.imageUrl ||
-                    listing.image_url ||
-                    listing.image ||
-                    nft.image_url ||
-                    null;
+            {!listingsLoading &&
+              !listingsError &&
+              listings.length > 0 && (
+                <div className="space-y-1.5 text-[11px]">
+                  {listings.map((listing) => {
+                    const thumb =
+                      listing.imageUrl ||
+                      listing.image_url ||
+                      listing.image ||
+                      nft.image_url ||
+                      null;
 
-                  const tokenLabel = listing.tokenId
-                    ? `${collectionName} #${listing.tokenId}`
-                    : collectionName;
+                    const tokenLabel = listing.tokenId
+                      ? `${collectionName} #${listing.tokenId}`
+                      : collectionName;
 
-                  return (
-                    <div
-                      key={listing.id}
-                      className="
-                        flex items-center gap-2 rounded-xl
-                        bg-neutral-50 px-2 py-1.5
-                      "
-                    >
-                      {/* Thumbnail */}
-                      <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={tokenLabel}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
-                            —
+                    return (
+                      <div
+                        key={listing.id}
+                        className="
+                          flex items-center gap-2 rounded-xl
+                          bg-neutral-50 px-2 py-1.5
+                        "
+                      >
+                        {/* Thumbnail */}
+                        <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={tokenLabel}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                              —
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Middle: name + address, Right: price + time */}
+                        <div className="flex flex-1 items-center justify-between gap-2">
+                          {/* Name + address */}
+                          <div className="flex min-w-0 flex-col">
+                            <span className="max-w-[150px] truncate text-neutral-800">
+                              {tokenLabel}
+                            </span>
+                            <span className="text-[10px] text-neutral-500">
+                              {listing.maker
+                                ? `From ${shortenAddress(listing.maker)}`
+                                : "Unknown seller"}
+                            </span>
                           </div>
-                        )}
-                      </div>
 
-                      {/* Middle + right content */}
-                      <div className="flex flex-1 items-center justify-between gap-2">
-                        {/* Left: price + seller */}
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-neutral-900">
-                            {listing.priceFormatted} ETH
-                          </span>
-                          <span className="text-[10px] text-neutral-500">
-                            {listing.maker
-                              ? `From ${shortenAddress(listing.maker)}`
-                              : "Unknown seller"}
-                          </span>
-                        </div>
-
-                        {/* Right: token label + time remaining */}
-                        <div className="flex flex-col items-end text-right text-[10px]">
-                          <span className="max-w-[120px] truncate text-neutral-600">
-                            {tokenLabel}
-                          </span>
-                          <span className="text-neutral-400">
-                            {formatTimeRemaining(listing.expirationTime) ?? "—"}
-                          </span>
+                          {/* Price + time */}
+                          <div className="flex flex-col items-end text-right text-[10px]">
+                            <span className="text-[11px] font-semibold text-neutral-900">
+                              {listing.priceFormatted} ETH
+                            </span>
+                            <span className="text-neutral-400">
+                              {formatTimeRemaining(listing.expirationTime) ?? "—"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+
         </div>
 
         {/* Offers (placeholder for separate offers list) */}
