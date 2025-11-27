@@ -466,12 +466,12 @@ function ChainSelector({
   return (
     <>
       {/* Compact pill in header */}
-      <button
+        <button
         type="button"
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
         className="
-          flex w-full items-center justify-between
+          flex w-full items-center
           rounded-full border border-neutral-200 bg-white
           px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
@@ -479,18 +479,18 @@ function ChainSelector({
           disabled:cursor-not-allowed disabled:opacity-60
         "
       >
-        {/* Left: icon + label */}
+        {/* Icon + label + Change all in one row, tight spacing */}
         <div className="flex items-center gap-1.5 min-w-0">
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
           <span>{current.label}</span>
-        </div>
 
-        {/* Right: Change */}
-        <div className="flex items-center gap-0.5 text-[10px] leading-none text-neutral-400">
-          <span>Change</span>
-          <span className="text-[8px]">▾</span>
+          <span className="ml-2 flex items-center gap-0.5 text-[10px] leading-none text-neutral-400">
+            <span>Change</span>
+            <span className="text-[8px]">▾</span>
+          </span>
         </div>
       </button>
+
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
