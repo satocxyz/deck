@@ -433,34 +433,87 @@ function ChainSelector({
   chain: Chain;
   onChange: (c: Chain) => void;
 }) {
-  const options: { label: string; value: Chain }[] = [
-    { label: "Base", value: "base" },
+  const [open, setOpen] = useState(false);
+
+  const options: { label: string; value: Chain; badge?: string }[] = [
+    { label: "Base", value: "base", badge: "Default" },
     { label: "Ethereum", value: "ethereum" },
+    { label: "Arbitrum", value: "arbitrum" },
+    { label: "Optimism", value: "optimism" },
   ];
 
+  const current = options.find((opt) => opt.value === chain) ?? options[0];
+
   return (
-    <div className="mt-0 flex gap-1 rounded-full border border-neutral-200 bg-white p-1 text-[11px] shadow-sm">
-      {options.map((opt) => {
-        const active = opt.value === chain;
-        return (
+    <>
+      {/* Compact pill in header */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="
+          flex w-full items-center justify-between gap-1
+          rounded-full border border-neutral-200 bg-white px-3 py-1.5
+          text-[11px] font-medium text-neutral-800 shadow-sm
+          hover:bg-neutral-50 active:bg-neutral-100
+        "
+      >
+        <span>{current.label}</span>
+        <span className="text-[9px] text-neutral-400">Change ▾</span>
+      </button>
+
+      {/* Bottom sheet network picker */}
+      {open && (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
-            key={opt.value}
             type="button"
-            onClick={() => onChange(opt.value)}
-            className={[
-              "flex-1 rounded-full px-3 py-1 transition-colors",
-              active
-                ? "bg-neutral-900 font-semibold text-white"
-                : "text-neutral-500 hover:bg-neutral-100",
-            ].join(" ")}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
+            className="absolute inset-0 h-full w-full"
+            onClick={() => setOpen(false)}
+          />
+
+          <div className="relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-xl">
+            <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-neutral-300" />
+            <div className="mb-2 text-center text-[12px] font-semibold text-neutral-900">
+              Select network
+            </div>
+
+            <div className="space-y-1.5">
+              {options.map((opt) => {
+                const active = opt.value === chain;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                    className={[
+                      "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100",
+                    ].join(" ")}
+                  >
+                    <span>{opt.label}</span>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      {opt.badge && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                          {opt.badge}
+                        </span>
+                      )}
+                      {active && <span>✓</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
+
 
 /**
  * Skeleton grid for loading state
@@ -1145,14 +1198,35 @@ function getCollectionLabel(nft: OpenSeaNft): string {
 }
 
 function openSeaChainSlug(chain: Chain): string {
-  if (chain === "base") return "base";
-  return "ethereum";
+  switch (chain) {
+    case "base":
+      return "base";
+    case "ethereum":
+      return "ethereum";
+    case "arbitrum":
+      return "arbitrum";
+    case "optimism":
+      return "optimism";
+    default:
+      return "ethereum";
+  }
 }
 
 function prettyChain(chain: Chain): string {
-  if (chain === "base") return "Base";
-  return "Ethereum";
+  switch (chain) {
+    case "base":
+      return "Base";
+    case "ethereum":
+      return "Ethereum";
+    case "arbitrum":
+      return "Arbitrum";
+    case "optimism":
+      return "Optimism";
+    default:
+      return "Ethereum";
+  }
 }
+
 
 export default App;
 

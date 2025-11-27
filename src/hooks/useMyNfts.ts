@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
-export type Chain = "base" | "ethereum";
+export type Chain = "base" | "ethereum" | "arbitrum" | "optimism";
 
 export type OpenSeaNft = {
   identifier: string;
