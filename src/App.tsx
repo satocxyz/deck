@@ -220,7 +220,11 @@ function App() {
 
           <div className="flex flex-1 justify-end">
             <div className="w-[40%] min-w-[130px]">
-              <ChainSelector chain={chain} onChange={setChain} />
+              <ChainSelector
+                chain={chain}
+                onChange={setChain}
+                disabled={isDetailView}
+              />
             </div>
           </div>
         </div>
@@ -424,14 +428,16 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
 }
 
 /**
- * Chain selector: Base / Ethereum
+ * Chain selector: multi-network with bottom sheet
  */
 function ChainSelector({
   chain,
   onChange,
+  disabled,
 }: {
   chain: Chain;
   onChange: (c: Chain) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -444,25 +450,37 @@ function ChainSelector({
 
   const current = options.find((opt) => opt.value === chain) ?? options[0];
 
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false);
+    }
+  }, [disabled]);
+
   return (
     <>
       {/* Compact pill in header */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen(true);
+        }}
         className="
           flex w-full items-center justify-between gap-1
           rounded-full border border-neutral-200 bg-white px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
           hover:bg-neutral-50 active:bg-neutral-100
+          disabled:cursor-not-allowed disabled:opacity-60
         "
       >
         <span>{current.label}</span>
-        <span className="text-[9px] text-neutral-400">Change ▾</span>
+        <span className="text-[9px] text-neutral-400">
+          {disabled ? "Locked" : "Change ▾"}
+        </span>
       </button>
 
       {/* Bottom sheet network picker */}
-      {open && (
+      {open && !disabled && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
@@ -513,7 +531,6 @@ function ChainSelector({
     </>
   );
 }
-
 
 /**
  * Skeleton grid for loading state
@@ -1227,7 +1244,6 @@ function prettyChain(chain: Chain): string {
   }
 }
 
-
 export default App;
 
 function SellConfirmSheet({
@@ -1327,7 +1343,7 @@ function SellConfirmSheet({
 
       if (!tx || !tx.to) {
         setError("Backend did not return a transaction to send.");
-               return;
+        return;
       }
 
       if (tx.data) {
