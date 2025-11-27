@@ -476,12 +476,17 @@ function ChainSelector({
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
           <span>{current.label}</span>
         </div>
-        <span className="text-[9px] text-neutral-400">Change ▾</span>
+
+        {/* keep this vertically centered regardless of text */}
+        <div className="flex items-center text-[10px] leading-none text-neutral-400">
+          <span>Change</span>
+          <span className="ml-0.5 text-[9px]">▾</span>
+        </div>
       </button>
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justifycenter bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
