@@ -205,31 +205,29 @@ function App() {
         </div>
 
         {/* Row 2: Powered by OpenSea + chain selector */}
-      <div className="flex items-center gap-2">
-        <div
-          className="
-            inline-flex items-center gap-1 rounded-full 
-            bg-neutral-900 px-3 py-1
-            text-[10px] font-medium text-white
-            shadow-sm
-          "
-        >
-          <span className="text-[11px]">🌊</span>
-          <span>Powered by OpenSea</span>
-        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className="
+              inline-flex items-center gap-1 rounded-full 
+              bg-neutral-900 px-3 py-1
+              text-[10px] font-medium text-white
+              shadow-sm
+            "
+          >
+            <span className="text-[11px]">🌊</span>
+            <span>Powered by OpenSea</span>
+          </div>
 
-        <div className="flex flex-1 justify-end">
-          <div className="min-w-[180px] max-w-[230px]">
-            <ChainSelector
-              chain={chain}
-              onChange={setChain}
-              disabled={isDetailView}
-            />
+          <div className="flex flex-1 justify-end">
+            <div className="min-w-[180px] max-w-[230px]">
+              <ChainSelector
+                chain={chain}
+                onChange={setChain}
+                disabled={isDetailView}
+              />
+            </div>
           </div>
         </div>
-      </div>
-
-
       </header>
 
       {/* Soft fade separator between header and content */}
@@ -263,7 +261,9 @@ function App() {
               <div className="grid grid-cols-2 gap-3 pb-10">
                 {nfts.map((nft) => (
                   <button
-                    key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+                    key={`${getCollectionSlug(nft) ?? "unknown"}-${
+                      nft.identifier
+                    }`}
                     type="button"
                     onClick={() => {
                       console.log("NFT object:", nft);
@@ -432,9 +432,6 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
 /**
  * Chain selector: multi-network with bottom sheet
  */
-/**
- * Chain selector: multi-network with bottom sheet
- */
 function ChainSelector({
   chain,
   onChange,
@@ -446,13 +443,17 @@ function ChainSelector({
 }) {
   const [open, setOpen] = useState(false);
 
-  const options: { label: string; value: Chain; badge?: string; icon: string }[] =
-    [
-      { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
-      { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
-      { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
-      { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
-    ];
+  const options: {
+    label: string;
+    value: Chain;
+    badge?: string;
+    icon: string;
+  }[] = [
+    { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
+    { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
+    { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
+    { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
+  ];
 
   const current = options.find((opt) => opt.value === chain) ?? options[0];
 
@@ -470,7 +471,7 @@ function ChainSelector({
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
         className="
-          flex w-full items-center
+          flex w-full items-center justify-between
           rounded-full border border-neutral-200 bg-white
           px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
@@ -483,10 +484,6 @@ function ChainSelector({
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
           <span>{current.label}</span>
         </div>
-
-
-        {/* Spacer pushes Change to the right */}
-        <div className="flex-1" />
 
         {/* Right: Change */}
         <div className="flex items-center gap-0.5 text-[10px] leading-none text-neutral-400">
@@ -600,7 +597,7 @@ type FloorInfo = {
 
 type Timeframe = "1D" | "7D" | "30D" | "3M" | "1Y";
 
-// 🔹 updated Listing type: include optional name + image fields
+// updated Listing type: include optional name + image fields
 type Listing = {
   id: string;
   priceEth: number;
@@ -1069,84 +1066,79 @@ function NftDetailPage({
             </div>
           )}
 
-          {!listingsLoading &&
-            !listingsError &&
-            listings.length === 0 && (
-              <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
-                No active listings found for this collection.
-              </div>
-            )}
+          {!listingsLoading && !listingsError && listings.length === 0 && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              No active listings found for this collection.
+            </div>
+          )}
 
-            {!listingsLoading &&
-              !listingsError &&
-              listings.length > 0 && (
-                <div className="space-y-1.5 text-[11px]">
-                  {listings.map((listing) => {
-                    const thumb =
-                      listing.imageUrl ||
-                      listing.image_url ||
-                      listing.image ||
-                      nft.image_url ||
-                      null;
+          {!listingsLoading && !listingsError && listings.length > 0 && (
+            <div className="space-y-1.5 text-[11px]">
+              {listings.map((listing) => {
+                const thumb =
+                  listing.imageUrl ||
+                  listing.image_url ||
+                  listing.image ||
+                  nft.image_url ||
+                  null;
 
-                    const tokenLabel = listing.tokenId
-                      ? `${collectionName} #${listing.tokenId}`
-                      : collectionName;
+                const tokenLabel = listing.tokenId
+                  ? `${collectionName} #${listing.tokenId}`
+                  : collectionName;
 
-                    return (
-                      <div
-                        key={listing.id}
-                        className="
-                          flex items-center gap-2 rounded-xl
-                          bg-neutral-50 px-2 py-1.5
-                        "
-                      >
-                        {/* Thumbnail */}
-                        <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt={tokenLabel}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
-                              —
-                            </div>
-                          )}
+                return (
+                  <div
+                    key={listing.id}
+                    className="
+                      flex items-center gap-2 rounded-xl
+                      bg-neutral-50 px-2 py-1.5
+                    "
+                  >
+                    {/* Thumbnail */}
+                    <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={tokenLabel}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                          —
                         </div>
+                      )}
+                    </div>
 
-                        {/* Middle: name + address, Right: price + time */}
-                        <div className="flex flex-1 items-center justify-between gap-2">
-                          {/* Name + address */}
-                          <div className="flex min-w-0 flex-col">
-                            <span className="max-w-[150px] truncate text-neutral-800">
-                              {tokenLabel}
-                            </span>
-                            <span className="text-[10px] text-neutral-500">
-                              {listing.maker
-                                ? `From ${shortenAddress(listing.maker)}`
-                                : "Unknown seller"}
-                            </span>
-                          </div>
-
-                          {/* Price + time */}
-                          <div className="flex flex-col items-end text-right text-[10px]">
-                            <span className="text-[11px] font-semibold text-neutral-900">
-                              {listing.priceFormatted} ETH
-                            </span>
-                            <span className="text-neutral-400">
-                              {formatTimeRemaining(listing.expirationTime) ?? "—"}
-                            </span>
-                          </div>
-                        </div>
+                    {/* Middle: name + address, Right: price + time */}
+                    <div className="flex flex-1 items-center justify-between gap-2">
+                      {/* Name + address */}
+                      <div className="flex min-w-0 flex-col">
+                        <span className="max-w-[150px] truncate text-neutral-800">
+                          {tokenLabel}
+                        </span>
+                        <span className="text-[10px] text-neutral-500">
+                          {listing.maker
+                            ? `From ${shortenAddress(listing.maker)}`
+                            : "Unknown seller"}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
 
+                      {/* Price + time */}
+                      <div className="flex flex-col items-end text-right text-[10px]">
+                        <span className="text-[11px] font-semibold text-neutral-900">
+                          {listing.priceFormatted} ETH
+                        </span>
+                        <span className="text-neutral-400">
+                          {formatTimeRemaining(listing.expirationTime) ?? "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Offers (placeholder for separate offers list) */}
