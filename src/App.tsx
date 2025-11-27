@@ -218,15 +218,15 @@ function App() {
             <span>Powered by OpenSea</span>
           </div>
 
-<div className="flex flex-1 justify-end">
-  <div className="min-w-[180px] max-w-[230px]">
-    <ChainSelector
-      chain={chain}
-      onChange={setChain}
-      disabled={isDetailView}
-    />
-  </div>
-</div>
+          <div className="flex flex-1 justify-end items-center">
+            <div className="w-fit max-w-[240px]">
+              <ChainSelector
+                chain={chain}
+                onChange={setChain}
+                disabled={isDetailView}
+              />
+            </div>
+          </div>
 
         </div>
       </header>
