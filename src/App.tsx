@@ -441,12 +441,13 @@ function ChainSelector({
 }) {
   const [open, setOpen] = useState(false);
 
-  const options: { label: string; value: Chain; badge?: string }[] = [
-    { label: "Base", value: "base", badge: "Default" },
-    { label: "Ethereum", value: "ethereum" },
-    { label: "Arbitrum", value: "arbitrum" },
-    { label: "Optimism", value: "optimism" },
-  ];
+const options: { label: string; value: Chain; badge?: string; icon: string }[] = [
+  { label: "Base", value: "base", badge: "Default", icon: "/chains/base.svg" },
+  { label: "Ethereum", value: "ethereum", icon: "/chains/ethereum.svg" },
+  { label: "Arbitrum", value: "arbitrum", icon: "/chains/arbitrum.svg" },
+  { label: "Optimism", value: "optimism", icon: "/chains/optimism.svg" },
+];
+
 
   const current = options.find((opt) => opt.value === chain) ?? options[0];
 
@@ -461,23 +462,21 @@ function ChainSelector({
       {/* Compact pill in header */}
       <button
         type="button"
-        disabled={disabled}
-        onClick={() => {
-          if (!disabled) setOpen(true);
-        }}
+        onClick={() => setOpen(true)}
         className="
-          flex w-full items-center justify-between gap-1
+          flex w-full items-center justify-between gap-2
           rounded-full border border-neutral-200 bg-white px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
           hover:bg-neutral-50 active:bg-neutral-100
-          disabled:cursor-not-allowed disabled:opacity-60
         "
       >
-        <span>{current.label}</span>
-        <span className="text-[9px] text-neutral-400">
-          {disabled ? "Locked" : "Change ▾"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <img src={current.icon} className="h-3.5 w-3.5" alt="" />
+          <span>{current.label}</span>
+        </div>
+        <span className="text-[9px] text-neutral-400">Change ▾</span>
       </button>
+
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
@@ -512,7 +511,11 @@ function ChainSelector({
                         : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100",
                     ].join(" ")}
                   >
-                    <span>{opt.label}</span>
+                    <div className="flex items-center gap-2">
+                      <img src={opt.icon} className="h-4 w-4" alt="" />
+                      <span>{opt.label}</span>
+                    </div>
+
                     <div className="flex items-center gap-2 text-[10px]">
                       {opt.badge && (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
@@ -522,6 +525,7 @@ function ChainSelector({
                       {active && <span>✓</span>}
                     </div>
                   </button>
+
                 );
               })}
             </div>
