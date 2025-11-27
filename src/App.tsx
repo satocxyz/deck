@@ -218,15 +218,16 @@ function App() {
             <span>Powered by OpenSea</span>
           </div>
 
-          <div className="flex flex-1 justify-end">
-            <div className="min-w-[180px] max-w-[230px]">
-              <ChainSelector
-                chain={chain}
-                onChange={setChain}
-                disabled={isDetailView}
-              />
-            </div>
-          </div>
+<div className="flex flex-1 justify-end">
+  <div className="min-w-[180px] max-w-[230px]">
+    <ChainSelector
+      chain={chain}
+      onChange={setChain}
+      disabled={isDetailView}
+    />
+  </div>
+</div>
+
         </div>
       </header>
 
@@ -466,12 +467,12 @@ function ChainSelector({
   return (
     <>
       {/* Compact pill in header */}
-        <button
+      <button
         type="button"
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
         className="
-          flex w-full items-center
+          inline-flex items-center
           rounded-full border border-neutral-200 bg-white
           px-3 py-1.5
           text-[11px] font-medium text-neutral-800 shadow-sm
@@ -479,6 +480,7 @@ function ChainSelector({
           disabled:cursor-not-allowed disabled:opacity-60
         "
       >
+
         {/* Icon + label + Change all in one row, tight spacing */}
         <div className="flex items-center gap-1.5 min-w-0">
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
