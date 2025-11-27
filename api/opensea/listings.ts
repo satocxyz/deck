@@ -97,6 +97,15 @@ type BasicListing = {
   tokenId: string | null;
 };
 
+// Enriched listing with metadata (non-breaking: just extra fields)
+type EnrichedListing = BasicListing & {
+  name: string | null;
+  imageUrl: string | null;
+  // aliases so different frontends can pick whatever they expect
+  image_url?: string | null;
+  image?: string | null;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -157,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawListings: OpenSeaBestListing[] =
       json.listings ?? json.body?.listings ?? [];
 
-    // 🔹 ORIGINAL behaviour: build basic listings (unchanged)
+    // ORIGINAL behaviour: build basic listings (unchanged)
     const baseListings: BasicListing[] = rawListings
       .map((order) => {
         const priceEth = extractEthPrice(order);
@@ -194,13 +203,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const limited = baseListings.slice(0, limit);
 
-    // 🔹 NEW: best-effort enrichment with name + imageUrl
-    const enriched = await Promise.all(
+    // NEW: best-effort enrichment with name + imageUrl
+    const enriched: EnrichedListing[] = await Promise.all(
       limited.map(async (listing) => {
         let name: string | null = null;
         let imageUrl: string | null = null;
 
-        // Only try metadata if we have contract + token
+        // 1) Try NFT-level metadata
         if (listing.tokenContract && listing.tokenId) {
           try {
             const metaUrl = `https://api.opensea.io/api/v2/chain/${chainParam}/contract/${listing.tokenContract}/nfts/${listing.tokenId}`;
@@ -236,7 +245,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               );
             }
           } catch (err) {
-            console.error("Failed to enrich listing metadata", err);
+            console.error("Failed to enrich listing NFT metadata", err);
+          }
+        }
+
+        // 2) Fallback: contract/collection image if NFT image is missing
+        if (!imageUrl && listing.tokenContract) {
+          try {
+            const contractUrl = `https://api.opensea.io/api/v2/chain/${chainParam}/contract/${listing.tokenContract}`;
+
+            const contractResp = await fetch(contractUrl, {
+              headers: {
+                "x-api-key": apiKey,
+                accept: "application/json",
+              },
+            });
+
+            if (contractResp.ok) {
+              const contractJson: any = await contractResp.json();
+              const contract = contractJson.contract ?? contractJson;
+
+              const collection =
+                contract.collection ??
+                contract.collection_metadata ??
+                null;
+
+              if (!name) {
+                name =
+                  contract.name ??
+                  collection?.name ??
+                  null;
+              }
+
+              imageUrl =
+                collection?.image_url ??
+                contract.image_url ??
+                contract.image ??
+                imageUrl ??
+                null;
+            } else {
+              const txt = await contractResp.text().catch(() => "");
+              console.warn(
+                "OpenSea contract-details error",
+                contractResp.status,
+                txt,
+              );
+            }
+          } catch (err) {
+            console.error("Failed to enrich listing contract metadata", err);
           }
         }
 
@@ -245,6 +301,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...listing,
           name,
           imageUrl,
+          // aliases so whatever the UI expects gets something:
+          image_url: imageUrl,
+          image: imageUrl,
         };
       }),
     );
