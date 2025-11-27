@@ -966,7 +966,7 @@ function NftDetailPage({
               Listing
             </div>
             <span className="text-[10px] text-neutral-400">
-              Up to 5 active listings
+              Up to 3 active listings
             </span>
           </div>
 
@@ -1002,7 +1002,7 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Offers
             </div>
-            <span className="text-[10px] text-neutral-400">Top 5 offers</span>
+            <span className="text-[10px] text-neutral-400">Top 3 offers</span>
           </div>
 
           <div className="space-y-1.5 text-[11px]">
@@ -1037,7 +1037,7 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Sales
             </div>
-            <span className="text-[10px] text-neutral-400">Last 5 sales</span>
+            <span className="text-[10px] text-neutral-400">Last 3 sales</span>
           </div>
 
           <div className="space-y-1.5 text-[11px]">
