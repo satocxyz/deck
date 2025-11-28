@@ -766,56 +766,79 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-  // Top 3 cheapest listings in this collection (using best listings by collection)
-  useEffect(() => {
-    const collectionSlug = getCollectionSlug(nft);
+// Top 3 cheapest listings in this collection (using best listings by collection)
+useEffect(() => {
+  const collectionSlug = getCollectionSlug(nft);
 
-    if (!nft || !collectionSlug) {
-      setListings([]);
-      setListingsError(null);
-      setListingsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setListingsLoading(true);
+  if (!nft || !collectionSlug) {
+    setListings([]);
     setListingsError(null);
+    setListingsLoading(false);
+    return;
+  }
 
-    const params = new URLSearchParams({
-      chain,
-      collection: collectionSlug,
-      limit: "3",
-    });
+  let cancelled = false;
+  setListingsLoading(true);
+  setListingsError(null);
 
-    fetch(`/api/opensea/listings?${params.toString()}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch listings");
-        return res.json();
-      })
-      .then((json) => {
-        if (cancelled) return;
-        if (!json.ok) {
-          setListingsError("open_sea_error");
-          setListings([]);
-          return;
-        }
-        setListings(Array.isArray(json.listings) ? json.listings : []);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error("Failed to load listings", err);
+  // ask backend for more, we'll trim to 3 unique tokens here
+  const params = new URLSearchParams({
+    chain,
+    collection: collectionSlug,
+    limit: "20",
+  });
+
+  fetch(`/api/opensea/listings?${params.toString()}`)
+    .then((res) => {
+      if (!res.ok) throw new Error("Failed to fetch listings");
+      return res.json();
+    })
+    .then((json) => {
+      if (cancelled) return;
+      if (!json.ok) {
         setListingsError("open_sea_error");
         setListings([]);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setListingsLoading(false);
-      });
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [chain, nft]);
+      const raw: Listing[] = Array.isArray(json.listings)
+        ? json.listings
+        : [];
+
+      // keep only 1 row per token (cheapest first)
+      const unique: Listing[] = [];
+      const seenTokens = new Set<string>();
+
+      for (const l of raw) {
+        const tokenKey =
+          (l.tokenContract || "") + ":" + (l.tokenId || "");
+        const key = tokenKey !== ":" ? tokenKey : l.id; // fallback to id if no token info
+
+        if (seenTokens.has(key)) continue;
+
+        seenTokens.add(key);
+        unique.push(l);
+
+        if (unique.length >= 3) break;
+      }
+
+      setListings(unique);
+    })
+    .catch((err) => {
+      if (cancelled) return;
+      console.error("Failed to load listings", err);
+      setListingsError("open_sea_error");
+      setListings([]);
+    })
+    .finally(() => {
+      if (cancelled) return;
+      setListingsLoading(false);
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [chain, nft]);
 
   const isBusy = offersLoading || traitsLoading || listingsLoading;
 
