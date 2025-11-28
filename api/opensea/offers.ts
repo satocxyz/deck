@@ -29,9 +29,12 @@ export default async function handler(
   const collectionSlug = req.query.collection as string | undefined;
   const identifier = req.query.identifier as string | undefined;
 
-  if (!chain || (chain !== "base" && chain !== "ethereum")) {
+  const allowedChains = ["base", "ethereum", "arbitrum", "optimism"];
+
+  if (!chain || !allowedChains.includes(chain)) {
     return res.status(400).json({
-      error: "Invalid or missing chain. Expected 'base' or 'ethereum'.",
+      error:
+        "Invalid or missing chain. Expected one of: base, ethereum, arbitrum, optimism.",
     });
   }
 
@@ -214,7 +217,7 @@ export default async function handler(
             priceFormatted,
             maker: makerAddress,
             expirationTime,
-            protocolAddress, // NEW
+            protocolAddress,
             source: "nft",
           };
         }

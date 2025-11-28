@@ -117,7 +117,15 @@ function App() {
   const [chain, setChain] = useState<Chain>(() => {
     if (typeof window === "undefined") return "base";
     const stored = window.localStorage.getItem("deck:chain");
-    return stored === "ethereum" ? "ethereum" : "base";
+    if (
+      stored === "base" ||
+      stored === "ethereum" ||
+      stored === "arbitrum" ||
+      stored === "optimism"
+    ) {
+      return stored as Chain;
+    }
+    return "base";
   });
 
   const [safeArea, setSafeArea] = useState<SafeArea>({
@@ -227,7 +235,6 @@ function App() {
               />
             </div>
           </div>
-
         </div>
       </header>
 
@@ -480,7 +487,6 @@ function ChainSelector({
           disabled:cursor-not-allowed disabled:opacity-60
         "
       >
-
         {/* Icon + label + Change all in one row, tight spacing */}
         <div className="flex items-center gap-1.5 min-w-0">
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
@@ -493,10 +499,9 @@ function ChainSelector({
         </div>
       </button>
 
-
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify	center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -1143,7 +1148,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Offers (placeholder for separate offers list) */}
+        {/* Offers – read-only, using current bestOffer */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1154,28 +1159,56 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Offers
             </div>
-            <span className="text-[10px] text-neutral-400">Top 3 offers</span>
+            <span className="text-[10px] text-neutral-400">
+              {bestOffer ? "Best WETH offer" : "No offer yet"}
+            </span>
           </div>
 
-          <div className="space-y-1.5 text-[11px]">
-            {[0, 1, 2].map((idx) => (
+          {offersLoading && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              Loading offers…
+            </div>
+          )}
+
+          {!offersLoading && offersError && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              We can&apos;t show offers right now.
+            </div>
+          )}
+
+          {!offersLoading && !offersError && !bestOffer && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              No active WETH offers for this NFT.
+            </div>
+          )}
+
+          {!offersLoading && !offersError && bestOffer && (
+            <div className="space-y-1.5 text-[11px]">
               <div
-                key={idx}
                 className="
                   flex items-center justify-between rounded-xl
                   bg-neutral-50 px-2 py-1.5
                 "
               >
                 <div className="flex flex-col">
-                  <span className="text-neutral-700">— WETH</span>
-                  <span className="text-[10px] text-neutral-500">—</span>
+                  <span className="text-neutral-700">
+                    {bestOffer.priceFormatted} WETH
+                  </span>
+                  <span className="text-[10px] text-neutral-500">
+                    {bestOffer.maker
+                      ? `From ${shortenAddress(bestOffer.maker)}`
+                      : "Unknown maker"}
+                  </span>
                 </div>
-                <span className="text-[10px] text-neutral-400">
-                  coming soon
-                </span>
+                <div className="flex flex-col items-end text-right text-[10px]">
+                  <span className="text-neutral-500">
+                    {formatTimeRemaining(bestOffer.expirationTime) ?? "—"}
+                  </span>
+                  <span className="text-neutral-400">Best offer</span>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Sales (placeholder) */}
