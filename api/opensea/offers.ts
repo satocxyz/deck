@@ -7,7 +7,7 @@ type SimpleOffer = {
   priceFormatted: string;
   maker: string | null;
   expirationTime: number | null;
-  protocolAddress: string | null; // NEW
+  protocolAddress: string | null;
   source: "nft";
 };
 
@@ -15,6 +15,8 @@ type FloorInfo = {
   eth: number | null;
   formatted: string | null;
 };
+
+const SUPPORTED_CHAINS = ["base", "ethereum", "arbitrum", "optimism"];
 
 export default async function handler(
   req: VercelRequest,
@@ -29,9 +31,7 @@ export default async function handler(
   const collectionSlug = req.query.collection as string | undefined;
   const identifier = req.query.identifier as string | undefined;
 
-  const allowedChains = ["base", "ethereum", "arbitrum", "optimism"];
-
-  if (!chain || !allowedChains.includes(chain)) {
+  if (!chain || !SUPPORTED_CHAINS.includes(chain)) {
     return res.status(400).json({
       error:
         "Invalid or missing chain. Expected one of: base, ethereum, arbitrum, optimism.",
@@ -57,6 +57,7 @@ export default async function handler(
 
   let bestOffer: SimpleOffer | null = null;
   let floor: FloorInfo = { eth: null, formatted: null };
+  let topOffers: SimpleOffer[] = [];
 
   try {
     // -------------------------------------------------
@@ -86,147 +87,169 @@ export default async function handler(
     }
 
     // -------------------------------------------------
-    // 2) BEST OFFER FOR THIS NFT
+    // 2) ALL OFFERS FOR THIS NFT -> PARSE -> TOP 3
     // -------------------------------------------------
-    const bestOfferUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}/best`;
-
-    const bestRes = await fetch(bestOfferUrl, {
+    const offersUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}`;
+    const offersRes = await fetch(offersUrl, {
       headers: {
         Accept: "application/json",
         "X-API-KEY": apiKey,
       },
     });
 
-    if (bestRes.ok) {
-      const bestJson = (await bestRes.json()) as any;
+    if (offersRes.ok) {
+      const offersJson = (await offersRes.json()) as any;
 
-      const rawOffer =
-        bestJson?.best_offer ??
-        bestJson?.best ??
-        bestJson?.offer ??
-        bestJson ??
-        null;
+      const rawOffers: any[] = Array.isArray(offersJson?.offers)
+        ? offersJson.offers
+        : Array.isArray(offersJson?.orders)
+        ? offersJson.orders
+        : Array.isArray(offersJson)
+        ? offersJson
+        : [];
 
-      if (rawOffer && typeof rawOffer === "object") {
-        // -------------------------------------------------
-        // PRICE PARSING
-        // -------------------------------------------------
-        let priceEth: number | null = null;
+      const parsed: SimpleOffer[] = [];
 
-        const priceObj = rawOffer.price ?? rawOffer.current_price ?? null;
-
-        if (priceObj && typeof priceObj === "object") {
-          const valueStr = (priceObj as any).value;
-          const decimals = (priceObj as any).decimals;
-
-          if (typeof valueStr === "string" && typeof decimals === "number") {
-            const total = Number(valueStr);
-
-            if (!Number.isNaN(total) && total > 0) {
-              priceEth = total / 10 ** decimals;
-            }
-          }
-        } else if (
-          typeof priceObj === "string" ||
-          typeof priceObj === "number"
-        ) {
-          const n = Number(priceObj);
-          if (!Number.isNaN(n) && n > 0) {
-            priceEth = n > 1e10 ? n / 1e18 : n;
-          }
-        }
-
-        // -------------------------------------------------
-        // HANDLE CRITERIA / COLLECTION-WIDE OFFER
-        // Derive per-NFT price from consideration startAmount
-        // when the order targets multiple NFTs.
-        // -------------------------------------------------
-        try {
-          if (
-            rawOffer.criteria?.encoded_token_ids === "*" &&
-            typeof priceEth === "number" &&
-            priceEth > 0
-          ) {
-            const params = rawOffer.protocol_data?.parameters;
-            const consideration = params?.consideration;
-
-            if (Array.isArray(consideration)) {
-              // first NFT leg (ERC721/1155)
-              const nftLeg = consideration.find(
-                (c: any) =>
-                  c &&
-                  typeof c === "object" &&
-                  (c.itemType === 4 || c.itemType === 2 || c.itemType === 3),
-              );
-
-              const amountStr: string | undefined =
-                nftLeg?.startAmount ?? nftLeg?.endAmount;
-
-              const amountNum = amountStr ? Number(amountStr) : NaN;
-
-              if (Number.isFinite(amountNum) && amountNum > 1) {
-                // per-NFT price
-                priceEth = priceEth / amountNum;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("criteria / consideration parsing failed:", err);
-        }
-
-        // -------------------------------------------------
-        // BUILD OFFER OBJECT
-        // -------------------------------------------------
-        if (typeof priceEth === "number" && priceEth > 0) {
-          const priceFormatted =
-            priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
-
-          const makerAddress: string | null =
-            rawOffer.maker?.address ??
-            rawOffer.maker_address ??
-            rawOffer.maker ??
-            rawOffer.protocol_data?.parameters?.offerer ??
-            null;
-
-          let expirationTime: number | null = null;
-          const endTimeParam = rawOffer.protocol_data?.parameters?.endTime;
-
-          if (typeof endTimeParam === "string") {
-            const n = Number(endTimeParam);
-            if (!Number.isNaN(n) && n > 0) expirationTime = n;
-          } else if (typeof rawOffer.expires_at === "number") {
-            expirationTime = rawOffer.expires_at;
-          } else if (typeof rawOffer.expiration_time === "number") {
-            expirationTime = rawOffer.expiration_time;
-          }
-
-          const protocolAddress: string | null =
-            typeof rawOffer.protocol_address === "string"
-              ? rawOffer.protocol_address
-              : null;
-
-          const id: string =
-            rawOffer.order_hash ??
-            rawOffer.id ??
-            rawOffer.hash ??
-            `${makerAddress ?? "unknown"}-${priceFormatted}`;
-
-          bestOffer = {
-            id,
-            priceEth,
-            priceFormatted,
-            maker: makerAddress,
-            expirationTime,
-            protocolAddress,
-            source: "nft",
-          };
-        }
+      for (const rawOffer of rawOffers) {
+        const parsedOffer = normalizeOffer(rawOffer);
+        if (parsedOffer) parsed.push(parsedOffer);
       }
+
+      // Highest WETH offer first
+      parsed.sort((a, b) => b.priceEth - a.priceEth);
+
+      bestOffer = parsed[0] ?? null;
+      topOffers = parsed.slice(0, 3);
+    } else {
+      const text = await offersRes.text();
+      console.error(
+        "OpenSea offers error",
+        offersRes.status,
+        text || "(empty body)",
+      );
     }
 
-    return res.status(200).json({ bestOffer, floor });
+    return res.status(200).json({
+      bestOffer,
+      floor,
+      offers: topOffers,
+    });
   } catch (err) {
     console.error("Unexpected error in /api/opensea/offers", err);
     return res.status(500).json({ error: "Internal server error" });
   }
+}
+
+/**
+ * Normalize one raw OpenSea offer into SimpleOffer
+ */
+function normalizeOffer(rawOffer: any): SimpleOffer | null {
+  if (!rawOffer || typeof rawOffer !== "object") return null;
+
+  // -----------------------------
+  // Price parsing
+  // -----------------------------
+  let priceEth: number | null = null;
+
+  const priceObj = (rawOffer.price ?? rawOffer.current_price ?? null) as any;
+
+  if (priceObj && typeof priceObj === "object") {
+    const valueStr = priceObj.value;
+    const decimals = priceObj.decimals;
+
+    if (typeof valueStr === "string" && typeof decimals === "number") {
+      const total = Number(valueStr);
+      if (!Number.isNaN(total) && total > 0) {
+        priceEth = total / 10 ** decimals;
+      }
+    }
+  } else if (
+    typeof priceObj === "string" ||
+    typeof priceObj === "number"
+  ) {
+    const n = Number(priceObj);
+    if (!Number.isNaN(n) && n > 0) {
+      // raw wei?
+      priceEth = n > 1e10 ? n / 1e18 : n;
+    }
+  }
+
+  // -----------------------------
+  // Criteria / collection-wide offers:
+  // convert collection-wide price into per-NFT price
+  // -----------------------------
+  try {
+    if (
+      rawOffer.criteria?.encoded_token_ids === "*" &&
+      typeof priceEth === "number" &&
+      priceEth > 0
+    ) {
+      const params = rawOffer.protocol_data?.parameters;
+      const consideration = params?.consideration;
+
+      if (Array.isArray(consideration)) {
+        const nftLeg = consideration.find(
+          (c: any) =>
+            c &&
+            typeof c === "object" &&
+            (c.itemType === 4 || c.itemType === 2 || c.itemType === 3),
+        );
+
+        const amountStr: string | undefined =
+          nftLeg?.startAmount ?? nftLeg?.endAmount;
+        const amountNum = amountStr ? Number(amountStr) : NaN;
+
+        if (Number.isFinite(amountNum) && amountNum > 1) {
+          priceEth = priceEth / amountNum;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("criteria / consideration parsing failed:", err);
+  }
+
+  if (typeof priceEth !== "number" || priceEth <= 0) return null;
+
+  const priceFormatted =
+    priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
+
+  const makerAddress: string | null =
+    rawOffer.maker?.address ??
+    rawOffer.maker_address ??
+    rawOffer.maker ??
+    rawOffer.protocol_data?.parameters?.offerer ??
+    null;
+
+  let expirationTime: number | null = null;
+  const endTimeParam = rawOffer.protocol_data?.parameters?.endTime;
+
+  if (typeof endTimeParam === "string") {
+    const n = Number(endTimeParam);
+    if (!Number.isNaN(n) && n > 0) expirationTime = n;
+  } else if (typeof rawOffer.expires_at === "number") {
+    expirationTime = rawOffer.expires_at;
+  } else if (typeof rawOffer.expiration_time === "number") {
+    expirationTime = rawOffer.expiration_time;
+  }
+
+  const protocolAddress: string | null =
+    typeof rawOffer.protocol_address === "string"
+      ? rawOffer.protocol_address
+      : null;
+
+  const id: string =
+    rawOffer.order_hash ??
+    rawOffer.id ??
+    rawOffer.hash ??
+    `${makerAddress ?? "unknown"}-${priceFormatted}-${Date.now()}`;
+
+  return {
+    id,
+    priceEth,
+    priceFormatted,
+    maker: makerAddress,
+    expirationTime,
+    protocolAddress,
+    source: "nft",
+  };
 }

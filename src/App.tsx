@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify	center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -636,6 +636,7 @@ function NftDetailPage({
   });
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
+  const [topOffers, setTopOffers] = useState<SimpleOffer[]>([]);
 
   const [traits, setTraits] = useState<NormalizedTrait[]>([]);
   const [traitsLoading, setTraitsLoading] = useState(false);
@@ -648,13 +649,14 @@ function NftDetailPage({
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
 
-  // Offers + floor
+  // Offers + floor + top 3 offers
   useEffect(() => {
     if (!nft) {
       setBestOffer(null);
       setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
+      setTopOffers([]);
       return;
     }
 
@@ -665,6 +667,7 @@ function NftDetailPage({
       setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
+      setTopOffers([]);
       return;
     }
 
@@ -692,11 +695,13 @@ function NftDetailPage({
             formatted: null,
           },
         );
+        setTopOffers(Array.isArray(json.offers) ? json.offers : []);
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("Failed to load offers", err);
         setOffersError("open_sea_error");
+        setTopOffers([]);
       })
       .finally(() => {
         if (cancelled) return;
@@ -1148,7 +1153,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Offers – read-only, using current bestOffer */}
+        {/* Offers – top 3 WETH offers for this NFT */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1160,7 +1165,7 @@ function NftDetailPage({
               Offers
             </div>
             <span className="text-[10px] text-neutral-400">
-              {bestOffer ? "Best WETH offer" : "No offer yet"}
+              Top 3 WETH offers
             </span>
           </div>
 
@@ -1176,37 +1181,45 @@ function NftDetailPage({
             </div>
           )}
 
-          {!offersLoading && !offersError && !bestOffer && (
+          {!offersLoading && !offersError && topOffers.length === 0 && (
             <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
               No active WETH offers for this NFT.
             </div>
           )}
 
-          {!offersLoading && !offersError && bestOffer && (
+          {!offersLoading && !offersError && topOffers.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              <div
-                className="
-                  flex items-center justify-between rounded-xl
-                  bg-neutral-50 px-2 py-1.5
-                "
-              >
-                <div className="flex flex-col">
-                  <span className="text-neutral-700">
-                    {bestOffer.priceFormatted} WETH
-                  </span>
-                  <span className="text-[10px] text-neutral-500">
-                    {bestOffer.maker
-                      ? `From ${shortenAddress(bestOffer.maker)}`
-                      : "Unknown maker"}
-                  </span>
+              {topOffers.map((offer, index) => (
+                <div
+                  key={offer.id}
+                  className="
+                    flex items-center justify-between rounded-xl
+                    bg-neutral-50 px-2 py-1.5
+                  "
+                >
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-emerald-600">
+                      {offer.priceFormatted} WETH
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {offer.maker
+                        ? `From ${shortenAddress(offer.maker)}`
+                        : "Unknown maker"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-end text-right text-[10px]">
+                    <span className="text-neutral-500">
+                      {formatTimeRemaining(offer.expirationTime) ?? "—"}
+                    </span>
+                    {index === 0 && (
+                      <span className="text-[9px] font-medium text-amber-600">
+                        Best offer
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col items-end text-right text-[10px]">
-                  <span className="text-neutral-500">
-                    {formatTimeRemaining(bestOffer.expirationTime) ?? "—"}
-                  </span>
-                  <span className="text-neutral-400">Best offer</span>
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </div>
