@@ -87,7 +87,7 @@ export default async function handler(
     }
 
     // -------------------------------------------------
-    // 2) ALL OFFERS FOR THIS NFT -> FILTER LIVE ONES -> TOP 3
+    // 2) ALL OFFERS FOR THIS NFT -> FILTER LIVE + CORRECT TOKEN -> TOP 3
     // -------------------------------------------------
     const search = new URLSearchParams({ chain });
     const offersUrl = `${baseUrl}/offers/collection/${encodeURIComponent(
@@ -113,6 +113,7 @@ export default async function handler(
         : [];
 
       const nowSec = Math.floor(Date.now() / 1000);
+      const identifierStr = String(identifier);
 
       const filteredRaw = rawOffers.filter((raw) => {
         if (!raw || typeof raw !== "object") return false;
@@ -161,6 +162,36 @@ export default async function handler(
           const start = Number(startTimeStr);
           if (Number.isFinite(start) && start > nowSec) {
             return false;
+          }
+        }
+
+        // tokenId targeting: ignore offers that are for a different NFT,
+        // except for true collection-wide criteria offers.
+        const criteria = raw.criteria;
+        const isCollectionWide =
+          criteria &&
+          typeof criteria === "object" &&
+          criteria.encoded_token_ids === "*";
+
+        if (!isCollectionWide) {
+          const consideration = raw.protocol_data?.parameters?.consideration;
+          if (Array.isArray(consideration)) {
+            const nftLeg = consideration.find(
+              (c: any) =>
+                c &&
+                typeof c === "object" &&
+                (c.itemType === 2 || c.itemType === 3 || c.itemType === 4),
+            );
+
+            const legId =
+              nftLeg?.identifierOrCriteria != null
+                ? String(nftLeg.identifierOrCriteria)
+                : null;
+
+            if (legId && legId !== identifierStr) {
+              // Offer is active but for another token id in the collection → hide it
+              return false;
+            }
           }
         }
 
