@@ -87,9 +87,13 @@ export default async function handler(
     }
 
     // -------------------------------------------------
-    // 2) ALL OFFERS FOR THIS NFT -> PARSE -> TOP 3
+    // 2) ALL OFFERS FOR THIS NFT -> FILTER STALE -> TOP 3
     // -------------------------------------------------
-    const offersUrl = `${baseUrl}/offers/collection/${collectionSlug}/nfts/${identifier}`;
+    const search = new URLSearchParams({ chain });
+    const offersUrl = `${baseUrl}/offers/collection/${encodeURIComponent(
+      collectionSlug,
+    )}/nfts/${encodeURIComponent(identifier)}?${search.toString()}`;
+
     const offersRes = await fetch(offersUrl, {
       headers: {
         Accept: "application/json",
@@ -108,9 +112,53 @@ export default async function handler(
         ? offersJson
         : [];
 
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      const filteredRaw = rawOffers.filter((raw) => {
+        if (!raw || typeof raw !== "object") return false;
+
+        // status: prefer only "active"
+        const status: string | undefined =
+          raw.status || raw.order_status || raw.orderStatus;
+        if (status && status.toLowerCase() !== "active") return false;
+
+        // quantity: must have something remaining
+        const remaining: number | undefined =
+          typeof raw.remaining_quantity === "number"
+            ? raw.remaining_quantity
+            : typeof raw.remaining === "number"
+            ? raw.remaining
+            : typeof raw.available_quantity === "number"
+            ? raw.available_quantity
+            : undefined;
+
+        if (typeof remaining === "number" && remaining <= 0) return false;
+
+        // expiration time: ignore if already expired
+        const endTimeStr: string | undefined =
+          raw.protocol_data?.parameters?.endTime;
+        if (endTimeStr) {
+          const n = Number(endTimeStr);
+          if (Number.isFinite(n) && n > 0 && n <= nowSec) return false;
+        }
+
+        const expiresAt: number | undefined =
+          typeof raw.expires_at === "number"
+            ? raw.expires_at
+            : typeof raw.expiration_time === "number"
+            ? raw.expiration_time
+            : undefined;
+
+        if (typeof expiresAt === "number" && expiresAt <= nowSec) {
+          return false;
+        }
+
+        return true;
+      });
+
       const parsed: SimpleOffer[] = [];
 
-      for (const rawOffer of rawOffers) {
+      for (const rawOffer of filteredRaw) {
         const parsedOffer = normalizeOffer(rawOffer);
         if (parsedOffer) parsed.push(parsedOffer);
       }
