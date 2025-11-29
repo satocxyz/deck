@@ -1017,12 +1017,12 @@ function NftDetailPage({
     nft.identifier ||
     "";
 
-  const chainSlug = openSeaChainSlug(chain);
+  const chainSlugOs = openSeaChainSlug(chain);
 
   const nftUrl =
     nft.opensea_url ??
     (contractAddress
-      ? `https://opensea.io/assets/${chainSlug}/${contractAddress}/${nft.identifier}`
+      ? `https://opensea.io/assets/${chainSlugOs}/${contractAddress}/${nft.identifier}`
       : null);
 
   let collectionUrl: string | null = null;
@@ -1030,7 +1030,7 @@ function NftDetailPage({
   if (collectionSlug && collectionSlug.length > 0) {
     collectionUrl = `https://opensea.io/collection/${collectionSlug}`;
   } else if (contractAddress) {
-    collectionUrl = `https://opensea.io/assets/${chainSlug}/${contractAddress}`;
+    collectionUrl = `https://opensea.io/assets/${chainSlugOs}/${contractAddress}`;
   } else if (baseSearchQuery) {
     collectionUrl = `https://opensea.io/assets?search[query]=${encodeURIComponent(
       baseSearchQuery,
@@ -1239,9 +1239,12 @@ function NftDetailPage({
                   nft.image_url ||
                   null;
 
-                const tokenLabel = listing.tokenId
-                  ? `${collectionName} #${listing.tokenId}`
-                  : collectionName;
+                const tokenLabel: string =
+                  (listing.name && listing.name.length > 0
+                    ? listing.name
+                    : listing.tokenId
+                    ? `${collectionName} #${listing.tokenId}`
+                    : collectionName) ?? collectionName;
 
                 return (
                   <div
@@ -1433,7 +1436,8 @@ function NftDetailPage({
                   >
                     <div className="flex flex-col">
                       <span className="text-neutral-700">
-                        {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
+                        {sale.priceFormatted}{" "}
+                        {sale.paymentTokenSymbol ?? "ETH"}
                       </span>
                       <span className="text-[10px] text-neutral-500">
                         {sale.seller

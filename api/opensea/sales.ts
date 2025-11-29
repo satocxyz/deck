@@ -13,6 +13,7 @@ const querySchema = z.object({
     .optional(),
 });
 
+// core sale shape that the frontend uses
 type Sale = {
   id: string;
   priceEth: number;
@@ -22,6 +23,12 @@ type Sale = {
   paymentTokenSymbol: string | null;
   transactionHash: string | null;
   timestamp: number | null;
+
+  // extra metadata so UI can show NFT label nicely
+  tokenId?: string | null;
+  tokenName?: string | null;
+  collectionSlug?: string | null;
+  collectionName?: string | null;
 };
 
 export default async function handler(
@@ -86,8 +93,43 @@ export default async function handler(
       const buyer = ev.buyer ?? ev.to_address ?? ev.to ?? null;
       const seller = ev.seller ?? ev.from_address ?? ev.from ?? null;
 
+      // ---- NEW: pull NFT + collection info out of the event ----
+      const nft = ev.nft ?? ev.asset ?? {};
+      const collectionObj = nft.collection ?? ev.collection ?? null;
+
+      let tokenId: string | null = null;
+      if (typeof nft.identifier === "string") {
+        tokenId = nft.identifier;
+      } else if (typeof nft.token_id === "string") {
+        tokenId = nft.token_id;
+      }
+
+      const tokenName: string | null =
+        typeof nft.name === "string" && nft.name.length > 0
+          ? nft.name
+          : null;
+
+      const collectionSlugFromEvent: string | null =
+        typeof nft.collection === "string"
+          ? nft.collection
+          : typeof collectionObj?.slug === "string"
+            ? collectionObj.slug
+            : typeof ev.collection === "string"
+              ? ev.collection
+              : collection;
+
+      const collectionNameFromEvent: string | null =
+        typeof collectionObj?.name === "string" ? collectionObj.name : null;
+
+      // ---- price math (unchanged, but more robust to number/string) ----
+      const rawQuantity = payment.quantity;
       const paymentQuantity =
-        typeof payment.quantity === "string" ? payment.quantity : "0";
+        typeof rawQuantity === "string"
+          ? rawQuantity
+          : typeof rawQuantity === "number"
+            ? rawQuantity.toString()
+            : "0";
+
       const paymentDecimals =
         typeof payment.decimals === "number" ? payment.decimals : 18;
 
@@ -137,6 +179,12 @@ export default async function handler(
         transactionHash:
           typeof tx.hash === "string" ? tx.hash : ev.transaction_hash ?? null,
         timestamp,
+
+        // NEW metadata fields that the frontend already knows about
+        tokenId,
+        tokenName,
+        collectionSlug: collectionSlugFromEvent,
+        collectionName: collectionNameFromEvent,
       };
     });
 

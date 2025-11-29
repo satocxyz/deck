@@ -123,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { chain, collection } = parse.data;
-  const limit = parse.data.limit ?? 3;
+  const requestedLimit = parse.data.limit ?? 3;
 
   const apiKey = process.env.OPENSEA_API_KEY;
   if (!apiKey) {
@@ -135,8 +135,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const chainParam = chainSlug[chain];
 
+  // Ask OpenSea for more listings than we ultimately need,
+  // so the frontend de-dupe can still end up with 3 unique NFTs.
+  const upstreamLimit = Math.min(requestedLimit * 4, 20);
+
   const searchParams = new URLSearchParams({
-    limit: String(limit),
+    limit: String(upstreamLimit),
     chain: chainParam,
   });
 
@@ -166,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawListings: OpenSeaBestListing[] =
       json.listings ?? json.body?.listings ?? [];
 
-    // ORIGINAL behaviour: build basic listings (unchanged)
+    // Build basic listings (same as before)
     const baseListings: BasicListing[] = rawListings
       .map((order) => {
         const priceEth = extractEthPrice(order);
@@ -201,11 +205,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .filter(Boolean) as BasicListing[];
 
-    const limited = baseListings.slice(0, limit);
-
-    // NEW: best-effort enrichment with name + imageUrl
+    // Enrich all base listings (frontend will still only show up to 3 uniques)
     const enriched: EnrichedListing[] = await Promise.all(
-      limited.map(async (listing) => {
+      baseListings.map(async (listing) => {
         let name: string | null = null;
         let imageUrl: string | null = null;
 
@@ -225,10 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               const metaJson: any = await metaResp.json();
               const nft = metaJson.nft ?? metaJson;
 
-              name =
-                nft.name ??
-                nft.token_name ??
-                null;
+              name = nft.name ?? nft.token_name ?? null;
 
               imageUrl =
                 nft.image_url ??
@@ -265,20 +264,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               const contractJson: any = await contractResp.json();
               const contract = contractJson.contract ?? contractJson;
 
-              const collection =
-                contract.collection ??
-                contract.collection_metadata ??
-                null;
+              const collectionMeta =
+                contract.collection ?? contract.collection_metadata ?? null;
 
               if (!name) {
-                name =
-                  contract.name ??
-                  collection?.name ??
-                  null;
+                name = contract.name ?? collectionMeta?.name ?? null;
               }
 
               imageUrl =
-                collection?.image_url ??
+                collectionMeta?.image_url ??
                 contract.image_url ??
                 contract.image ??
                 imageUrl ??
@@ -296,12 +290,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // Always return the base listing; metadata is best-effort
         return {
           ...listing,
           name,
           imageUrl,
-          // aliases so whatever the UI expects gets something:
           image_url: imageUrl,
           image: imageUrl,
         };
