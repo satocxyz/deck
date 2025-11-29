@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items=end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -629,6 +629,12 @@ type Sale = {
   paymentTokenSymbol: string | null;
   transactionHash: string | null;
   timestamp: number | null;
+
+  // extra metadata (optional, filled by backend if available)
+  tokenId?: string | null;
+  tokenName?: string | null;
+  collectionSlug?: string | null;
+  collectionName?: string | null;
 };
 
 function NftDetailPage({
@@ -822,7 +828,29 @@ function NftDetailPage({
           setListings([]);
           return;
         }
-        setListings(Array.isArray(json.listings) ? json.listings : []);
+
+        const raw: Listing[] = Array.isArray(json.listings)
+          ? json.listings
+          : [];
+
+        // de-dupe by (tokenContract, tokenId) so the same NFT
+        // doesn't show up multiple times even if OpenSea returns
+        // multiple active listings.
+        const seen = new Set<string>();
+        const unique: Listing[] = [];
+
+        for (const l of raw) {
+          const key =
+            (l.tokenContract?.toLowerCase() || "") +
+            ":" +
+            (l.tokenId ?? l.id);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(l);
+          if (unique.length === 3) break;
+        }
+
+        setListings(unique);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -1376,36 +1404,58 @@ function NftDetailPage({
 
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {sales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="
-                    flex items-center justify-between rounded-xl
-                    bg-neutral-50 px-2 py-1.5
-                  "
-                >
-                  <div className="flex flex-col">
-                    <span className="text-neutral-700">
-                      {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      {sale.seller
-                        ? sale.buyer
-                          ? `From ${shortenAddress(
-                              sale.seller,
-                            )} → ${shortenAddress(sale.buyer)}`
-                          : `From ${shortenAddress(sale.seller)}`
-                        : "Unknown counterparties"}
-                    </span>
+              {sales.map((sale) => {
+                // label: prefer tokenName from backend; otherwise compose slug/name + tokenId
+                const fallbackCollectionLabel =
+                  sale.collectionName ||
+                  sale.collectionSlug ||
+                  collectionSlug ||
+                  collectionName;
+
+                const tokenLabelFromAny =
+                  (sale as any).tokenName ||
+                  (sale as any).nftName ||
+                  (sale as any).name;
+
+                const saleLabel: string =
+                  tokenLabelFromAny ||
+                  (sale.tokenId
+                    ? `${fallbackCollectionLabel} #${sale.tokenId}`
+                    : String(fallbackCollectionLabel));
+
+                return (
+                  <div
+                    key={sale.id}
+                    className="
+                      flex items-center justify-between rounded-xl
+                      bg-neutral-50 px-2 py-1.5
+                    "
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-neutral-700">
+                        {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        {sale.seller
+                          ? sale.buyer
+                            ? `From ${shortenAddress(
+                                sale.seller,
+                              )} → ${shortenAddress(sale.buyer)}`
+                            : `From ${shortenAddress(sale.seller)}`
+                          : "Unknown counterparties"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end text-right text-[10px]">
+                      <span className="max-w-[150px] truncate text-neutral-700">
+                        {saleLabel}
+                      </span>
+                      <span className="text-neutral-500">
+                        {formatTimeAgo(sale.timestamp) ?? "—"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end text-right text-[10px]">
-                    <span className="text-neutral-500">
-                      {formatTimeAgo(sale.timestamp) ?? "—"}
-                    </span>
-                    <span className="text-neutral-400">Sale</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
