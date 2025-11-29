@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -636,8 +636,7 @@ type Sale = {
 };
 
 /**
- * Market history point returned from /api/opensea/market-history
- * In our backend, this is derived from recent collection sales.
+ * Market history point (we now derive this from /sales)
  */
 type MarketPoint = {
   timestamp: number;
@@ -675,11 +674,6 @@ function NftDetailPage({
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [salesError, setSalesError] = useState<string | null>(null);
-
-  // Market history state (separate endpoint)
-  const [marketPoints, setMarketPoints] = useState<MarketPoint[]>([]);
-  const [marketLoading, setMarketLoading] = useState(false);
-  const [marketError, setMarketError] = useState<string | null>(null);
 
   // Offers + floor
   useEffect(() => {
@@ -877,7 +871,7 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Last 3 sales for this collection (by contract, fallback to collection slug)
+  // Sales for this collection (by contract, fallback to collection slug)
   useEffect(() => {
     if (!nft) {
       setSales([]);
@@ -903,7 +897,8 @@ function NftDetailPage({
 
     const params = new URLSearchParams({
       chain,
-      limit: "3",
+      // keep 3 for the UI, but you can bump this (e.g. "20") to feed more points to the chart
+      limit: "10",
       ...(contractAddress ? { contract: contractAddress } : {}),
       ...(collectionSlug ? { collection: collectionSlug } : {}),
     });
@@ -938,144 +933,31 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Market history (separate endpoint)
-  // We request up to ~100 recent collection sales and draw them as a chart.
-  useEffect(() => {
-    if (!nft) {
-      setMarketPoints([]);
-      setMarketError(null);
-      setMarketLoading(false);
-      return;
-    }
-
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
-    const collectionSlug = getCollectionSlug(nft);
-
-    if (!contractAddress && !collectionSlug) {
-      setMarketPoints([]);
-      setMarketError(null);
-      setMarketLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setMarketLoading(true);
-    setMarketError(null);
-
-    const params = new URLSearchParams({
-      chain,
-      limit: "100", // last ~100 sales
-      ...(contractAddress ? { contract: contractAddress } : {}),
-      ...(collectionSlug ? { collection: collectionSlug } : {}),
-    });
-
-    fetch(`/api/opensea/market-history?${params.toString()}`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch market history (${res.status})`);
-        }
-        return res.json();
-      })
-      .then((json) => {
-        if (cancelled) return;
-
-        console.log("market-history json", json);
-
-        if (json.ok === false) {
-          setMarketError("open_sea_error");
-          setMarketPoints([]);
-          return;
-        }
-
-        // Accept several possible shapes: {points}, {sales}, {data}
-        let raw: any[] = [];
-        if (Array.isArray(json.points)) raw = json.points;
-        else if (Array.isArray(json.sales)) raw = json.sales;
-        else if (Array.isArray(json.data)) raw = json.data;
-
-        const normalized: MarketPoint[] = [];
-
-        for (const p of raw) {
-          if (!p) continue;
-
-          // Try multiple timestamp fields & formats
-          const tsRaw =
-            p.timestamp ?? p.time ?? p.blockTime ?? p.block_timestamp;
-
-          let ts: number | null = null;
-          if (typeof tsRaw === "number") {
-            ts = tsRaw;
-          } else if (typeof tsRaw === "string") {
-            const n = Number(tsRaw);
-            if (Number.isFinite(n) && n > 1000000000) {
-              // looks like unix seconds
-              ts = n;
-            } else {
-              const d = new Date(tsRaw);
-              if (!isNaN(d.getTime())) {
-                ts = Math.floor(d.getTime() / 1000);
-              }
-            }
-          }
-
-          // Try multiple price fields & types
-          const priceRaw =
-            p.priceEth ??
-            p.price_eth ??
-            p.price ??
-            p.salePriceEth ??
-            p.sale_price_eth;
-
-          const price =
-            typeof priceRaw === "number"
-              ? priceRaw
-              : typeof priceRaw === "string"
-              ? parseFloat(priceRaw)
-              : NaN;
-
-          if (!ts || !Number.isFinite(price) || price <= 0) continue;
-
-          const sourceRaw = p.source;
-          const source: MarketPoint["source"] =
-            sourceRaw === "floor" ||
-            sourceRaw === "offer" ||
-            sourceRaw === "sale" ||
-            sourceRaw === "other"
-              ? sourceRaw
-              : "sale";
-
-          normalized.push({
-            timestamp: ts,
-            priceEth: price,
-            source,
-          });
-        }
-
-        setMarketPoints(normalized);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error("Failed to load market history", err);
-        setMarketError("open_sea_error");
-        setMarketPoints([]);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setMarketLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chain, nft]);
+  // Derive market chart points directly from sales data
+  const marketPoints: MarketPoint[] = useMemo(
+    () =>
+      (sales || [])
+        .filter(
+          (s) =>
+            typeof s.timestamp === "number" &&
+            s.timestamp > 0 &&
+            typeof s.priceEth === "number" &&
+            s.priceEth > 0,
+        )
+        .sort((a, b) => (a.timestamp! - b.timestamp!))
+        .map((s) => ({
+          timestamp: s.timestamp as number,
+          priceEth: s.priceEth,
+          source: "sale" as const,
+        })),
+    [sales],
+  );
 
   const isBusy =
     offersLoading ||
     traitsLoading ||
     listingsLoading ||
-    salesLoading ||
-    marketLoading;
+    salesLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -1550,7 +1432,7 @@ function NftDetailPage({
 
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {sales.map((sale) => {
+              {sales.slice(0, 3).map((sale) => {
                 const fallbackCollectionLabel =
                   sale.collectionName ||
                   sale.collectionSlug ||
@@ -1606,7 +1488,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Market: last ~100 sale prices chart */}
+        {/* Market: recent sale prices chart (derived from /sales) */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1618,7 +1500,7 @@ function NftDetailPage({
               Market
             </div>
             <span className="text-[10px] text-neutral-400">
-              Last ~100 collection sales
+              Recent collection sales
             </span>
           </div>
 
@@ -1629,22 +1511,21 @@ function NftDetailPage({
               px-2
             "
           >
-            {marketLoading && !marketPoints.length && (
+            {salesLoading && !marketPoints.length && (
               <div className="text-[11px] text-neutral-500">
                 Loading market data…
               </div>
             )}
 
-            {!marketLoading &&
-              (marketError || marketPoints.length === 0) && (
-                <div className="text-[11px] text-neutral-500 text-center px-4">
-                  We don&apos;t have enough historical data to draw a chart
-                  yet.
-                </div>
-              )}
+            {!salesLoading && (salesError || marketPoints.length === 0) && (
+              <div className="text-[11px] text-neutral-500 text-center px-4">
+                We don&apos;t have enough historical data to draw a chart
+                yet.
+              </div>
+            )}
 
-            {!marketLoading &&
-              !marketError &&
+            {!salesLoading &&
+              !salesError &&
               marketPoints.length > 0 && <MarketChart points={marketPoints} />}
           </div>
 
@@ -1783,7 +1664,7 @@ function NftDetailPage({
 
 /**
  * Compact sparkline-style chart for market history
- * Uses the last ~100 sales points provided by the backend.
+ * Uses recent sales points derived from /sales.
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
   const filtered = points
