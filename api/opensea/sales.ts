@@ -5,29 +5,23 @@ import { z } from "zod";
 const querySchema = z.object({
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
   collection: z.string().min(1, "Missing collection slug"),
+  identifier: z.string().optional(), // currently unused, we aggregate by collection
   limit: z
     .string()
     .transform((v) => parseInt(v, 10))
-    .pipe(z.number().int().min(1).max(10))
+    .pipe(z.number().int().min(1).max(20))
     .optional(),
 });
 
-const chainSlug: Record<string, string> = {
-  base: "base",
-  ethereum: "ethereum",
-  arbitrum: "arbitrum",
-  optimism: "optimism",
-};
-
-type SimpleSale = {
+type Sale = {
   id: string;
   priceEth: number;
   priceFormatted: string;
   buyer: string | null;
   seller: string | null;
-  paymentSymbol: string | null;
-  occurredAt: number | null; // unix seconds
-  tokenId?: string | null;
+  paymentTokenSymbol: string | null;
+  transactionHash: string | null;
+  timestamp: number | null;
 };
 
 export default async function handler(
@@ -36,175 +30,126 @@ export default async function handler(
 ) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
-  const apiKey = process.env.OPENSEA_API_KEY;
-  const baseUrl =
-    process.env.OPENSEA_API_URL ?? "https://api.opensea.io/api/v2";
-
-  if (!apiKey) {
-    console.error("Missing OPENSEA_API_KEY");
     return res
-      .status(500)
-      .json({ ok: false, error: "Server misconfigured: missing API key" });
+      .status(405)
+      .json({ ok: false, message: "Method not allowed (GET only)" });
   }
 
-  const parsed = querySchema.safeParse({
-    chain: req.query.chain,
-    collection: req.query.collection,
-    limit: req.query.limit,
-  });
-
+  const parsed = querySchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({
       ok: false,
-      error: "Invalid parameters",
-      details: parsed.error.flatten(),
+      message: "Invalid query params",
+      issues: parsed.error.format(),
     });
   }
 
-  const { chain, collection, limit } = parsed.data;
-  const limitFinal = limit ?? 3;
+  const { collection, limit } = parsed.data;
+  const pageSize = limit ?? 3;
 
   try {
-    // Collection-level events; we only care about sales
     const url = new URL(
-      `${baseUrl}/events/collection/${encodeURIComponent(collection)}`,
+      `https://api.opensea.io/api/v2/events/collection/${encodeURIComponent(
+        collection,
+      )}`,
     );
-    url.searchParams.set("event_type", "sale");
-    url.searchParams.set("limit", String(limitFinal));
-    // chain is optional for this endpoint, but safe to send
-    url.searchParams.set("chain", chainSlug[chain]);
 
-    const response = await fetch(url.toString(), {
+    // We only care about sales, last N events
+    url.searchParams.append("event_type", "sale");
+    url.searchParams.append("limit", String(pageSize));
+
+    const resp = await fetch(url.toString(), {
       headers: {
-        Accept: "application/json",
-        "X-API-KEY": apiKey,
+        accept: "application/json",
+        "x-api-key": process.env.OPENSEA_API_KEY ?? "",
       },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("OpenSea sales error", response.status, text);
-      return res
-        .status(502)
-        .json({ ok: false, error: "Failed to fetch sales from OpenSea" });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      console.error("OpenSea sales API error", resp.status, text);
+      return res.status(502).json({
+        ok: false,
+        message: "OpenSea events API returned a non-200 status",
+      });
     }
 
-    const json = (await response.json()) as any;
+    const json = (await resp.json()) as any;
 
-    // v2 uses "events"; older docs / wrappers sometimes use "asset_events"
-    const rawEvents: any[] =
-      (Array.isArray(json?.events) && json.events) ||
-      (Array.isArray(json?.asset_events) && json.asset_events) ||
-      [];
+    const assetEvents: any[] = Array.isArray(json.asset_events)
+      ? json.asset_events
+      : [];
 
-    const sales: SimpleSale[] = rawEvents
-      .filter((ev) => {
-        const t = ev?.event_type || ev?.type;
-        return t === "sale" || t === "successful";
-      })
-      .slice(0, limitFinal)
-      .map((ev) => {
-        // payment object: quantity + token (decimals, symbol)
-        let priceEth = 0;
-        let symbol: string | null = null;
+    const sales: Sale[] = assetEvents.slice(0, pageSize).map((ev) => {
+      const payment = ev.payment ?? {};
+      const tx = ev.transaction ?? {};
+      const buyer = ev.buyer ?? ev.to_address ?? ev.to ?? null;
+      const seller = ev.seller ?? ev.from_address ?? ev.from ?? null;
 
-        const payment = ev?.payment ?? ev?.transaction?.payment ?? null;
+      const paymentQuantity =
+        typeof payment.quantity === "string" ? payment.quantity : "0";
+      const paymentDecimals =
+        typeof payment.decimals === "number" ? payment.decimals : 18;
 
-        if (payment && typeof payment === "object") {
-          const quantityStr: string | undefined = payment.quantity;
-          const decimals: number | undefined = payment.token?.decimals;
-          symbol =
-            typeof payment.token?.symbol === "string"
-              ? payment.token.symbol
-              : null;
+      let priceEth = 0;
+      try {
+        const q = BigInt(paymentQuantity || "0");
+        const denom = 10n ** BigInt(paymentDecimals);
+        priceEth = Number(q) / Number(denom);
+      } catch {
+        priceEth = 0;
+      }
 
-          const quantityNum = quantityStr ? Number(quantityStr) : NaN;
-          if (
-            typeof decimals === "number" &&
-            Number.isFinite(quantityNum) &&
-            quantityNum > 0
-          ) {
-            priceEth = quantityNum / 10 ** decimals;
-          }
-        }
+      const priceFormatted =
+        priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
 
-        // fallback: some events might expose price directly
-        if (!priceEth && ev.price) {
-          const n = Number(ev.price);
-          if (!Number.isNaN(n) && n > 0) {
-            priceEth = n > 1e10 ? n / 1e18 : n;
-          }
-        }
+      let timestamp: number | null = null;
+      if (typeof ev.event_timestamp === "number") {
+        timestamp = ev.event_timestamp;
+      } else if (typeof ev.event_timestamp === "string") {
+        const d = Date.parse(ev.event_timestamp);
+        if (!Number.isNaN(d)) timestamp = Math.floor(d / 1000);
+      }
 
-        const priceFormatted =
-          priceEth > 0
-            ? priceEth >= 1
-              ? priceEth.toFixed(3)
-              : priceEth.toFixed(4)
-            : "0.0000";
+      const id =
+        (typeof ev.order_hash === "string" && ev.order_hash) ||
+        (typeof tx.hash === "string" && tx.hash) ||
+        `${collection}-${timestamp ?? Date.now()}`;
 
-        const buyer: string | null =
-          ev?.to_account?.address ??
-          ev?.to_address ??
-          ev?.buyer?.address ??
-          null;
-
-        const seller: string | null =
-          ev?.from_account?.address ??
-          ev?.from_address ??
-          ev?.seller?.address ??
-          null;
-
-        const tokenId: string | null =
-          ev?.nft?.identifier ??
-          ev?.asset?.token_id ??
-          ev?.token_id ??
-          null;
-
-        const occurredIso: string | null =
-          ev?.occurred_at ??
-          ev?.created_date ??
-          ev?.event_timestamp ??
-          null;
-
-        const occurredAt =
-          occurredIso && typeof occurredIso === "string"
-            ? Math.floor(Date.parse(occurredIso) / 1000)
-            : null;
-
-        const id: string =
-          ev?.id ??
-          ev?.event_id ??
-          ev?.order_hash ??
-          `${seller ?? "unknown"}-${buyer ?? "unknown"}-${tokenId ?? "?"}-${
-            occurredAt ?? Date.now()
-          }`;
-
-        return {
-          id,
-          priceEth,
-          priceFormatted,
-          buyer,
-          seller,
-          paymentSymbol: symbol,
-          occurredAt,
-          tokenId,
-        };
-      })
-      // Filter out obviously bad (zero) prices
-      .filter((s) => s.priceEth > 0);
+      return {
+        id,
+        priceEth,
+        priceFormatted,
+        buyer:
+          typeof buyer === "string"
+            ? buyer
+            : typeof buyer?.address === "string"
+              ? buyer.address
+              : null,
+        seller:
+          typeof seller === "string"
+            ? seller
+            : typeof seller?.address === "string"
+              ? seller.address
+              : null,
+        paymentTokenSymbol:
+          typeof payment.symbol === "string" ? payment.symbol : null,
+        transactionHash:
+          typeof tx.hash === "string" ? tx.hash : ev.transaction_hash ?? null,
+        timestamp,
+      };
+    });
 
     return res.status(200).json({
       ok: true,
       sales,
+      rawCount: assetEvents.length,
     });
   } catch (err) {
-    console.error("Unexpected error in /api/opensea/sales", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Internal server error while fetching sales" });
+    console.error("Unexpected error while fetching sales", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to fetch sales from OpenSea",
+    });
   }
 }
