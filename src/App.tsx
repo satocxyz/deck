@@ -602,8 +602,6 @@ type FloorInfo = {
   formatted: string | null;
 };
 
-type Timeframe = "1D" | "7D" | "30D" | "3M" | "1Y";
-
 // updated Listing type: include optional name + image fields
 type Listing = {
   id: string;
@@ -639,7 +637,7 @@ type Sale = {
 
 /**
  * Market history point returned from /api/opensea/market-history
- * In our backend, this is derived from historical sales.
+ * In our backend, this is derived from recent collection sales.
  */
 type MarketPoint = {
   timestamp: number;
@@ -669,8 +667,6 @@ function NftDetailPage({
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
   const [showSellSheet, setShowSellSheet] = useState(false);
-
-  const [timeframe, setTimeframe] = useState<Timeframe>("7D");
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
@@ -943,8 +939,7 @@ function NftDetailPage({
   }, [chain, nft]);
 
   // Market history (separate endpoint)
-  // Uses collection slug and/or contract, but does NOT depend on timeframe,
-  // so we can filter by timeframe purely on the client.
+  // We request up to ~100 recent collection sales and draw them as a chart.
   useEffect(() => {
     if (!nft) {
       setMarketPoints([]);
@@ -970,7 +965,7 @@ function NftDetailPage({
 
     const params = new URLSearchParams({
       chain,
-      limit: "60", // up to ~60 points for chart
+      limit: "100", // last ~100 sales
       ...(contractAddress ? { contract: contractAddress } : {}),
       ...(collectionSlug ? { collection: collectionSlug } : {}),
     });
@@ -991,22 +986,28 @@ function NftDetailPage({
           return;
         }
 
-        // Backend returns: { ok: true, sales: MarketSale[] }
-        const rawSales: any[] = Array.isArray(json.sales) ? json.sales : [];
+        // Backend returns: { ok: true, points: MarketPoint[] }
+        const raw: any[] = Array.isArray(json.points) ? json.points : [];
 
-        const normalized: MarketPoint[] = rawSales
+        const normalized: MarketPoint[] = raw
           .filter(
-            (s) =>
-              s &&
-              typeof s.timestamp === "number" &&
-              s.timestamp > 0 &&
-              typeof s.priceEth === "number" &&
-              s.priceEth > 0,
+            (p) =>
+              p &&
+              typeof p.timestamp === "number" &&
+              p.timestamp > 0 &&
+              typeof p.priceEth === "number" &&
+              p.priceEth > 0,
           )
-          .map((s) => ({
-            timestamp: s.timestamp as number,
-            priceEth: s.priceEth as number,
-            source: "sale" as const,
+          .map((p) => ({
+            timestamp: p.timestamp as number,
+            priceEth: p.priceEth as number,
+            source:
+              p.source === "sale" ||
+              p.source === "floor" ||
+              p.source === "offer" ||
+              p.source === "other"
+                ? p.source
+                : ("sale" as const),
           }));
 
         setMarketPoints(normalized);
@@ -1140,8 +1141,6 @@ function NftDetailPage({
   } else {
     collectionUrl = null;
   }
-
-  const timeframeOptions: Timeframe[] = ["1D", "7D", "30D", "3M", "1Y"];
 
   return (
     <div
@@ -1565,7 +1564,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Market: floor / price chart with timeframe tabs, using /market-history */}
+        {/* Market: last ~100 sale prices chart */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1576,26 +1575,9 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Market
             </div>
-            <div className="flex items-center gap-1 rounded-full bg-neutral-100 p-0.5 text-[10px]">
-              {timeframeOptions.map((tf) => {
-                const active = tf === timeframe;
-                return (
-                  <button
-                    key={tf}
-                    type="button"
-                    onClick={() => setTimeframe(tf)}
-                    className={[
-                      "rounded-full px-2 py-0.5 transition-colors",
-                      active
-                        ? "bg-neutral-900 text-white"
-                        : "text-neutral-600 hover:bg-neutral-200",
-                    ].join(" ")}
-                  >
-                    {tf}
-                  </button>
-                );
-              })}
-            </div>
+            <span className="text-[10px] text-neutral-400">
+              Last ~100 collection sales
+            </span>
           </div>
 
           <div
@@ -1621,9 +1603,7 @@ function NftDetailPage({
 
             {!marketLoading &&
               !marketError &&
-              marketPoints.length > 0 && (
-                <MarketChart points={marketPoints} timeframe={timeframe} />
-              )}
+              marketPoints.length > 0 && <MarketChart points={marketPoints} />}
           </div>
 
           <p className="mt-2 text-[10px] text-neutral-400">
@@ -1761,35 +1741,17 @@ function NftDetailPage({
 
 /**
  * Compact sparkline-style chart for market history
+ * Uses the last ~100 sales points provided by the backend.
  */
-function MarketChart({
-  points,
-  timeframe,
-}: {
-  points: MarketPoint[];
-  timeframe: Timeframe;
-}) {
-  const nowSec = Date.now() / 1000;
-
-  const maxAgeByTimeframe: Record<Timeframe, number> = {
-    "1D": 1 * 24 * 60 * 60,
-    "7D": 7 * 24 * 60 * 60,
-    "30D": 30 * 24 * 60 * 60,
-    "3M": 90 * 24 * 60 * 60,
-    "1Y": 365 * 24 * 60 * 60,
-  };
-
-  const maxAge = maxAgeByTimeframe[timeframe];
-
+function MarketChart({ points }: { points: MarketPoint[] }) {
   const filtered = points
     .filter((p) => typeof p.timestamp === "number" && p.timestamp > 0)
-    .filter((p) => nowSec - p.timestamp <= maxAge)
     .sort((a, b) => a.timestamp - b.timestamp);
 
   if (filtered.length < 2) {
     return (
       <div className="text-[11px] text-neutral-500 text-center px-4">
-        Not enough data in this timeframe to show a chart.
+        Not enough data to show a chart yet.
       </div>
     );
   }
