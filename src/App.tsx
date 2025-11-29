@@ -637,6 +637,16 @@ type Sale = {
   collectionName?: string | null;
 };
 
+/**
+ * Market history point returned from /api/opensea/market-history
+ * In our backend, this is derived from historical sales.
+ */
+type MarketPoint = {
+  timestamp: number;
+  priceEth: number;
+  source: "floor" | "offer" | "sale" | "other";
+};
+
 function NftDetailPage({
   chain,
   nft,
@@ -669,6 +679,11 @@ function NftDetailPage({
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [salesError, setSalesError] = useState<string | null>(null);
+
+  // Market history state (separate endpoint)
+  const [marketPoints, setMarketPoints] = useState<MarketPoint[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState<string | null>(null);
 
   // Offers + floor
   useEffect(() => {
@@ -833,9 +848,7 @@ function NftDetailPage({
           ? json.listings
           : [];
 
-        // de-dupe by (tokenContract, tokenId) so the same NFT
-        // doesn't show up multiple times even if OpenSea returns
-        // multiple active listings.
+        // de-dupe by (tokenContract, tokenId)
         const seen = new Set<string>();
         const unique: Listing[] = [];
 
@@ -929,8 +942,97 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
+  // Market history (separate endpoint)
+  // Uses collection slug and/or contract, but does NOT depend on timeframe,
+  // so we can filter by timeframe purely on the client.
+  useEffect(() => {
+    if (!nft) {
+      setMarketPoints([]);
+      setMarketError(null);
+      setMarketLoading(false);
+      return;
+    }
+
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
+    const collectionSlug = getCollectionSlug(nft);
+
+    if (!contractAddress && !collectionSlug) {
+      setMarketPoints([]);
+      setMarketError(null);
+      setMarketLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMarketLoading(true);
+    setMarketError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      limit: "60", // up to ~60 points for chart
+      ...(contractAddress ? { contract: contractAddress } : {}),
+      ...(collectionSlug ? { collection: collectionSlug } : {}),
+    });
+
+    fetch(`/api/opensea/market-history?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch market history (${res.status})`);
+        }
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+
+        if (!json.ok) {
+          setMarketError("open_sea_error");
+          setMarketPoints([]);
+          return;
+        }
+
+        // Backend returns: { ok: true, sales: MarketSale[] }
+        const rawSales: any[] = Array.isArray(json.sales) ? json.sales : [];
+
+        const normalized: MarketPoint[] = rawSales
+          .filter(
+            (s) =>
+              s &&
+              typeof s.timestamp === "number" &&
+              s.timestamp > 0 &&
+              typeof s.priceEth === "number" &&
+              s.priceEth > 0,
+          )
+          .map((s) => ({
+            timestamp: s.timestamp as number,
+            priceEth: s.priceEth as number,
+            source: "sale" as const,
+          }));
+
+        setMarketPoints(normalized);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load market history", err);
+        setMarketError("open_sea_error");
+        setMarketPoints([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setMarketLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft]);
+
   const isBusy =
-    offersLoading || traitsLoading || listingsLoading || salesLoading;
+    offersLoading ||
+    traitsLoading ||
+    listingsLoading ||
+    salesLoading ||
+    marketLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -1408,7 +1510,6 @@ function NftDetailPage({
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
               {sales.map((sale) => {
-                // label: prefer tokenName from backend; otherwise compose slug/name + tokenId
                 const fallbackCollectionLabel =
                   sale.collectionName ||
                   sale.collectionSlug ||
@@ -1464,7 +1565,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Market: floor / price chart with timeframe tabs */}
+        {/* Market: floor / price chart with timeframe tabs, using /market-history */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1501,15 +1602,33 @@ function NftDetailPage({
             className="
               flex h-32 items-center justify-center rounded-2xl
               bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50
-              text-[11px] text-neutral-500
+              px-2
             "
           >
-            Floor / market price chart for {timeframe} will appear here.
+            {marketLoading && !marketPoints.length && (
+              <div className="text-[11px] text-neutral-500">
+                Loading market data…
+              </div>
+            )}
+
+            {!marketLoading &&
+              (marketError || marketPoints.length === 0) && (
+                <div className="text-[11px] text-neutral-500 text-center px-4">
+                  We don&apos;t have enough historical data to draw a chart
+                  yet.
+                </div>
+              )}
+
+            {!marketLoading &&
+              !marketError &&
+              marketPoints.length > 0 && (
+                <MarketChart points={marketPoints} timeframe={timeframe} />
+              )}
           </div>
 
           <p className="mt-2 text-[10px] text-neutral-400">
-            We’ll use historical floor and offer data to plot this chart. No
-            trades are executed from this section.
+            Based on recent collection sales from OpenSea. No trades are
+            executed from this section.
           </p>
         </div>
 
@@ -1567,7 +1686,9 @@ function NftDetailPage({
                 )}
                 {floor.formatted && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-neutral-600">Collection floor</span>
+                    <span className="text-neutral-600">
+                      Collection floor
+                    </span>
                     <span className="text-neutral-800">
                       {floor.formatted} ETH
                     </span>
@@ -1639,9 +1760,118 @@ function NftDetailPage({
 }
 
 /**
+ * Compact sparkline-style chart for market history
+ */
+function MarketChart({
+  points,
+  timeframe,
+}: {
+  points: MarketPoint[];
+  timeframe: Timeframe;
+}) {
+  const nowSec = Date.now() / 1000;
+
+  const maxAgeByTimeframe: Record<Timeframe, number> = {
+    "1D": 1 * 24 * 60 * 60,
+    "7D": 7 * 24 * 60 * 60,
+    "30D": 30 * 24 * 60 * 60,
+    "3M": 90 * 24 * 60 * 60,
+    "1Y": 365 * 24 * 60 * 60,
+  };
+
+  const maxAge = maxAgeByTimeframe[timeframe];
+
+  const filtered = points
+    .filter((p) => typeof p.timestamp === "number" && p.timestamp > 0)
+    .filter((p) => nowSec - p.timestamp <= maxAge)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (filtered.length < 2) {
+    return (
+      <div className="text-[11px] text-neutral-500 text-center px-4">
+        Not enough data in this timeframe to show a chart.
+      </div>
+    );
+  }
+
+  const prices = filtered.map((p) => p.priceEth);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+
+  const paddedMin = minPrice * 0.99;
+  const paddedMax = maxPrice * 1.01;
+  const range = paddedMax - paddedMin || 1;
+
+  const width = 100;
+  const height = 40;
+
+  const pointCoords = filtered.map((p, idx) => {
+    const x =
+      filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
+
+    const normalized = (p.priceEth - paddedMin) / range;
+    const y = height - normalized * (height - 4) - 2;
+
+    return { x, y };
+  });
+
+  const pathD = pointCoords
+    .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ");
+
+  const last = filtered[filtered.length - 1];
+
+  return (
+    <div className="flex w-full flex-col items-stretch gap-1">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-20 w-full overflow-visible"
+        preserveAspectRatio="none"
+      >
+        {/* area under the curve */}
+        <path
+          d={`${pathD} L ${width} ${height} L 0 ${height} Z`}
+          className="fill-purple-200/40"
+        />
+        {/* main line */}
+        <path
+          d={pathD}
+          className="stroke-purple-600"
+          strokeWidth={1.2}
+          fill="none"
+        />
+        {/* last point marker */}
+        <circle
+          cx={pointCoords[pointCoords.length - 1].x}
+          cy={pointCoords[pointCoords.length - 1].y}
+          r={1.6}
+          className="fill-purple-600"
+        />
+      </svg>
+
+      <div className="flex items-center justify-between text-[10px] text-neutral-500 px-1">
+        <span>
+          Last:{" "}
+          <span className="font-semibold text-neutral-800">
+            {last.priceEth >= 1
+              ? last.priceEth.toFixed(3)
+              : last.priceEth.toFixed(4)}{" "}
+            ETH
+          </span>
+        </span>
+        <span>
+          Range:{" "}
+          {minPrice >= 1 ? minPrice.toFixed(3) : minPrice.toFixed(4)} –{" "}
+          {maxPrice >= 1 ? maxPrice.toFixed(3) : maxPrice.toFixed(4)} ETH
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Helpers
  */
-
 function getCollectionSlug(nft: OpenSeaNft): string | undefined {
   if (!nft.collection) return undefined;
   if (typeof nft.collection === "string") return nft.collection;
