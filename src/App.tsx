@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -980,35 +980,77 @@ function NftDetailPage({
       .then((json) => {
         if (cancelled) return;
 
-        if (!json.ok) {
+        console.log("market-history json", json);
+
+        if (json.ok === false) {
           setMarketError("open_sea_error");
           setMarketPoints([]);
           return;
         }
 
-        // Backend returns: { ok: true, points: MarketPoint[] }
-        const raw: any[] = Array.isArray(json.points) ? json.points : [];
+        // Accept several possible shapes: {points}, {sales}, {data}
+        let raw: any[] = [];
+        if (Array.isArray(json.points)) raw = json.points;
+        else if (Array.isArray(json.sales)) raw = json.sales;
+        else if (Array.isArray(json.data)) raw = json.data;
 
-        const normalized: MarketPoint[] = raw
-          .filter(
-            (p) =>
-              p &&
-              typeof p.timestamp === "number" &&
-              p.timestamp > 0 &&
-              typeof p.priceEth === "number" &&
-              p.priceEth > 0,
-          )
-          .map((p) => ({
-            timestamp: p.timestamp as number,
-            priceEth: p.priceEth as number,
-            source:
-              p.source === "sale" ||
-              p.source === "floor" ||
-              p.source === "offer" ||
-              p.source === "other"
-                ? p.source
-                : ("sale" as const),
-          }));
+        const normalized: MarketPoint[] = [];
+
+        for (const p of raw) {
+          if (!p) continue;
+
+          // Try multiple timestamp fields & formats
+          const tsRaw =
+            p.timestamp ?? p.time ?? p.blockTime ?? p.block_timestamp;
+
+          let ts: number | null = null;
+          if (typeof tsRaw === "number") {
+            ts = tsRaw;
+          } else if (typeof tsRaw === "string") {
+            const n = Number(tsRaw);
+            if (Number.isFinite(n) && n > 1000000000) {
+              // looks like unix seconds
+              ts = n;
+            } else {
+              const d = new Date(tsRaw);
+              if (!isNaN(d.getTime())) {
+                ts = Math.floor(d.getTime() / 1000);
+              }
+            }
+          }
+
+          // Try multiple price fields & types
+          const priceRaw =
+            p.priceEth ??
+            p.price_eth ??
+            p.price ??
+            p.salePriceEth ??
+            p.sale_price_eth;
+
+          const price =
+            typeof priceRaw === "number"
+              ? priceRaw
+              : typeof priceRaw === "string"
+              ? parseFloat(priceRaw)
+              : NaN;
+
+          if (!ts || !Number.isFinite(price) || price <= 0) continue;
+
+          const sourceRaw = p.source;
+          const source: MarketPoint["source"] =
+            sourceRaw === "floor" ||
+            sourceRaw === "offer" ||
+            sourceRaw === "sale" ||
+            sourceRaw === "other"
+              ? sourceRaw
+              : "sale";
+
+          normalized.push({
+            timestamp: ts,
+            priceEth: price,
+            source,
+          });
+        }
 
         setMarketPoints(normalized);
       })
