@@ -620,6 +620,17 @@ type Listing = {
   image?: string | null;
 };
 
+type Sale = {
+  id: string;
+  priceEth: number;
+  priceFormatted: string;
+  buyer: string | null;
+  seller: string | null;
+  paymentTokenSymbol: string | null;
+  transactionHash: string | null;
+  timestamp: number | null;
+};
+
 function NftDetailPage({
   chain,
   nft,
@@ -630,13 +641,13 @@ function NftDetailPage({
   onBack: () => void;
 }) {
   const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
+  const [offers, setOffers] = useState<SimpleOffer[]>([]);
   const [floor, setFloor] = useState<FloorInfo>({
     eth: null,
     formatted: null,
   });
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
-  const [topOffers, setTopOffers] = useState<SimpleOffer[]>([]);
 
   const [traits, setTraits] = useState<NormalizedTrait[]>([]);
   const [traitsLoading, setTraitsLoading] = useState(false);
@@ -649,14 +660,18 @@ function NftDetailPage({
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
 
-  // Offers + floor + top 3 offers
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [salesLoading, setSalesLoading] = useState(false);
+  const [salesError, setSalesError] = useState<string | null>(null);
+
+  // Offers + floor
   useEffect(() => {
     if (!nft) {
       setBestOffer(null);
+      setOffers([]);
       setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
-      setTopOffers([]);
       return;
     }
 
@@ -664,10 +679,10 @@ function NftDetailPage({
 
     if (!collectionSlug) {
       setBestOffer(null);
+      setOffers([]);
       setFloor({ eth: null, formatted: null });
       setOffersError(null);
       setOffersLoading(false);
-      setTopOffers([]);
       return;
     }
 
@@ -688,20 +703,28 @@ function NftDetailPage({
       })
       .then((json) => {
         if (cancelled) return;
-        setBestOffer(json.bestOffer ?? null);
+        const best: SimpleOffer | null = json.bestOffer ?? null;
+        setBestOffer(best);
         setFloor(
           json.floor ?? {
             eth: null,
             formatted: null,
           },
         );
-        setTopOffers(Array.isArray(json.offers) ? json.offers : []);
+
+        const list: SimpleOffer[] = Array.isArray(json.offers)
+          ? json.offers
+          : best
+          ? [best]
+          : [];
+        setOffers(list.slice(0, 3));
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("Failed to load offers", err);
         setOffersError("open_sea_error");
-        setTopOffers([]);
+        setBestOffer(null);
+        setOffers([]);
       })
       .finally(() => {
         if (cancelled) return;
@@ -766,81 +789,111 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.contract]);
 
-// Top 3 cheapest listings in this collection (using best listings by collection)
-useEffect(() => {
-  const collectionSlug = getCollectionSlug(nft);
+  // Top 3 cheapest listings in this collection (using best listings by collection)
+  useEffect(() => {
+    const collectionSlug = getCollectionSlug(nft);
 
-  if (!nft || !collectionSlug) {
-    setListings([]);
-    setListingsError(null);
-    setListingsLoading(false);
-    return;
-  }
-
-  let cancelled = false;
-  setListingsLoading(true);
-  setListingsError(null);
-
-  // ask backend for more, we'll trim to 3 unique tokens here
-  const params = new URLSearchParams({
-    chain,
-    collection: collectionSlug,
-    limit: "20",
-  });
-
-  fetch(`/api/opensea/listings?${params.toString()}`)
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch listings");
-      return res.json();
-    })
-    .then((json) => {
-      if (cancelled) return;
-      if (!json.ok) {
-        setListingsError("open_sea_error");
-        setListings([]);
-        return;
-      }
-
-      const raw: Listing[] = Array.isArray(json.listings)
-        ? json.listings
-        : [];
-
-      // keep only 1 row per token (cheapest first)
-      const unique: Listing[] = [];
-      const seenTokens = new Set<string>();
-
-      for (const l of raw) {
-        const tokenKey =
-          (l.tokenContract || "") + ":" + (l.tokenId || "");
-        const key = tokenKey !== ":" ? tokenKey : l.id; // fallback to id if no token info
-
-        if (seenTokens.has(key)) continue;
-
-        seenTokens.add(key);
-        unique.push(l);
-
-        if (unique.length >= 3) break;
-      }
-
-      setListings(unique);
-    })
-    .catch((err) => {
-      if (cancelled) return;
-      console.error("Failed to load listings", err);
-      setListingsError("open_sea_error");
+    if (!nft || !collectionSlug) {
       setListings([]);
-    })
-    .finally(() => {
-      if (cancelled) return;
+      setListingsError(null);
       setListingsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setListingsLoading(true);
+    setListingsError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      collection: collectionSlug,
+      limit: "3",
     });
 
-  return () => {
-    cancelled = true;
-  };
-}, [chain, nft]);
+    fetch(`/api/opensea/listings?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch listings");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json.ok) {
+          setListingsError("open_sea_error");
+          setListings([]);
+          return;
+        }
+        setListings(Array.isArray(json.listings) ? json.listings : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load listings", err);
+        setListingsError("open_sea_error");
+        setListings([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setListingsLoading(false);
+      });
 
-  const isBusy = offersLoading || traitsLoading || listingsLoading;
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft]);
+
+  // Last 3 sales for this NFT
+  useEffect(() => {
+    const collectionSlug = getCollectionSlug(nft);
+
+    if (!nft || !collectionSlug) {
+      setSales([]);
+      setSalesError(null);
+      setSalesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSalesLoading(true);
+    setSalesError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      collection: collectionSlug,
+      identifier: String(nft.identifier),
+      limit: "3",
+    });
+
+    fetch(`/api/opensea/sales?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch sales");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json.ok) {
+          setSalesError("open_sea_error");
+          setSales([]);
+          return;
+        }
+        setSales(Array.isArray(json.sales) ? json.sales : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load sales", err);
+        setSalesError("open_sea_error");
+        setSales([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSalesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft]);
+
+  const isBusy =
+    offersLoading || traitsLoading || listingsLoading || salesLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -861,14 +914,46 @@ useEffect(() => {
     return `${hours}h ${minutes}m`;
   }
 
-  function formatBestVsFloorDiff(
-    bestOffer: SimpleOffer | null,
-    floor: FloorInfo,
-  ): string | null {
-    if (!bestOffer || floor.eth == null || floor.eth <= 0) return null;
+  function formatTimeAgo(timestamp: number | null): string | null {
+    if (!timestamp) return null;
+    const now = Date.now() / 1000;
+    let diff = now - timestamp;
+    if (diff < 0) diff = 0;
 
-    const diff = bestOffer.priceEth - floor.eth;
-    const diffPct = (diff / floor.eth) * 100;
+    const days = Math.floor(diff / (3600 * 24));
+    const hours = Math.floor((diff % (3600 * 24)) / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+
+    if (days >= 7) {
+      const d = new Date(timestamp * 1000);
+      return d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+    }
+
+    if (days > 0) {
+      if (hours > 0) return `${days}d ${hours}h ago`;
+      return `${days}d ago`;
+    }
+
+    if (hours > 0) {
+      if (minutes > 0) return `${hours}h ${minutes}m ago`;
+      return `${hours}h ago`;
+    }
+
+    if (minutes > 0) return `${minutes}m ago`;
+    return "Just now";
+  }
+
+  function formatBestVsFloorDiff(
+    offer: SimpleOffer | null,
+    f: FloorInfo,
+  ): string | null {
+    if (!offer || f.eth == null || f.eth <= 0) return null;
+
+    const diff = offer.priceEth - f.eth;
+    const diffPct = (diff / f.eth) * 100;
 
     const absPct = Math.abs(diffPct).toFixed(1);
 
@@ -1176,7 +1261,7 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Offers – top 3 WETH offers for this NFT */}
+        {/* Offers – top 3 WETH offers */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1188,7 +1273,7 @@ useEffect(() => {
               Offers
             </div>
             <span className="text-[10px] text-neutral-400">
-              Top 3 WETH offers
+              {offers.length > 0 ? "Top 3 WETH offers" : "No offer yet"}
             </span>
           </div>
 
@@ -1204,50 +1289,51 @@ useEffect(() => {
             </div>
           )}
 
-          {!offersLoading && !offersError && topOffers.length === 0 && (
+          {!offersLoading && !offersError && offers.length === 0 && (
             <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
               No active WETH offers for this NFT.
             </div>
           )}
 
-          {!offersLoading && !offersError && topOffers.length > 0 && (
+          {!offersLoading && !offersError && offers.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {topOffers.map((offer, index) => (
-                <div
-                  key={offer.id}
-                  className="
-                    flex items-center justify-between rounded-xl
-                    bg-neutral-50 px-2 py-1.5
-                  "
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-emerald-600">
-                      {offer.priceFormatted} WETH
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      {offer.maker
-                        ? `From ${shortenAddress(offer.maker)}`
-                        : "Unknown maker"}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-end text-right text-[10px]">
-                    <span className="text-neutral-500">
-                      {formatTimeRemaining(offer.expirationTime) ?? "—"}
-                    </span>
-                    {index === 0 && (
-                      <span className="text-[9px] font-medium text-amber-600">
-                        Best offer
+              {offers.map((offer, idx) => {
+                const isBest =
+                  bestOffer && offer.id === bestOffer.id && idx === 0;
+                return (
+                  <div
+                    key={offer.id}
+                    className="
+                      flex items-center justify-between rounded-xl
+                      bg-neutral-50 px-2 py-1.5
+                    "
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-emerald-600">
+                        {offer.priceFormatted} WETH
                       </span>
-                    )}
+                      <span className="text-[10px] text-neutral-500">
+                        {offer.maker
+                          ? `From ${shortenAddress(offer.maker)}`
+                          : "Unknown maker"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end text-right text-[10px]">
+                      <span className="text-neutral-500">
+                        {formatTimeRemaining(offer.expirationTime) ?? "—"}
+                      </span>
+                      <span className="text-neutral-400">
+                        {isBest ? "Best offer" : "Offer"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Sales (placeholder) */}
+        {/* Sales – last 3 sales for this NFT */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1258,28 +1344,63 @@ useEffect(() => {
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Sales
             </div>
-            <span className="text-[10px] text-neutral-400">Last 3 sales</span>
+            <span className="text-[10px] text-neutral-400">
+              Last 3 sales
+            </span>
           </div>
 
-          <div className="space-y-1.5 text-[11px]">
-            {[0, 1, 2].map((idx) => (
-              <div
-                key={idx}
-                className="
-                  flex items-center justify-between rounded-xl
-                  bg-neutral-50 px-2 py-1.5
-                "
-              >
-                <div className="flex flex-col">
-                  <span className="text-neutral-700">— ETH</span>
-                  <span className="text-[10px] text-neutral-500">—</span>
+          {salesLoading && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              Loading sales…
+            </div>
+          )}
+
+          {!salesLoading && salesError && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              We can&apos;t show sales right now.
+            </div>
+          )}
+
+          {!salesLoading && !salesError && sales.length === 0 && (
+            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+              No recent on-chain sales found for this NFT.
+            </div>
+          )}
+
+          {!salesLoading && !salesError && sales.length > 0 && (
+            <div className="space-y-1.5 text-[11px]">
+              {sales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className="
+                    flex items-center justify-between rounded-xl
+                    bg-neutral-50 px-2 py-1.5
+                  "
+                >
+                  <div className="flex flex-col">
+                    <span className="text-neutral-700">
+                      {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {sale.seller
+                        ? sale.buyer
+                          ? `From ${shortenAddress(
+                              sale.seller,
+                            )} → ${shortenAddress(sale.buyer)}`
+                          : `From ${shortenAddress(sale.seller)}`
+                        : "Unknown counterparties"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end text-right text-[10px]">
+                    <span className="text-neutral-500">
+                      {formatTimeAgo(sale.timestamp) ?? "—"}
+                    </span>
+                    <span className="text-neutral-400">Sale</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-neutral-400">
-                  coming soon
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Market: floor / price chart with timeframe tabs */}
@@ -1354,50 +1475,55 @@ useEffect(() => {
             </div>
           )}
 
-          {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
-            <div className="text-[11px] text-neutral-500">
-              No price data available for this NFT.
-            </div>
-          )}
+          {!offersLoading &&
+            !offersError &&
+            !bestOffer &&
+            !floor.formatted && (
+              <div className="text-[11px] text-neutral-500">
+                No price data available for this NFT.
+              </div>
+            )}
 
-          {!offersLoading && !offersError && (bestOffer || floor.formatted) && (
-            <div className="space-y-1 text-[11px]">
-              {bestOffer && (
-                <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-600">Best offer</span>
-                  <div className="flex flex-col items-end">
-                    <span className="font-semibold text-emerald-600">
-                      {bestOffer.priceFormatted} WETH
-                    </span>
-                    {formatTimeRemaining(bestOffer.expirationTime) && (
-                      <span className="text-[10px] text-neutral-500">
-                        Expires in{" "}
-                        {formatTimeRemaining(bestOffer.expirationTime)}
+          {!offersLoading &&
+            !offersError &&
+            (bestOffer || floor.formatted) && (
+              <div className="space-y-1 text-[11px]">
+                {bestOffer && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-neutral-600">Best offer</span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-semibold text-emerald-600">
+                        {bestOffer.priceFormatted} WETH
                       </span>
-                    )}
+                      {formatTimeRemaining(bestOffer.expirationTime) && (
+                        <span className="text-[10px] text-neutral-500">
+                          Expires in{" "}
+                          {formatTimeRemaining(bestOffer.expirationTime)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              {floor.formatted && (
-                <div className="flex items-baseline justify-between">
-                  <span className="text-neutral-600">Collection floor</span>
-                  <span className="text-neutral-800">
-                    {floor.formatted} ETH
-                  </span>
-                </div>
-              )}
-              {bestOffer &&
-                floor.formatted &&
-                formatBestVsFloorDiff(bestOffer, floor) && (
-                  <div className="flex items-baseline justify-between pt-0.5">
-                    <span className="text-neutral-500">Context</span>
-                    <span className="text-[10px] text-neutral-500">
-                      {formatBestVsFloorDiff(bestOffer, floor)}
+                )}
+                {floor.formatted && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-neutral-600">Collection floor</span>
+                    <span className="text-neutral-800">
+                      {floor.formatted} ETH
                     </span>
                   </div>
                 )}
-            </div>
-          )}
+                {bestOffer &&
+                  floor.formatted &&
+                  formatBestVsFloorDiff(bestOffer, floor) && (
+                    <div className="flex items-baseline justify-between pt-0.5">
+                      <span className="text-neutral-500">Context</span>
+                      <span className="text-[10px] text-neutral-500">
+                        {formatBestVsFloorDiff(bestOffer, floor)}
+                      </span>
+                    </div>
+                  )}
+              </div>
+            )}
 
           {/* Action buttons */}
           <div className="mt-3 flex gap-2">
