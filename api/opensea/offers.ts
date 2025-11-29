@@ -87,7 +87,7 @@ export default async function handler(
     }
 
     // -------------------------------------------------
-    // 2) ALL OFFERS FOR THIS NFT -> FILTER STALE -> TOP 3
+    // 2) ALL OFFERS FOR THIS NFT -> FILTER LIVE ONES -> TOP 3
     // -------------------------------------------------
     const search = new URLSearchParams({ chain });
     const offersUrl = `${baseUrl}/offers/collection/${encodeURIComponent(
@@ -117,7 +117,7 @@ export default async function handler(
       const filteredRaw = rawOffers.filter((raw) => {
         if (!raw || typeof raw !== "object") return false;
 
-        // status: prefer only "active"
+        // status: only ACTIVE
         const status: string | undefined =
           raw.status || raw.order_status || raw.orderStatus;
         if (status && status.toLowerCase() !== "active") return false;
@@ -153,6 +153,17 @@ export default async function handler(
           return false;
         }
 
+        // startTime: ignore offers that haven't started yet
+        const startTimeStr: string | undefined =
+          raw.protocol_data?.parameters?.startTime;
+
+        if (startTimeStr) {
+          const start = Number(startTimeStr);
+          if (Number.isFinite(start) && start > nowSec) {
+            return false;
+          }
+        }
+
         return true;
       });
 
@@ -163,7 +174,7 @@ export default async function handler(
         if (parsedOffer) parsed.push(parsedOffer);
       }
 
-      // Highest WETH offer first
+      // Highest WETH offer first (bestOffer[0] is what we use for "Accept best offer")
       parsed.sort((a, b) => b.priceEth - a.priceEth);
 
       bestOffer = parsed[0] ?? null;
