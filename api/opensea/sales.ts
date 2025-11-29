@@ -5,13 +5,19 @@ import { z } from "zod";
 const querySchema = z.object({
   chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
   collection: z.string().min(1, "Missing collection slug"),
-  identifier: z.string().min(1, "Missing token identifier"),
   limit: z
     .string()
     .transform((v) => parseInt(v, 10))
-    .pipe(z.number().int().min(1).max(20))
+    .pipe(z.number().int().min(1).max(10))
     .optional(),
 });
+
+const chainSlug: Record<string, string> = {
+  base: "base",
+  ethereum: "ethereum",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
+};
 
 type SimpleSale = {
   id: string;
@@ -19,15 +25,18 @@ type SimpleSale = {
   priceFormatted: string;
   buyer: string | null;
   seller: string | null;
-  paymentTokenSymbol: string | null;
-  transactionHash: string | null;
-  timestamp: number | null; // seconds since epoch
+  paymentSymbol: string | null;
+  occurredAt: number | null; // unix seconds
+  tokenId?: string | null;
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
   const apiKey = process.env.OPENSEA_API_KEY;
@@ -36,39 +45,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!apiKey) {
     console.error("Missing OPENSEA_API_KEY");
-    return res.status(500).json({ error: "Server misconfigured" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Server misconfigured: missing API key" });
   }
 
   const parsed = querySchema.safeParse({
     chain: req.query.chain,
     collection: req.query.collection,
-    identifier: req.query.identifier,
-    limit: req.query.limit ?? "3",
+    limit: req.query.limit,
   });
 
   if (!parsed.success) {
     return res.status(400).json({
+      ok: false,
       error: "Invalid parameters",
       details: parsed.error.flatten(),
     });
   }
 
-  const { chain, collection, identifier, limit } = parsed.data;
-  const perNftLimit = limit ?? 3;
+  const { chain, collection, limit } = parsed.data;
+  const limitFinal = limit ?? 3;
 
   try {
-    // We query by collection, then filter down to the specific token id.
-    const params = new URLSearchParams({
-      event_type: "sale",
-      chain,
-      limit: "50", // grab enough to safely filter down to this NFT
-    });
+    // Collection-level events; we only care about sales
+    const url = new URL(
+      `${baseUrl}/events/collection/${encodeURIComponent(collection)}`,
+    );
+    url.searchParams.set("event_type", "sale");
+    url.searchParams.set("limit", String(limitFinal));
+    // chain is optional for this endpoint, but safe to send
+    url.searchParams.set("chain", chainSlug[chain]);
 
-    const url = `${baseUrl}/events/collection/${encodeURIComponent(
-      collection,
-    )}?${params.toString()}`;
-
-    const response = await fetch(url, {
+    const response = await fetch(url.toString(), {
       headers: {
         Accept: "application/json",
         "X-API-KEY": apiKey,
@@ -84,71 +93,118 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const json = (await response.json()) as any;
-    const rawEvents: any[] = Array.isArray(json.asset_events)
-      ? json.asset_events
-      : [];
 
-    const normalized: SimpleSale[] = [];
+    // v2 uses "events"; older docs / wrappers sometimes use "asset_events"
+    const rawEvents: any[] =
+      (Array.isArray(json?.events) && json.events) ||
+      (Array.isArray(json?.asset_events) && json.asset_events) ||
+      [];
 
-    for (const evt of rawEvents) {
-      if (evt?.event_type !== "sale") continue;
-      const nft = evt.nft;
+    const sales: SimpleSale[] = rawEvents
+      .filter((ev) => {
+        const t = ev?.event_type || ev?.type;
+        return t === "sale" || t === "successful";
+      })
+      .slice(0, limitFinal)
+      .map((ev) => {
+        // payment object: quantity + token (decimals, symbol)
+        let priceEth = 0;
+        let symbol: string | null = null;
 
-      if (!nft || String(nft.identifier) !== String(identifier)) continue;
+        const payment = ev?.payment ?? ev?.transaction?.payment ?? null;
 
-      const payment = evt.payment;
-      if (!payment) continue;
+        if (payment && typeof payment === "object") {
+          const quantityStr: string | undefined = payment.quantity;
+          const decimals: number | undefined = payment.token?.decimals;
+          symbol =
+            typeof payment.token?.symbol === "string"
+              ? payment.token.symbol
+              : null;
 
-      let quantity = payment.quantity;
-      if (typeof quantity === "string") {
-        quantity = Number(quantity);
-      }
+          const quantityNum = quantityStr ? Number(quantityStr) : NaN;
+          if (
+            typeof decimals === "number" &&
+            Number.isFinite(quantityNum) &&
+            quantityNum > 0
+          ) {
+            priceEth = quantityNum / 10 ** decimals;
+          }
+        }
 
-      if (typeof quantity !== "number" || Number.isNaN(quantity) || quantity <= 0)
-        continue;
+        // fallback: some events might expose price directly
+        if (!priceEth && ev.price) {
+          const n = Number(ev.price);
+          if (!Number.isNaN(n) && n > 0) {
+            priceEth = n > 1e10 ? n / 1e18 : n;
+          }
+        }
 
-      const decimals =
-        typeof payment.decimals === "number" ? payment.decimals : 18;
+        const priceFormatted =
+          priceEth > 0
+            ? priceEth >= 1
+              ? priceEth.toFixed(3)
+              : priceEth.toFixed(4)
+            : "0.0000";
 
-      const priceEth = quantity / 10 ** decimals;
-      if (!Number.isFinite(priceEth) || priceEth <= 0) continue;
+        const buyer: string | null =
+          ev?.to_account?.address ??
+          ev?.to_address ??
+          ev?.buyer?.address ??
+          null;
 
-      const priceFormatted =
-        priceEth >= 1 ? priceEth.toFixed(3) : priceEth.toFixed(4);
+        const seller: string | null =
+          ev?.from_account?.address ??
+          ev?.from_address ??
+          ev?.seller?.address ??
+          null;
 
-      const sale: SimpleSale = {
-        id:
-          (typeof evt.transaction === "string" && evt.transaction) ||
-          (typeof evt.order_hash === "string" && evt.order_hash) ||
-          `${identifier}-${normalized.length}`,
-        priceEth,
-        priceFormatted,
-        buyer: typeof evt.buyer === "string" ? evt.buyer : null,
-        seller: typeof evt.seller === "string" ? evt.seller : null,
-        paymentTokenSymbol:
-          typeof payment.symbol === "string" ? payment.symbol : null,
-        transactionHash:
-          typeof evt.transaction === "string" ? evt.transaction : null,
-        timestamp:
-          typeof evt.closing_date === "number" ? evt.closing_date : null,
-      };
+        const tokenId: string | null =
+          ev?.nft?.identifier ??
+          ev?.asset?.token_id ??
+          ev?.token_id ??
+          null;
 
-      normalized.push(sale);
-    }
+        const occurredIso: string | null =
+          ev?.occurred_at ??
+          ev?.created_date ??
+          ev?.event_timestamp ??
+          null;
 
-    // newest first
-    normalized.sort(
-      (a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0),
-    );
+        const occurredAt =
+          occurredIso && typeof occurredIso === "string"
+            ? Math.floor(Date.parse(occurredIso) / 1000)
+            : null;
 
-    const sliced = normalized.slice(0, perNftLimit);
+        const id: string =
+          ev?.id ??
+          ev?.event_id ??
+          ev?.order_hash ??
+          `${seller ?? "unknown"}-${buyer ?? "unknown"}-${tokenId ?? "?"}-${
+            occurredAt ?? Date.now()
+          }`;
+
+        return {
+          id,
+          priceEth,
+          priceFormatted,
+          buyer,
+          seller,
+          paymentSymbol: symbol,
+          occurredAt,
+          tokenId,
+        };
+      })
+      // Filter out obviously bad (zero) prices
+      .filter((s) => s.priceEth > 0);
 
     return res.status(200).json({
       ok: true,
-      sales: sliced,
+      sales,
     });
   } catch (err) {
     console.error("Unexpected error in /api/opensea/sales", err);
-    return res.status(500).json({ ok: false, error: "Internal server error" });
+    return res
+      .status(500)
+      .json({ ok: false, error: "Internal server error while fetching sales" });
   }
 }

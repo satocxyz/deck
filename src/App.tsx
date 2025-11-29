@@ -626,9 +626,9 @@ type Sale = {
   priceFormatted: string;
   buyer: string | null;
   seller: string | null;
-  paymentTokenSymbol: string | null;
-  transactionHash: string | null;
-  timestamp: number | null;
+  paymentSymbol: string | null;
+  occurredAt: number | null;
+  tokenId?: string | null;
 };
 
 function NftDetailPage({
@@ -840,7 +840,7 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Last 3 sales for this NFT
+  // Last 3 collection-level sales (no token filter)
   useEffect(() => {
     const collectionSlug = getCollectionSlug(nft);
 
@@ -858,7 +858,6 @@ function NftDetailPage({
     const params = new URLSearchParams({
       chain,
       collection: collectionSlug,
-      identifier: String(nft.identifier),
       limit: "3",
     });
 
@@ -1333,7 +1332,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Sales – last 3 sales for this NFT */}
+        {/* Sales – last 3 collection sales */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1345,7 +1344,7 @@ function NftDetailPage({
               Sales
             </div>
             <span className="text-[10px] text-neutral-400">
-              Last 3 sales
+              Last 3 collection sales
             </span>
           </div>
 
@@ -1363,42 +1362,50 @@ function NftDetailPage({
 
           {!salesLoading && !salesError && sales.length === 0 && (
             <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
-              No recent on-chain sales found for this NFT.
+              No recent on-chain sales found for this collection.
             </div>
           )}
 
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {sales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="
+              {sales.map((sale) => {
+                const label = sale.tokenId
+                  ? `${collectionName} #${sale.tokenId}`
+                  : collectionName;
+
+                return (
+                  <div
+                    key={sale.id}
+                    className="
                     flex items-center justify-between rounded-xl
                     bg-neutral-50 px-2 py-1.5
                   "
-                >
-                  <div className="flex flex-col">
-                    <span className="text-neutral-700">
-                      {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      {sale.seller
-                        ? sale.buyer
-                          ? `From ${shortenAddress(
-                              sale.seller,
-                            )} → ${shortenAddress(sale.buyer)}`
-                          : `From ${shortenAddress(sale.seller)}`
-                        : "Unknown counterparties"}
-                    </span>
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-neutral-700">
+                        {sale.priceFormatted} {sale.paymentSymbol ?? "ETH"}
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        {label}
+                        {" • "}
+                        {sale.seller
+                          ? sale.buyer
+                            ? `From ${shortenAddress(
+                                sale.seller,
+                              )} → ${shortenAddress(sale.buyer)}`
+                            : `From ${shortenAddress(sale.seller)}`
+                          : "Unknown counterparties"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end text-right text-[10px]">
+                      <span className="text-neutral-500">
+                        {formatTimeAgo(sale.occurredAt) ?? "—"}
+                      </span>
+                      <span className="text-neutral-400">Sale</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end text-right text-[10px]">
-                    <span className="text-neutral-500">
-                      {formatTimeAgo(sale.timestamp) ?? "—"}
-                    </span>
-                    <span className="text-neutral-400">Sale</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
