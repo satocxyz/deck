@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items=end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -626,9 +626,9 @@ type Sale = {
   priceFormatted: string;
   buyer: string | null;
   seller: string | null;
-  paymentSymbol: string | null;
-  occurredAt: number | null;
-  tokenId?: string | null;
+  paymentTokenSymbol: string | null;
+  transactionHash: string | null;
+  timestamp: number | null;
 };
 
 function NftDetailPage({
@@ -840,11 +840,20 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Last 3 collection-level sales (no token filter)
+  // Last 3 sales for this collection (by contract, fallback to collection slug)
   useEffect(() => {
+    if (!nft) {
+      setSales([]);
+      setSalesError(null);
+      setSalesLoading(false);
+      return;
+    }
+
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
     const collectionSlug = getCollectionSlug(nft);
 
-    if (!nft || !collectionSlug) {
+    if (!contractAddress && !collectionSlug) {
       setSales([]);
       setSalesError(null);
       setSalesLoading(false);
@@ -857,8 +866,9 @@ function NftDetailPage({
 
     const params = new URLSearchParams({
       chain,
-      collection: collectionSlug,
       limit: "3",
+      ...(contractAddress ? { contract: contractAddress } : {}),
+      ...(collectionSlug ? { collection: collectionSlug } : {}),
     });
 
     fetch(`/api/opensea/sales?${params.toString()}`)
@@ -1332,7 +1342,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Sales – last 3 collection sales */}
+        {/* Sales – last 3 sales for this collection */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1343,9 +1353,7 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Sales
             </div>
-            <span className="text-[10px] text-neutral-400">
-              Last 3 collection sales
-            </span>
+            <span className="text-[10px] text-neutral-400">Last 3 sales</span>
           </div>
 
           {salesLoading && (
@@ -1368,44 +1376,36 @@ function NftDetailPage({
 
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {sales.map((sale) => {
-                const label = sale.tokenId
-                  ? `${collectionName} #${sale.tokenId}`
-                  : collectionName;
-
-                return (
-                  <div
-                    key={sale.id}
-                    className="
+              {sales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className="
                     flex items-center justify-between rounded-xl
                     bg-neutral-50 px-2 py-1.5
                   "
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-neutral-700">
-                        {sale.priceFormatted} {sale.paymentSymbol ?? "ETH"}
-                      </span>
-                      <span className="text-[10px] text-neutral-500">
-                        {label}
-                        {" • "}
-                        {sale.seller
-                          ? sale.buyer
-                            ? `From ${shortenAddress(
-                                sale.seller,
-                              )} → ${shortenAddress(sale.buyer)}`
-                            : `From ${shortenAddress(sale.seller)}`
-                          : "Unknown counterparties"}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-end text-right text-[10px]">
-                      <span className="text-neutral-500">
-                        {formatTimeAgo(sale.occurredAt) ?? "—"}
-                      </span>
-                      <span className="text-neutral-400">Sale</span>
-                    </div>
+                >
+                  <div className="flex flex-col">
+                    <span className="text-neutral-700">
+                      {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {sale.seller
+                        ? sale.buyer
+                          ? `From ${shortenAddress(
+                              sale.seller,
+                            )} → ${shortenAddress(sale.buyer)}`
+                          : `From ${shortenAddress(sale.seller)}`
+                        : "Unknown counterparties"}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="flex flex-col items-end text-right text-[10px]">
+                    <span className="text-neutral-500">
+                      {formatTimeAgo(sale.timestamp) ?? "—"}
+                    </span>
+                    <span className="text-neutral-400">Sale</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
