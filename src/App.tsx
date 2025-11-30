@@ -23,23 +23,7 @@ export function useToast() {
   return ctx.showToast;
 }
 
-function ToastHost() {
-  const [items, setItems] = React.useState<ToastItem[]>([]);
 
-  function showToast(type: ToastType, message: string) {
-    const id = Math.random().toString(36).slice(2);
-
-    const toast: ToastItem = { id, type, message };
-    setItems((prev) => [...prev.slice(-2), toast]); // keep last 3
-
-    if (type !== "loading") {
-      setTimeout(() => {
-        setItems((prev) => prev.filter((i) => i.id !== id));
-      }, 3000);
-    }
-
-    return id;
-  }
 
   function remove(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
