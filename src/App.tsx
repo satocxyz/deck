@@ -2007,8 +2007,7 @@ function NftDetailPage({
                 disabled={
                   approving ||
                   approvalStatus === "checking" ||
-                  !address ||
-                  !walletClient
+                  !address
                 }
                 onClick={handleApproveOpenSea}
               >
@@ -2062,7 +2061,7 @@ function NftDetailPage({
                       text-neutral-500 hover:bg-neutral-100
                       disabled:cursor-not-allowed disabled:opacity-60
                     "
-                    disabled={revoking || !walletClient}
+                    disabled={revoking}
                     onClick={handleRevokeOpenSea}
                   >
                     {revoking
