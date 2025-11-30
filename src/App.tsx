@@ -13,15 +13,19 @@ import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 type ToastType = "success" | "loading" | "error";
 type ToastItem = { id: string; type: ToastType; message: string };
 
-const ToastContext = React.createContext<{
+type ToastContextValue = {
   showToast: (type: ToastType, message: string) => string;
-} | null>(null);
+  hideToast: (id: string) => void;
+};
+
+const ToastContext = React.createContext<ToastContextValue | null>(null);
 
 export function useToast() {
   const ctx = React.useContext(ToastContext);
   if (!ctx) throw new Error("ToastContext missing from App");
-  return ctx.showToast;
+  return ctx; // you can do: const { showToast, hideToast } = useToast();
 }
+
 
 const style = document.createElement("style");
 style.innerHTML = `
@@ -175,8 +179,10 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Math.random().toString(36).slice(2);
     const toast: ToastItem = { id, type, message };
 
+    // keep max 3 toasts
     setItems((prev) => [...prev.slice(-2), toast]);
 
+    // auto-hide for success / error
     if (type !== "loading") {
       setTimeout(() => {
         setItems((prev) => prev.filter((i) => i.id !== id));
@@ -186,15 +192,15 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     return id;
   }
 
-  function remove(id: string) {
+  function hideToast(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, hideToast }}>
       {children}
 
-      {/* ToastHost stays the same UI */}
+      {/* Toast host */}
       <div className="fixed left-0 right-0 top-3 z-[9999] flex flex-col items-center space-y-2 px-4 pointer-events-none">
         {items.map((t) => (
           <div
@@ -231,13 +237,14 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
                 />
               </svg>
             )}
+
             <span className="text-[13px] text-neutral-800 flex-1">
               {t.message}
             </span>
 
             {t.type === "loading" && (
               <button
-                onClick={() => remove(t.id)}
+                onClick={() => hideToast(t.id)}   // 👈 this is the important change
                 className="text-[11px] text-neutral-500"
               >
                 Hide
@@ -831,7 +838,7 @@ function NftDetailPage({
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const toast = useToast();
+  const { showToast, hideToast } = useToast();
 
   // Approval state
   const [approvalStatus, setApprovalStatus] =
@@ -1368,97 +1375,103 @@ function NftDetailPage({
     return "Best offer is at floor";
   }
 
-    async function handleApproveOpenSea() {
-    if (!walletClient || !address) {
-      toast("error", "Wallet not connected.");
-      return;
-    }
-
-    const contractAddress =
-      nft && typeof nft.contract === "string" ? nft.contract : undefined;
-
-    if (!contractAddress) {
-      toast("error", "Missing NFT contract.");
-      return;
-    }
-
-    toast("loading", "Sending approval…");
-    setApproving(true);
-    setApprovalErrorMsg(null);
-
-    try {
-      const chainId = chain === "base" ? 8453 : 1;
-
-      const dataToSend = encodeFunctionData({
-        abi: erc721Or1155ApprovalAbi,
-        functionName: "setApprovalForAll",
-        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
-      });
-
-      await walletClient.sendTransaction({
-        account: address as `0x${string}`,
-        chain: { id: chainId } as any,
-        to: contractAddress as `0x${string}`,
-        data: dataToSend as `0x${string}`,
-        value: 0n,
-      });
-
-      toast("success", "NFT approved!");
-      setApprovalStatus("approved");
-    } catch (err) {
-      console.error("Approval tx failed", err);
-      toast("error", "Approval failed.");
-      setApprovalStatus("error");
-    } finally {
-      setApproving(false);
-    }
+ async function handleApproveOpenSea() {
+  if (!walletClient || !address) {
+    showToast("error", "Wallet not connected.");
+    return;
   }
 
-  async function handleRevokeOpenSea() {
-    if (!walletClient || !address) {
-      toast("error", "Wallet not connected.");
-      return;
-    }
+  const contractAddress =
+    nft && typeof nft.contract === "string" ? nft.contract : undefined;
 
-    const contractAddress =
-      nft && typeof nft.contract === "string" ? nft.contract : undefined;
-
-    if (!contractAddress) {
-      toast("error", "Missing NFT contract.");
-      return;
-    }
-
-    toast("loading", "Revoking approval…");
-    setRevoking(true);
-    setApprovalErrorMsg(null);
-
-    try {
-      const chainId = chain === "base" ? 8453 : 1;
-
-      const dataToSend = encodeFunctionData({
-        abi: erc721Or1155ApprovalAbi,
-        functionName: "setApprovalForAll",
-        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
-      });
-
-      await walletClient.sendTransaction({
-        account: address as `0x${string}`,
-        chain: { id: chainId } as any,
-        to: contractAddress as `0x${string}`,
-        data: dataToSend as `0x${string}`,
-        value: 0n,
-      });
-
-      toast("success", "Approval revoked");
-      setApprovalStatus("not-approved");
-    } catch (err) {
-      console.error("Revoke tx failed", err);
-      toast("error", "Revoke failed.");
-      setApprovalStatus("error");
-    } finally {
-      setRevoking(false);
-    }
+  if (!contractAddress) {
+    showToast("error", "Missing NFT contract.");
+    return;
   }
+
+  const loadingId = showToast("loading", "Sending approval…");
+  setApproving(true);
+  setApprovalErrorMsg(null);
+
+  try {
+    const chainId = chain === "base" ? 8453 : 1;
+
+    const dataToSend = encodeFunctionData({
+      abi: erc721Or1155ApprovalAbi,
+      functionName: "setApprovalForAll",
+      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
+    });
+
+    await walletClient.sendTransaction({
+      account: address as `0x${string}`,
+      chain: { id: chainId } as any,
+      to: contractAddress as `0x${string}`,
+      data: dataToSend as `0x${string}`,
+      value: 0n,
+    });
+
+    hideToast(loadingId);
+    showToast("success", "NFT approved!");
+    setApprovalStatus("approved");
+  } catch (err) {
+    console.error("Approval tx failed", err);
+    hideToast(loadingId);
+    showToast("error", "Approval failed.");
+    setApprovalStatus("error");
+  } finally {
+    setApproving(false);
+  }
+}
+
+
+async function handleRevokeOpenSea() {
+  if (!walletClient || !address) {
+    showToast("error", "Wallet not connected.");
+    return;
+  }
+
+  const contractAddress =
+    nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+  if (!contractAddress) {
+    showToast("error", "Missing NFT contract.");
+    return;
+  }
+
+  const loadingId = showToast("loading", "Revoking approval…");
+  setRevoking(true);
+  setApprovalErrorMsg(null);
+
+  try {
+    const chainId = chain === "base" ? 8453 : 1;
+
+    const dataToSend = encodeFunctionData({
+      abi: erc721Or1155ApprovalAbi,
+      functionName: "setApprovalForAll",
+      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
+    });
+
+    await walletClient.sendTransaction({
+      account: address as `0x${string}`,
+      chain: { id: chainId } as any,
+      to: contractAddress as `0x${string}`,
+      data: dataToSend as `0x${string}`,
+      value: 0n,
+    });
+
+    hideToast(loadingId);
+    showToast("success", "Approval revoked");
+    setApprovalStatus("not-approved");
+  } catch (err) {
+    console.error("Revoke tx failed", err);
+    hideToast(loadingId);
+    showToast("error", "Revoke failed.");
+    setApprovalStatus("error");
+  } finally {
+    setRevoking(false);
+  }
+}
+
 
 
   if (!nft) return null;
