@@ -1814,6 +1814,9 @@ function NftDetailPage({
  * - Clean line (no area fill, no constant dots)
  * - Emphasis on text summary: last price + date + range
  * - Tooltip + dot only when hovering
+ *
+ * Updated: higher-resolution SVG coordinates + geometricPrecision
+ * to keep line width visually consistent.
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -1838,15 +1841,16 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
   const paddedMax = maxPrice * 1.01;
   const range = paddedMax - paddedMin || 1;
 
-  const width = 100;
-  const height = 40;
+  // High-res internal coordinate system for smoother, more consistent stroke
+  const width = 300;
+  const height = 120;
 
   const pointCoords = filtered.map((p, idx) => {
     const x =
       filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
 
     const normalized = (p.priceEth - paddedMin) / range;
-    const y = height - normalized * (height - 4) - 2; // top/bottom padding
+    const y = height - normalized * (height - 8) - 4; // top/bottom padding
 
     return { x, y };
   });
@@ -1907,7 +1911,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
             Last sale • {formatShortDate(last.timestamp)}
           </span>
         </div>
-        <div className="text-[10px] text-neutral-500 text-right">
+        <div className="text-right text-[10px] text-neutral-500">
           <span className="mr-0.5">Range</span>
           <span className="font-medium text-neutral-800">
             {formatEth(minPrice)} – {formatEth(maxPrice)} ETH
@@ -1921,6 +1925,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
           viewBox={`0 0 ${width} ${height}`}
           className="h-16 w-full overflow-visible"
           preserveAspectRatio="none"
+          shapeRendering="geometricPrecision"
           onMouseMove={handleMove}
           onMouseLeave={handleLeave}
         >
@@ -1947,13 +1952,13 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
               <circle
                 cx={activeCoord.x}
                 cy={activeCoord.y}
-                r={2.6}
+                r={3.2}
                 className="fill-white"
               />
               <circle
                 cx={activeCoord.x}
                 cy={activeCoord.y}
-                r={1.8}
+                r={2.2}
                 className="fill-purple-600"
               />
             </>
