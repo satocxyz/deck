@@ -1678,8 +1678,7 @@ function NftDetailPage({
           </div>
 
           <p className="mt-2 text-[10px] text-neutral-400">
-            Based on recent collection sales from OpenSea. No trades are
-            executed from this section.
+            Based on recent collection sales from OpenSea.
           </p>
         </div>
 
