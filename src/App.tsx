@@ -2035,22 +2035,6 @@ function prettyChain(chain: Chain): string {
   }
 }
 
-/**
- * Numeric chain IDs for potential future use
- */
-function numericChainIdFromChain(chain: Chain): number {
-  switch (chain) {
-    case "base":
-      return 8453;
-    case "arbitrum":
-      return 42161;
-    case "optimism":
-      return 10;
-    case "ethereum":
-    default:
-      return 1;
-  }
-}
 
 export default App;
 
