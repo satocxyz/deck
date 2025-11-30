@@ -1,6 +1,6 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import React, { useEffect, useMemo, useState } from "react";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useWalletClient, useSendCalls } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 
@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify中心 bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -1810,13 +1810,7 @@ function NftDetailPage({
 }
 
 /**
- * Compact sparkline-style chart for market history (Option A)
- * - Clean line (no area fill, no constant dots)
- * - Emphasis on text summary: last price + date + range
- * - Tooltip + dot only when hovering
- *
- * Updated: higher-resolution SVG coordinates + geometricPrecision
- * to keep line width visually consistent.
+ * Compact sparkline-style chart for market history
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -1841,7 +1835,6 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
   const paddedMax = maxPrice * 1.01;
   const range = paddedMax - paddedMin || 1;
 
-  // High-res internal coordinate system for smoother, more consistent stroke
   const width = 300;
   const height = 120;
 
@@ -1850,7 +1843,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
       filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
 
     const normalized = (p.priceEth - paddedMin) / range;
-    const y = height - normalized * (height - 8) - 4; // top/bottom padding
+    const y = height - normalized * (height - 8) - 4;
 
     return { x, y };
   });
@@ -1929,7 +1922,6 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
           onMouseMove={handleMove}
           onMouseLeave={handleLeave}
         >
-          {/* main line only (no fill) */}
           <path
             d={pathD}
             className="stroke-purple-600"
@@ -1937,7 +1929,6 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
             fill="none"
           />
 
-          {/* highlighted point + guide only on hover */}
           {activePoint && activeCoord && (
             <>
               <line
@@ -1965,7 +1956,6 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
           )}
         </svg>
 
-        {/* Small tooltip, only when hovering */}
         {activePoint && activeCoord && (
           <div
             className="pointer-events-none absolute -top-3 left-0 flex justify-center"
@@ -2046,7 +2036,7 @@ function prettyChain(chain: Chain): string {
 }
 
 /**
- * Numeric chain IDs for EIP-5792 / sendTransaction
+ * Numeric chain IDs for potential future use
  */
 function numericChainIdFromChain(chain: Chain): number {
   switch (chain) {
@@ -2087,6 +2077,7 @@ function SellConfirmSheet({
 }) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { sendCalls } = useSendCalls();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2118,7 +2109,7 @@ function SellConfirmSheet({
     let dataToSend: `0x${string}` | undefined;
 
     try {
-      if (!address || !walletClient) {
+      if (!address) {
         setError("Wallet is not connected.");
         return;
       }
@@ -2205,54 +2196,39 @@ function SellConfirmSheet({
         return;
       }
 
-      const chainIdNum = numericChainIdFromChain(chain);
       const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
 
-      // --- Primary path: EIP-5792 wallet_sendCalls ---
+      // Primary path: Farcaster mini app EIP-5792 via Wagmi
       try {
-        const eip155ChainId = `eip155:${chainIdNum}`;
-
-        const callResult = await (walletClient as any).request({
-          method: "wallet_sendCalls",
-          params: [
+        await sendCalls({
+          calls: [
             {
-              chainId: eip155ChainId,
-              from: address,
-              calls: [
-                {
-                  to: tx.to as `0x${string}`,
-                  data: dataToSend,
-                  // hex-encoded value for EIP-5792
-                  value: "0x" + valueBigInt.toString(16),
-                },
-              ],
+              to: tx.to as `0x${string}`,
+              data: dataToSend,
+              value: valueBigInt === 0n ? undefined : valueBigInt,
             },
           ],
         });
-
-        setInfo(
-          typeof callResult === "string"
-            ? `Call submitted: ${callResult}`
-            : "Call submitted via smart wallet.",
-        );
+        setInfo("Transaction submitted.");
         onClose();
         return;
-      } catch (e5792) {
+      } catch (e) {
         console.warn(
-          "wallet_sendCalls failed, falling back to sendTransaction",
-          e5792,
+          "useSendCalls failed, falling back to sendTransaction",
+          e,
         );
       }
 
-      // --- Fallback: direct sendTransaction ---
+      // Fallback: direct sendTransaction via wallet client
+      if (!walletClient) {
+        setError(
+          "Wallet client is not available to send the transaction.",
+        );
+        return;
+      }
+
       const txHash = await walletClient.sendTransaction({
         account: address as `0x${string}`,
-        chain: {
-          id: chainIdNum,
-          name: "",
-          nativeCurrency: undefined,
-          rpcUrls: {},
-        } as any,
         to: tx.to as `0x${string}`,
         data: dataToSend,
         value: valueBigInt,
