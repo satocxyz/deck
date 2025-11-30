@@ -830,6 +830,7 @@ function NftDetailPage({
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const toast = useToast();
 
   // Approval state
   const [approvalStatus, setApprovalStatus] =
@@ -1366,101 +1367,97 @@ function NftDetailPage({
     return "Best offer is at floor";
   }
 
-  async function handleApproveOpenSea() {
-  const toast = useToast();
+    async function handleApproveOpenSea() {
+    if (!walletClient || !address) {
+      toast("error", "Wallet not connected.");
+      return;
+    }
 
-  if (!walletClient || !address) {
-    toast("error", "Wallet not connected.");
-    return;
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      toast("error", "Missing NFT contract.");
+      return;
+    }
+
+    toast("loading", "Sending approval…");
+    setApproving(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      const chainId = chain === "base" ? 8453 : 1;
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
+      });
+
+      await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: { id: chainId } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend as `0x${string}`,
+        value: 0n,
+      });
+
+      toast("success", "NFT approved!");
+      setApprovalStatus("approved");
+    } catch (err) {
+      console.error("Approval tx failed", err);
+      toast("error", "Approval failed.");
+      setApprovalStatus("error");
+    } finally {
+      setApproving(false);
+    }
   }
 
-  const contractAddress =
-    nft && typeof nft.contract === "string" ? nft.contract : undefined;
+  async function handleRevokeOpenSea() {
+    if (!walletClient || !address) {
+      toast("error", "Wallet not connected.");
+      return;
+    }
 
-  if (!contractAddress) {
-    toast("error", "Missing NFT contract.");
-    return;
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      toast("error", "Missing NFT contract.");
+      return;
+    }
+
+    toast("loading", "Revoking approval…");
+    setRevoking(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      const chainId = chain === "base" ? 8453 : 1;
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
+      });
+
+      await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: { id: chainId } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend as `0x${string}`,
+        value: 0n,
+      });
+
+      toast("success", "Approval revoked");
+      setApprovalStatus("not-approved");
+    } catch (err) {
+      console.error("Revoke tx failed", err);
+      toast("error", "Revoke failed.");
+      setApprovalStatus("error");
+    } finally {
+      setRevoking(false);
+    }
   }
-
-  toast("loading", "Sending approval…");
-  setApproving(true);
-  setApprovalErrorMsg(null);
-
-  try {
-    const chainId = chain === "base" ? 8453 : 1;
-
-    const dataToSend = encodeFunctionData({
-      abi: erc721Or1155ApprovalAbi,
-      functionName: "setApprovalForAll",
-      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
-    });
-
-    await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: { id: chainId } as any,
-      to: contractAddress as `0x${string}`,
-      data: dataToSend as `0x${string}`,
-      value: 0n,
-    });
-
-    toast("success", "NFT approved!");
-    setApprovalStatus("approved");
-  } catch (err) {
-    toast("error", "Approval failed.");
-    setApprovalStatus("error");
-  } finally {
-    setApproving(false);
-  }
-}
-
-
-async function handleRevokeOpenSea() {
-  const toast = useToast();
-
-  if (!walletClient || !address) {
-    toast("error", "Wallet not connected.");
-    return;
-  }
-
-  const contractAddress =
-    nft && typeof nft.contract === "string" ? nft.contract : undefined;
-
-  if (!contractAddress) {
-    toast("error", "Missing NFT contract.");
-    return;
-  }
-
-  toast("loading", "Revoking approval…");
-  setRevoking(true);
-  setApprovalErrorMsg(null);
-
-  try {
-    const chainId = chain === "base" ? 8453 : 1;
-
-    const dataToSend = encodeFunctionData({
-      abi: erc721Or1155ApprovalAbi,
-      functionName: "setApprovalForAll",
-      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
-    });
-
-    await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: { id: chainId } as any,
-      to: contractAddress as `0x${string}`,
-      data: dataToSend as `0x${string}`,
-      value: 0n,
-    });
-
-    toast("success", "Approval revoked");
-    setApprovalStatus("not-approved");
-  } catch (err) {
-    toast("error", "Revoke failed.");
-    setApprovalStatus("error");
-  } finally {
-    setRevoking(false);
-  }
-}
-
 
 
   if (!nft) return null;
