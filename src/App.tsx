@@ -1,6 +1,11 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import React, { useEffect, useMemo, useState } from "react";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
+import {
+  useAccount,
+  useConnect,
+  useWalletClient,
+  usePublicClient,
+} from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 
@@ -95,6 +100,34 @@ const seaportMatchAdvancedOrdersAbi = [
       { name: "recipient", type: "address" },
     ],
     outputs: [{ name: "magicValue", type: "bytes4" }],
+  },
+] as const;
+
+// Canonical OpenSea Seaport conduit (same on mainnet, Base, etc.)
+const OPENSEA_SEAPORT_CONDUIT =
+  "0x1E0049783F008A0085193E00003D00cd54003c71" as const;
+
+// Minimal ERC721 / ERC1155 approval ABI
+const erc721Or1155ApprovalAbi = [
+  {
+    type: "function",
+    name: "isApprovedForAll",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "operator", type: "address" },
+    ],
+    outputs: [{ name: "approved", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "setApprovalForAll",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "operator", type: "address" },
+      { name: "approved", type: "bool" },
+    ],
+    outputs: [],
   },
 ] as const;
 
@@ -644,6 +677,13 @@ type MarketPoint = {
   source: "floor" | "offer" | "sale" | "other";
 };
 
+type ApprovalStatus =
+  | "unknown"
+  | "checking"
+  | "approved"
+  | "not-approved"
+  | "error";
+
 function NftDetailPage({
   chain,
   nft,
@@ -679,6 +719,18 @@ function NftDetailPage({
   const [marketPoints, setMarketPoints] = useState<MarketPoint[]>([]);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState<string | null>(null);
+
+  // Wallet + clients for approval logic
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+
+  // Approval state
+  const [approvalStatus, setApprovalStatus] =
+    useState<ApprovalStatus>("unknown");
+  const [approving, setApproving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
 
   // Offers + floor
   useEffect(() => {
@@ -1065,6 +1117,47 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
+  // Approval status: read isApprovedForAll(owner, OPENSEA_SEAPORT_CONDUIT)
+  useEffect(() => {
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!publicClient || !address || !contractAddress) {
+      setApprovalStatus("unknown");
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setApprovalStatus("checking");
+        const approved = await publicClient.readContract({
+          address: contractAddress as `0x${string}`,
+          abi: erc721Or1155ApprovalAbi,
+          functionName: "isApprovedForAll",
+          args: [
+            address as `0x${string}`,
+            OPENSEA_SEAPORT_CONDUIT as `0x${string}`,
+          ],
+        });
+
+        if (!cancelled) {
+          setApprovalStatus(approved ? "approved" : "not-approved");
+        }
+      } catch (err) {
+        console.error("Failed to read approval", err);
+        if (!cancelled) {
+          setApprovalStatus("error");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient, address, nft, chain]);
+
   // Fallback market points derived directly from sales
   const derivedMarketPoints: MarketPoint[] = useMemo(
     () =>
@@ -1165,6 +1258,117 @@ function NftDetailPage({
       return `Best offer is ${absPct}% below floor`;
     }
     return "Best offer is at floor";
+  }
+
+  async function handleApproveOpenSea() {
+    if (!walletClient || !address) {
+      setApprovalErrorMsg("Wallet is not connected.");
+      return;
+    }
+
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      setApprovalErrorMsg("Missing NFT contract address.");
+      return;
+    }
+
+    setApproving(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      // Same mapping style as SellConfirmSheet
+      const chainId = chain === "base" ? 8453 : 1;
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [
+          OPENSEA_SEAPORT_CONDUIT as `0x${string}`,
+          true,
+        ],
+      }) as `0x${string}`;
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: {
+          id: chainId,
+          name: "",
+          nativeCurrency: undefined,
+          rpcUrls: {},
+        } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend,
+        value: 0n,
+      });
+
+      console.log("Approval tx submitted", txHash);
+      setApprovalStatus("approved");
+    } catch (err) {
+      console.error("Error sending approval tx", err);
+      setApprovalErrorMsg(
+        "Failed to send approval transaction. Check your wallet.",
+      );
+      setApprovalStatus("error");
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  async function handleRevokeOpenSea() {
+    if (!walletClient || !address) {
+      setApprovalErrorMsg("Wallet is not connected.");
+      return;
+    }
+
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      setApprovalErrorMsg("Missing NFT contract address.");
+      return;
+    }
+
+    setRevoking(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      const chainId = chain === "base" ? 8453 : 1;
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [
+          OPENSEA_SEAPORT_CONDUIT as `0x${string}`,
+          false,
+        ],
+      }) as `0x${string}`;
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: {
+          id: chainId,
+          name: "",
+          nativeCurrency: undefined,
+          rpcUrls: {},
+        } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend,
+        value: 0n,
+      });
+
+      console.log("Revoke approval tx submitted", txHash);
+      setApprovalStatus("not-approved");
+    } catch (err) {
+      console.error("Error sending revoke approval tx", err);
+      setApprovalErrorMsg(
+        "Failed to send revoke transaction. Check your wallet.",
+      );
+      setApprovalStatus("error");
+    } finally {
+      setRevoking(false);
+    }
   }
 
   if (!nft) return null;
@@ -1546,7 +1750,7 @@ function NftDetailPage({
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Sales
             </div>
-            <span className="text-[10px] text-neutral-400">Last 3 sales</span>
+          <span className="text-[10px] text-neutral-400">Last 3 sales</span>
           </div>
 
           {salesLoading && (
@@ -1682,7 +1886,7 @@ function NftDetailPage({
           </p>
         </div>
 
-        {/* Price summary – bottom with actions */}
+        {/* Price summary – bottom with actions + approval gating */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1757,35 +1961,124 @@ function NftDetailPage({
               </div>
             )}
 
-          {/* Action buttons */}
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              disabled={!bestOffer || !contractAddress || offersLoading}
-              onClick={() => setShowSellSheet(true)}
-              className={[
-                "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
-                bestOffer && contractAddress && !offersLoading
-                  ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
-                  : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
-              ].join(" ")}
-            >
-              {bestOffer && contractAddress
-                ? "Accept best offer"
-                : "No offer available"}
-            </button>
+          {/* Approval status row */}
+          {contractAddress && (
+            <div className="mt-3 flex items-center justify-between text-[10px]">
+              <span className="text-neutral-500">
+                OpenSea trading approval
+              </span>
+              <span className="font-medium">
+                {approvalStatus === "approved" && (
+                  <span className="text-emerald-600">Approved</span>
+                )}
+                {approvalStatus === "not-approved" && (
+                  <span className="text-amber-600">Not approved</span>
+                )}
+                {approvalStatus === "checking" && (
+                  <span className="text-neutral-500">Checking…</span>
+                )}
+                {approvalStatus === "error" && (
+                  <span className="text-red-500">Error</span>
+                )}
+                {approvalStatus === "unknown" && (
+                  <span className="text-neutral-400">Unknown</span>
+                )}
+              </span>
+            </div>
+          )}
 
-            <button
-              type="button"
-              disabled
-              className="
-                flex-1 rounded-xl border border-dashed border-neutral-300
-                bg-neutral-50 px-3 py-2 text-[12px] font-semibold
-                text-neutral-400
-              "
-            >
-              List (coming soon)
-            </button>
+          {approvalErrorMsg && (
+            <p className="mt-1 text-[10px] text-red-500">
+              {approvalErrorMsg}
+            </p>
+          )}
+
+          {/* Action buttons – gated by approval */}
+          <div className="mt-3 space-y-2">
+            {/* If not approved -> single Approve button */}
+            {contractAddress && approvalStatus !== "approved" && (
+              <button
+                type="button"
+                className="
+                  w-full rounded-xl bg-purple-600 py-2
+                  text-[12px] font-semibold text-white shadow-sm
+                  hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60
+                "
+                disabled={
+                  approving ||
+                  approvalStatus === "checking" ||
+                  !address ||
+                  !walletClient
+                }
+                onClick={handleApproveOpenSea}
+              >
+                {approving
+                  ? "Approving…"
+                  : "Approve collection for OpenSea"}
+              </button>
+            )}
+
+            {/* If approved -> show Accept + List + Revoke */}
+            {(!contractAddress || approvalStatus === "approved") && (
+              <>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      !bestOffer || !contractAddress || offersLoading
+                    }
+                    onClick={() => setShowSellSheet(true)}
+                    className={[
+                      "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
+                      bestOffer && contractAddress && !offersLoading
+                        ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
+                        : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
+                    ].join(" ")}
+                  >
+                    {bestOffer && contractAddress
+                      ? "Accept best offer"
+                      : "No offer available"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled
+                    className="
+                      flex-1 rounded-xl border border-dashed border-neutral-300
+                      bg-neutral-50 px-3 py-2 text-[12px] font-semibold
+                      text-neutral-400
+                    "
+                  >
+                    List (coming soon)
+                  </button>
+                </div>
+
+                {contractAddress && approvalStatus === "approved" && (
+                  <button
+                    type="button"
+                    className="
+                      w-full rounded-xl border border-neutral-200
+                      bg-neutral-50 px-3 py-1.5 text-[11px] font-medium
+                      text-neutral-500 hover:bg-neutral-100
+                      disabled:cursor-not-allowed disabled:opacity-60
+                    "
+                    disabled={revoking || !walletClient}
+                    onClick={handleRevokeOpenSea}
+                  >
+                    {revoking
+                      ? "Revoking approval…"
+                      : "Revoke OpenSea approval"}
+                  </button>
+                )}
+              </>
+            )}
+
+            {!infoOrGasNoteShown(bestOffer, floor) && (
+              <p className="text-[10px] text-neutral-400">
+                You&apos;ll pay network gas for this transaction. Gasless /
+                sponsored sales may be added in a future version.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -1807,6 +2100,17 @@ function NftDetailPage({
       )}
     </div>
   );
+}
+
+/**
+ * Small helper so TS is happy for the extra note
+ * (always returns false for now – just a hook to evolve later)
+ */
+function infoOrGasNoteShown(
+  _bestOffer: SimpleOffer | null,
+  _floor: FloorInfo,
+): boolean {
+  return false;
 }
 
 /**
