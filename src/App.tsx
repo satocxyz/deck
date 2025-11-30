@@ -186,7 +186,6 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
   function scheduleAutoHide(id: string, duration = 3000) {
     if (typeof window === "undefined") return;
 
-    // Clear existing timer if any
     const existing = hideTimers.current[id];
     if (existing) {
       window.clearTimeout(existing);
@@ -205,7 +204,6 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Math.random().toString(36).slice(2);
     const toast: ToastItem = { id, type, message };
 
-    // Keep at most 3 toasts on screen
     setItems((prev) => [...prev.slice(-2), toast]);
 
     // Non-loading toasts auto-hide
@@ -228,33 +226,19 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
-function updateToast(
-  id: string,
-  patch: Partial<Omit<ToastItem, "id">>,
-) {
-  let shouldAutoHide = false;
+  function updateToast(
+    id: string,
+    patch: Partial<Omit<ToastItem, "id">>,
+  ) {
+    setItems((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    );
 
-  setItems((prev) =>
-    prev.map((t) => {
-      if (t.id !== id) return t;
-
-      const merged: ToastItem = { ...t, ...patch };
-
-      // If it became a non-loading toast, mark for auto-hide
-      if (merged.type !== "loading") {
-        shouldAutoHide = true;
-      }
-
-      return merged;
-    }),
-  );
-
-  // Run after state update callback
-  if (shouldAutoHide) {
-    scheduleAutoHide(id);
+    // If type is changed and becomes non-loading, auto-hide it
+    if (patch.type && patch.type !== "loading") {
+      scheduleAutoHide(id);
+    }
   }
-}
-
 
   return (
     <ToastContext.Provider value={{ showToast, hideToast, updateToast }}>
