@@ -2045,6 +2045,23 @@ function prettyChain(chain: Chain): string {
   }
 }
 
+/**
+ * Numeric chain IDs for EIP-5792 / sendTransaction
+ */
+function numericChainIdFromChain(chain: Chain): number {
+  switch (chain) {
+    case "base":
+      return 8453;
+    case "arbitrum":
+      return 42161;
+    case "optimism":
+      return 10;
+    case "ethereum":
+    default:
+      return 1;
+  }
+}
+
 export default App;
 
 function SellConfirmSheet({
@@ -2188,13 +2205,50 @@ function SellConfirmSheet({
         return;
       }
 
-      const chainId = chain === "base" ? 8453 : 1;
+      const chainIdNum = numericChainIdFromChain(chain);
       const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
 
+      // --- Primary path: EIP-5792 wallet_sendCalls ---
+      try {
+        const eip155ChainId = `eip155:${chainIdNum}`;
+
+        const callResult = await (walletClient as any).request({
+          method: "wallet_sendCalls",
+          params: [
+            {
+              chainId: eip155ChainId,
+              from: address,
+              calls: [
+                {
+                  to: tx.to as `0x${string}`,
+                  data: dataToSend,
+                  // hex-encoded value for EIP-5792
+                  value: "0x" + valueBigInt.toString(16),
+                },
+              ],
+            },
+          ],
+        });
+
+        setInfo(
+          typeof callResult === "string"
+            ? `Call submitted: ${callResult}`
+            : "Call submitted via smart wallet.",
+        );
+        onClose();
+        return;
+      } catch (e5792) {
+        console.warn(
+          "wallet_sendCalls failed, falling back to sendTransaction",
+          e5792,
+        );
+      }
+
+      // --- Fallback: direct sendTransaction ---
       const txHash = await walletClient.sendTransaction({
         account: address as `0x${string}`,
         chain: {
-          id: chainId,
+          id: chainIdNum,
           name: "",
           nativeCurrency: undefined,
           rpcUrls: {},
