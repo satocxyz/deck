@@ -1,5 +1,5 @@
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
@@ -636,7 +636,8 @@ type Sale = {
 };
 
 /**
- * Market history point (we now derive this from /sales)
+ * Market history point returned from /api/opensea/market-history
+ * In our backend, this is derived from recent collection sales.
  */
 type MarketPoint = {
   timestamp: number;
@@ -674,6 +675,11 @@ function NftDetailPage({
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [salesError, setSalesError] = useState<string | null>(null);
+
+  // Market history state (separate endpoint)
+  const [marketPoints, setMarketPoints] = useState<MarketPoint[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState<string | null>(null);
 
   // Offers + floor
   useEffect(() => {
@@ -871,7 +877,7 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Sales for this collection (by contract, fallback to collection slug)
+  // Last 3 sales for this collection (by contract, fallback to collection slug)
   useEffect(() => {
     if (!nft) {
       setSales([]);
@@ -897,8 +903,7 @@ function NftDetailPage({
 
     const params = new URLSearchParams({
       chain,
-      // keep 3 for the UI, but you can bump this (e.g. "20") to feed more points to the chart
-      limit: "10",
+      limit: "3",
       ...(contractAddress ? { contract: contractAddress } : {}),
       ...(collectionSlug ? { collection: collectionSlug } : {}),
     });
@@ -933,31 +938,144 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
-  // Derive market chart points directly from sales data
-  const marketPoints: MarketPoint[] = useMemo(
-    () =>
-      (sales || [])
-        .filter(
-          (s) =>
-            typeof s.timestamp === "number" &&
-            s.timestamp > 0 &&
-            typeof s.priceEth === "number" &&
-            s.priceEth > 0,
-        )
-        .sort((a, b) => (a.timestamp! - b.timestamp!))
-        .map((s) => ({
-          timestamp: s.timestamp as number,
-          priceEth: s.priceEth,
-          source: "sale" as const,
-        })),
-    [sales],
-  );
+  // Market history (separate endpoint)
+  // We request up to ~100 recent collection sales and draw them as a chart.
+  useEffect(() => {
+    if (!nft) {
+      setMarketPoints([]);
+      setMarketError(null);
+      setMarketLoading(false);
+      return;
+    }
+
+    const contractAddress =
+      typeof nft.contract === "string" ? nft.contract : undefined;
+    const collectionSlug = getCollectionSlug(nft);
+
+    if (!contractAddress && !collectionSlug) {
+      setMarketPoints([]);
+      setMarketError(null);
+      setMarketLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMarketLoading(true);
+    setMarketError(null);
+
+    const params = new URLSearchParams({
+      chain,
+      limit: "100", // last ~100 sales
+      ...(contractAddress ? { contract: contractAddress } : {}),
+      ...(collectionSlug ? { collection: collectionSlug } : {}),
+    });
+
+    fetch(`/api/opensea/market-history?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch market history (${res.status})`);
+        }
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+
+        console.log("market-history json", json);
+
+        if (json.ok === false) {
+          setMarketError("open_sea_error");
+          setMarketPoints([]);
+          return;
+        }
+
+        // Accept several possible shapes: {points}, {sales}, {data}
+        let raw: any[] = [];
+        if (Array.isArray(json.points)) raw = json.points;
+        else if (Array.isArray(json.sales)) raw = json.sales;
+        else if (Array.isArray(json.data)) raw = json.data;
+
+        const normalized: MarketPoint[] = [];
+
+        for (const p of raw) {
+          if (!p) continue;
+
+          // Try multiple timestamp fields & formats
+          const tsRaw =
+            p.timestamp ?? p.time ?? p.blockTime ?? p.block_timestamp;
+
+          let ts: number | null = null;
+          if (typeof tsRaw === "number") {
+            ts = tsRaw;
+          } else if (typeof tsRaw === "string") {
+            const n = Number(tsRaw);
+            if (Number.isFinite(n) && n > 1000000000) {
+              // looks like unix seconds
+              ts = n;
+            } else {
+              const d = new Date(tsRaw);
+              if (!isNaN(d.getTime())) {
+                ts = Math.floor(d.getTime() / 1000);
+              }
+            }
+          }
+
+          // Try multiple price fields & types
+          const priceRaw =
+            p.priceEth ??
+            p.price_eth ??
+            p.price ??
+            p.salePriceEth ??
+            p.sale_price_eth;
+
+          const price =
+            typeof priceRaw === "number"
+              ? priceRaw
+              : typeof priceRaw === "string"
+              ? parseFloat(priceRaw)
+              : NaN;
+
+          if (!ts || !Number.isFinite(price) || price <= 0) continue;
+
+          const sourceRaw = p.source;
+          const source: MarketPoint["source"] =
+            sourceRaw === "floor" ||
+            sourceRaw === "offer" ||
+            sourceRaw === "sale" ||
+            sourceRaw === "other"
+              ? sourceRaw
+              : "sale";
+
+          normalized.push({
+            timestamp: ts,
+            priceEth: price,
+            source,
+          });
+        }
+
+        setMarketPoints(normalized);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load market history", err);
+        setMarketError("open_sea_error");
+        setMarketPoints([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setMarketLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft]);
 
   const isBusy =
     offersLoading ||
     traitsLoading ||
     listingsLoading ||
-    salesLoading;
+    salesLoading ||
+    marketLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -1432,7 +1550,7 @@ function NftDetailPage({
 
           {!salesLoading && !salesError && sales.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
-              {sales.slice(0, 3).map((sale) => {
+              {sales.map((sale) => {
                 const fallbackCollectionLabel =
                   sale.collectionName ||
                   sale.collectionSlug ||
@@ -1488,7 +1606,7 @@ function NftDetailPage({
           )}
         </div>
 
-        {/* Market: recent sale prices chart (derived from /sales) */}
+        {/* Market: last ~100 sale prices chart */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -1500,7 +1618,7 @@ function NftDetailPage({
               Market
             </div>
             <span className="text-[10px] text-neutral-400">
-              Recent collection sales
+              Last ~100 collection sales
             </span>
           </div>
 
@@ -1511,21 +1629,22 @@ function NftDetailPage({
               px-2
             "
           >
-            {salesLoading && !marketPoints.length && (
+            {marketLoading && !marketPoints.length && (
               <div className="text-[11px] text-neutral-500">
                 Loading market data…
               </div>
             )}
 
-            {!salesLoading && (salesError || marketPoints.length === 0) && (
-              <div className="text-[11px] text-neutral-500 text-center px-4">
-                We don&apos;t have enough historical data to draw a chart
-                yet.
-              </div>
-            )}
+            {!marketLoading &&
+              (marketError || marketPoints.length === 0) && (
+                <div className="text-[11px] text-neutral-500 text-center px-4">
+                  We don&apos;t have enough historical data to draw a chart
+                  yet.
+                </div>
+              )}
 
-            {!salesLoading &&
-              !salesError &&
+            {!marketLoading &&
+              !marketError &&
               marketPoints.length > 0 && <MarketChart points={marketPoints} />}
           </div>
 
@@ -1664,12 +1783,51 @@ function NftDetailPage({
 
 /**
  * Compact sparkline-style chart for market history
- * Uses recent sales points derived from /sales.
+ * Uses the last ~100 sales points provided by the backend.
+ * Upgrades:
+ *  - Smooth curve
+ *  - Dots on all points
+ *  - Line + area animation on load
+ *  - Hover tooltip with price + date
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
-  const filtered = points
-    .filter((p) => typeof p.timestamp === "number" && p.timestamp > 0)
-    .sort((a, b) => a.timestamp - b.timestamp);
+  const filtered = useMemo(
+    () =>
+      points
+        .filter((p) => typeof p.timestamp === "number" && p.timestamp > 0)
+        .sort((a, b) => a.timestamp - b.timestamp),
+    [points],
+  );
+
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [pathLength, setPathLength] = useState(0);
+  const [animated, setAnimated] = useState(false);
+  const pathRef = useRef<SVGPathElement | null>(null);
+
+  useEffect(() => {
+    // reset animation when data changes
+    setAnimated(false);
+    setHoverIndex(null);
+
+    if (!filtered.length) {
+      setPathLength(0);
+      return;
+    }
+
+    const id = requestAnimationFrame(() => {
+      if (pathRef.current) {
+        try {
+          const len = pathRef.current.getTotalLength();
+          setPathLength(len);
+        } catch {
+          setPathLength(0);
+        }
+      }
+      setAnimated(true);
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [filtered]);
 
   if (filtered.length < 2) {
     return (
@@ -1700,11 +1858,73 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     return { x, y };
   });
 
-  const pathD = pointCoords
-    .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-    .join(" ");
+  // Build a smoothed path using quadratic curves
+  let pathD = "";
+  pointCoords.forEach((p, idx) => {
+    if (idx === 0) {
+      pathD = `M ${p.x} ${p.y}`;
+    } else {
+      const prev = pointCoords[idx - 1];
+      const midX = (prev.x + p.x) / 2;
+      const midY = (prev.y + p.y) / 2;
+      pathD += ` Q ${prev.x} ${prev.y} ${midX} ${midY}`;
+      if (idx === pointCoords.length - 1) {
+        pathD += ` T ${p.x} ${p.y}`;
+      }
+    }
+  });
+
+  const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
 
   const last = filtered[filtered.length - 1];
+
+  const handleMove = (event: any) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xRatio = (event.clientX - rect.left) / rect.width;
+    const svgX = xRatio * width;
+
+    let nearestIndex = 0;
+    let nearestDist = Infinity;
+
+    pointCoords.forEach((pt, idx) => {
+      const d = Math.abs(pt.x - svgX);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestIndex = idx;
+      }
+    });
+
+    setHoverIndex(nearestIndex);
+  };
+
+  const handleLeave = () => setHoverIndex(null);
+
+  const hoveredPoint =
+    hoverIndex != null ? filtered[hoverIndex] : undefined;
+  const hoveredCoord =
+    hoverIndex != null ? pointCoords[hoverIndex] : undefined;
+
+  let tooltipX = hoveredCoord ? hoveredCoord.x : 0;
+  const tooltipWidth = 52;
+  if (tooltipX + tooltipWidth > width - 2) {
+    tooltipX = width - tooltipWidth - 2;
+  }
+  if (tooltipX < 2) tooltipX = 2;
+
+  const tooltipY = 4;
+
+  const hoverDate =
+    hoveredPoint &&
+    new Date((hoveredPoint.timestamp || 0) * 1000).toLocaleDateString(
+      undefined,
+      { month: "short", day: "numeric" },
+    );
+
+  const hoverPrice =
+    hoveredPoint &&
+    (hoveredPoint.priceEth >= 1
+      ? hoveredPoint.priceEth.toFixed(3)
+      : hoveredPoint.priceEth.toFixed(4));
 
   return (
     <div className="flex w-full flex-col items-stretch gap-1">
@@ -1712,26 +1932,106 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
         viewBox={`0 0 ${width} ${height}`}
         className="h-20 w-full overflow-visible"
         preserveAspectRatio="none"
+        onMouseMove={handleMove}
+        onMouseLeave={handleLeave}
       >
         {/* area under the curve */}
         <path
-          d={`${pathD} L ${width} ${height} L 0 ${height} Z`}
+          d={areaD}
           className="fill-purple-200/40"
+          style={{
+            opacity: animated ? 1 : 0,
+            transition: "opacity 0.35s ease-out",
+          }}
         />
         {/* main line */}
         <path
+          ref={pathRef}
           d={pathD}
           className="stroke-purple-600"
-          strokeWidth={1.2}
+          strokeWidth={1.3}
           fill="none"
+          style={
+            pathLength
+              ? {
+                  strokeDasharray: pathLength,
+                  strokeDashoffset: animated ? 0 : pathLength,
+                  transition: "stroke-dashoffset 0.4s ease-out",
+                }
+              : undefined
+          }
         />
-        {/* last point marker */}
-        <circle
-          cx={pointCoords[pointCoords.length - 1].x}
-          cy={pointCoords[pointCoords.length - 1].y}
-          r={1.6}
-          className="fill-purple-600"
-        />
+
+        {/* dots for all points */}
+        {pointCoords.map((pt, idx) => (
+          <circle
+            key={idx}
+            cx={pt.x}
+            cy={pt.y}
+            r={1.4}
+            className={
+              idx === pointCoords.length - 1
+                ? "fill-purple-600"
+                : "fill-purple-400"
+            }
+          />
+        ))}
+
+        {/* hover line + tooltip */}
+        {hoveredPoint && hoveredCoord && (
+          <g>
+            <line
+              x1={hoveredCoord.x}
+              x2={hoveredCoord.x}
+              y1={3}
+              y2={height - 2}
+              className="stroke-purple-300"
+              strokeDasharray="2 2"
+              strokeWidth={0.6}
+            />
+            <circle
+              cx={hoveredCoord.x}
+              cy={hoveredCoord.y}
+              r={2.2}
+              className="fill-white stroke-purple-600"
+              strokeWidth={0.9}
+            />
+            <rect
+              x={tooltipX}
+              y={tooltipY}
+              width={tooltipWidth}
+              height={13}
+              rx={3}
+              className="fill-white"
+            />
+            <rect
+              x={tooltipX}
+              y={tooltipY}
+              width={tooltipWidth}
+              height={13}
+              rx={3}
+              className="stroke-purple-200"
+              strokeWidth={0.4}
+              fill="none"
+            />
+            <text
+              x={tooltipX + 3}
+              y={tooltipY + 5.3}
+              className="fill-purple-700"
+              fontSize={3.4}
+            >
+              {hoverPrice} ETH
+            </text>
+            <text
+              x={tooltipX + 3}
+              y={tooltipY + 9.5}
+              className="fill-neutral-400"
+              fontSize={3}
+            >
+              {hoverDate}
+            </text>
+          </g>
+        )}
       </svg>
 
       <div className="flex items-center justify-between text-[10px] text-neutral-500 px-1">
