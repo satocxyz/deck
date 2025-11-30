@@ -8,14 +8,20 @@ import {
 } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
-// --- Toast System -------------------------------------------------------------
+// --- Toast System v2 ---------------------------------------------------------
 
 type ToastType = "success" | "loading" | "error";
-type ToastItem = { id: string; type: ToastType; message: string };
+
+type ToastItem = {
+  id: string;
+  type: ToastType;
+  message: string;
+};
 
 type ToastContextValue = {
   showToast: (type: ToastType, message: string) => string;
   hideToast: (id: string) => void;
+  updateToast: (id: string, patch: Partial<Omit<ToastItem, "id">>) => void;
 };
 
 const ToastContext = React.createContext<ToastContextValue | null>(null);
@@ -23,8 +29,9 @@ const ToastContext = React.createContext<ToastContextValue | null>(null);
 export function useToast() {
   const ctx = React.useContext(ToastContext);
   if (!ctx) throw new Error("ToastContext missing from App");
-  return ctx; // you can do: const { showToast, hideToast } = useToast();
+  return ctx;
 }
+
 
 
 const style = document.createElement("style");
@@ -174,33 +181,86 @@ type MiniAppUser = {
 
 function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
+  const hideTimers = React.useRef<Record<string, number>>({});
+
+  function scheduleAutoHide(id: string, duration = 3000) {
+    if (typeof window === "undefined") return;
+
+    // Clear existing timer if any
+    const existing = hideTimers.current[id];
+    if (existing) {
+      window.clearTimeout(existing);
+      delete hideTimers.current[id];
+    }
+
+    const timer = window.setTimeout(() => {
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      delete hideTimers.current[id];
+    }, duration);
+
+    hideTimers.current[id] = timer;
+  }
 
   function showToast(type: ToastType, message: string) {
     const id = Math.random().toString(36).slice(2);
     const toast: ToastItem = { id, type, message };
 
-    // keep max 3 toasts
+    // Keep at most 3 toasts on screen
     setItems((prev) => [...prev.slice(-2), toast]);
 
-    // auto-hide for success / error
+    // Non-loading toasts auto-hide
     if (type !== "loading") {
-      setTimeout(() => {
-        setItems((prev) => prev.filter((i) => i.id !== id));
-      }, 3000);
+      scheduleAutoHide(id);
     }
 
     return id;
   }
 
   function hideToast(id: string) {
+    if (typeof window !== "undefined") {
+      const existing = hideTimers.current[id];
+      if (existing) {
+        window.clearTimeout(existing);
+        delete hideTimers.current[id];
+      }
+    }
+
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
+function updateToast(
+  id: string,
+  patch: Partial<Omit<ToastItem, "id">>,
+) {
+  let shouldAutoHide = false;
+
+  setItems((prev) =>
+    prev.map((t) => {
+      if (t.id !== id) return t;
+
+      const merged: ToastItem = { ...t, ...patch };
+
+      // If it became a non-loading toast, mark for auto-hide
+      if (merged.type !== "loading") {
+        shouldAutoHide = true;
+      }
+
+      return merged;
+    }),
+  );
+
+  // Run after state update callback
+  if (shouldAutoHide) {
+    scheduleAutoHide(id);
+  }
+}
+
+
   return (
-    <ToastContext.Provider value={{ showToast, hideToast }}>
+    <ToastContext.Provider value={{ showToast, hideToast, updateToast }}>
       {children}
 
-      {/* Toast host */}
+      {/* ToastHost UI */}
       <div className="fixed left-0 right-0 top-3 z-[9999] flex flex-col items-center space-y-2 px-4 pointer-events-none">
         {items.map((t) => (
           <div
@@ -237,14 +297,13 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
                 />
               </svg>
             )}
-
             <span className="text-[13px] text-neutral-800 flex-1">
               {t.message}
             </span>
 
             {t.type === "loading" && (
               <button
-                onClick={() => hideToast(t.id)}   // 👈 this is the important change
+                onClick={() => hideToast(t.id)}
                 className="text-[11px] text-neutral-500"
               >
                 Hide
@@ -256,6 +315,7 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     </ToastContext.Provider>
   );
 }
+
 
 
 function App() {
@@ -838,7 +898,8 @@ function NftDetailPage({
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const { showToast, hideToast } = useToast();
+ const { showToast, hideToast, updateToast } = useToast();
+
 
   // Approval state
   const [approvalStatus, setApprovalStatus] =
@@ -1410,18 +1471,23 @@ function NftDetailPage({
       value: 0n,
     });
 
-    hideToast(loadingId);
-    showToast("success", "NFT approved!");
+    updateToast(loadingId, {
+      type: "success",
+      message: "NFT approved!",
+    });
     setApprovalStatus("approved");
   } catch (err) {
     console.error("Approval tx failed", err);
-    hideToast(loadingId);
-    showToast("error", "Approval failed.");
+    updateToast(loadingId, {
+      type: "error",
+      message: "Approval failed.",
+    });
     setApprovalStatus("error");
   } finally {
     setApproving(false);
   }
 }
+
 
 
 async function handleRevokeOpenSea() {
@@ -1459,18 +1525,23 @@ async function handleRevokeOpenSea() {
       value: 0n,
     });
 
-    hideToast(loadingId);
-    showToast("success", "Approval revoked");
+    updateToast(loadingId, {
+      type: "success",
+      message: "Approval revoked",
+    });
     setApprovalStatus("not-approved");
   } catch (err) {
     console.error("Revoke tx failed", err);
-    hideToast(loadingId);
-    showToast("error", "Revoke failed.");
+    updateToast(loadingId, {
+      type: "error",
+      message: "Revoke failed.",
+    });
     setApprovalStatus("error");
   } finally {
     setRevoking(false);
   }
 }
+
 
 
 
