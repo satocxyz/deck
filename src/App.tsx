@@ -1811,8 +1811,10 @@ function NftDetailPage({
 }
 
 /**
- * Compact sparkline-style chart for market history
- * Single highlighted dot + light tooltip.
+ * Compact sparkline-style chart for market history (Option A)
+ * - Clean line (no area fill, no constant dots)
+ * - Emphasis on text summary: last price + date + range
+ * - Tooltip + dot only when hovering
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -1823,7 +1825,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
 
   if (filtered.length < 2) {
     return (
-      <div className="text-[11px] text-neutral-500 text-center px-4">
+      <div className="px-4 text-center text-[11px] text-neutral-500">
         Not enough data to show a chart yet.
       </div>
     );
@@ -1845,7 +1847,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
       filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
 
     const normalized = (p.priceEth - paddedMin) / range;
-    const y = height - normalized * (height - 4) - 2;
+    const y = height - normalized * (height - 4) - 2; // top/bottom padding
 
     return { x, y };
   });
@@ -1854,14 +1856,16 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
     .join(" ");
 
-  const lastIdx = pointCoords.length - 1;
+  const lastIdx = filtered.length - 1;
   const last = filtered[lastIdx];
 
-  const activeIndex = hoverIndex ?? lastIdx;
-  const activePoint = filtered[activeIndex];
-  const activeCoord = pointCoords[activeIndex];
+  const activeIndex = hoverIndex;
+  const activePoint =
+    activeIndex != null ? filtered[activeIndex] : null;
+  const activeCoord =
+    activeIndex != null ? pointCoords[activeIndex] : null;
 
-  function handleMove(evt: any) {
+  function handleMove(evt: React.MouseEvent<SVGSVGElement>) {
     const rect = (evt.currentTarget as SVGSVGElement).getBoundingClientRect();
     const x = ((evt.clientX - rect.left) / rect.width) * width;
 
@@ -1883,83 +1887,96 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     setHoverIndex(null);
   }
 
+  const formatEth = (v: number) =>
+    v >= 1 ? v.toFixed(3) : v.toFixed(4);
+
+  const formatShortDate = (ts: number) =>
+    new Date(ts * 1000).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+
   return (
-    <div className="flex w-full flex-col items-stretch gap-1">
-      <div className="relative">
+    <div className="flex w-full flex-col gap-1.5">
+      {/* Text summary row: last price + date + range */}
+      <div className="flex items-baseline justify-between px-1">
+        <div className="flex flex-col">
+          <span className="text-[13px] font-semibold text-neutral-900">
+            {formatEth(last.priceEth)} ETH
+          </span>
+          <span className="text-[10px] text-neutral-500">
+            Last sale • {formatShortDate(last.timestamp)}
+          </span>
+        </div>
+        <div className="text-[10px] text-neutral-500 text-right">
+          <span className="mr-0.5">Range</span>
+          <span className="font-medium text-neutral-800">
+            {formatEth(minPrice)} – {formatEth(maxPrice)} ETH
+          </span>
+        </div>
+      </div>
+
+      {/* Sparkline chart */}
+      <div className="relative mt-1">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-20 w-full overflow-visible"
+          className="h-16 w-full overflow-visible"
           preserveAspectRatio="none"
           onMouseMove={handleMove}
           onMouseLeave={handleLeave}
         >
-          {/* area under the curve */}
-          <path
-            d={`${pathD} L ${width} ${height} L 0 ${height} Z`}
-            className="fill-purple-200/30"
-          />
-          {/* main line */}
+          {/* main line only (no fill) */}
           <path
             d={pathD}
             className="stroke-purple-600"
-            strokeWidth={1.3}
+            strokeWidth={1.4}
             fill="none"
           />
-          {/* single highlighted point (active or last) */}
-          <circle
-            cx={activeCoord.x}
-            cy={activeCoord.y}
-            r={2.3}
-            className="fill-white"
-          />
-          <circle
-            cx={activeCoord.x}
-            cy={activeCoord.y}
-            r={1.6}
-            className="fill-purple-600"
-          />
+
+          {/* highlighted point + guide only on hover */}
+          {activePoint && activeCoord && (
+            <>
+              <line
+                x1={activeCoord.x}
+                x2={activeCoord.x}
+                y1={0}
+                y2={height}
+                className="stroke-purple-200"
+                strokeWidth={0.5}
+                strokeDasharray="2 2"
+              />
+              <circle
+                cx={activeCoord.x}
+                cy={activeCoord.y}
+                r={2.6}
+                className="fill-white"
+              />
+              <circle
+                cx={activeCoord.x}
+                cy={activeCoord.y}
+                r={1.8}
+                className="fill-purple-600"
+              />
+            </>
+          )}
         </svg>
 
-        {/* tooltip */}
-        {activePoint && (
+        {/* Small tooltip, only when hovering */}
+        {activePoint && activeCoord && (
           <div
-            className="pointer-events-none absolute -top-1 left-0 flex justify-center"
+            className="pointer-events-none absolute -top-3 left-0 flex justify-center"
             style={{
               transform: `translateX(${(activeCoord.x / width) * 100}%)`,
             }}
           >
-            <div className="translate-x-[-50%] rounded-xl bg-white px-2 py-0.5 text-[10px] text-neutral-800 shadow-sm border border-neutral-200">
-              {activePoint.priceEth >= 1
-                ? activePoint.priceEth.toFixed(3)
-                : activePoint.priceEth.toFixed(4)}{" "}
-              ETH{" "}
+            <div className="translate-x-[-50%] rounded-md border border-neutral-200 bg-white px-2 py-[2px] text-[10px] text-neutral-800 shadow-sm">
+              {formatEth(activePoint.priceEth)} ETH{" "}
               <span className="text-neutral-400">
-                •{" "}
-                {new Date(activePoint.timestamp * 1000).toLocaleDateString(
-                  undefined,
-                  { month: "short", day: "numeric" },
-                )}
+                • {formatShortDate(activePoint.timestamp)}
               </span>
             </div>
           </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-between text-[10px] text-neutral-500 px-1">
-        <span>
-          Last:{" "}
-          <span className="font-semibold text-neutral-800">
-            {last.priceEth >= 1
-              ? last.priceEth.toFixed(3)
-              : last.priceEth.toFixed(4)}{" "}
-            ETH
-          </span>
-        </span>
-        <span>
-          Range:{" "}
-          {minPrice >= 1 ? minPrice.toFixed(3) : minPrice.toFixed(4)} –{" "}
-          {maxPrice >= 1 ? maxPrice.toFixed(3) : maxPrice.toFixed(4)} ETH
-        </span>
       </div>
     </div>
   );
