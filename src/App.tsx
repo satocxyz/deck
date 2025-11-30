@@ -898,7 +898,8 @@ function NftDetailPage({
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
- const { showToast, hideToast, updateToast } = useToast();
+  const { showToast, updateToast } = useToast();
+
 
 
   // Approval state
