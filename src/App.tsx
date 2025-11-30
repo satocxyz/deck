@@ -1,5 +1,5 @@
 import { sdk } from "@farcaster/miniapp-sdk";
-import { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
@@ -1812,19 +1812,10 @@ function NftDetailPage({
 
 /**
  * Compact sparkline-style chart for market history
- * Uses recent sales points derived from market history / sales.
- *
- * Upgrades:
- * - Dots on all points
- * - Slight curve smoothing
- * - Line draw animation on load
- * - Tooltip with price + date on hover
+ * Single highlighted dot + light tooltip.
  */
 function MarketChart({ points }: { points: MarketPoint[] }) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [pathLength, setPathLength] = useState<number | null>(null);
-  const [animate, setAnimate] = useState(false);
-  const pathRef = useRef<SVGPathElement | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const filtered = points
     .filter((p) => typeof p.timestamp === "number" && p.timestamp > 0)
@@ -1849,7 +1840,6 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
   const width = 100;
   const height = 40;
 
-  // Project points into SVG coords
   const pointCoords = filtered.map((p, idx) => {
     const x =
       filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
@@ -1860,162 +1850,100 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     return { x, y };
   });
 
-  // Straight polyline path (used for area fill)
-  const polyPathD = pointCoords
+  const pathD = pointCoords
     .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
     .join(" ");
 
-  // Simple quadratic smoothing: use midpoints between points
-  function buildSmoothPath(coords: { x: number; y: number }[]): string {
-    if (coords.length < 2) return "";
-    let d = `M ${coords[0].x} ${coords[0].y}`;
-    for (let i = 0; i < coords.length - 1; i++) {
-      const p0 = coords[i];
-      const p1 = coords[i + 1];
-      const cx = (p0.x + p1.x) / 2;
-      const cy = (p0.y + p1.y) / 2;
-      d += ` Q ${p0.x} ${p0.y} ${cx} ${cy}`;
-    }
-    // ensure we end exactly on last point
-    const last = coords[coords.length - 1];
-    d += ` T ${last.x} ${last.y}`;
-    return d;
-  }
+  const lastIdx = pointCoords.length - 1;
+  const last = filtered[lastIdx];
 
-  const smoothPathD = buildSmoothPath(pointCoords);
-  const last = filtered[filtered.length - 1];
-
-  // Measure path length for draw animation
-  useEffect(() => {
-    if (pathRef.current && smoothPathD) {
-      const len = pathRef.current.getTotalLength();
-      setPathLength(len);
-      setAnimate(false);
-      // trigger animation on next frame
-      if (typeof window !== "undefined") {
-        const id = window.requestAnimationFrame(() => setAnimate(true));
-        return () => window.cancelAnimationFrame(id);
-      }
-    }
-  }, [smoothPathD]);
-
-  const activeIndex =
-    hoveredIndex != null ? hoveredIndex : filtered.length - 1;
+  const activeIndex = hoverIndex ?? lastIdx;
   const activePoint = filtered[activeIndex];
   const activeCoord = pointCoords[activeIndex];
 
-  function formatTooltipLabel(p: MarketPoint): string {
-    const d = new Date(p.timestamp * 1000);
-    const date = d.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
+  function handleMove(evt: any) {
+    const rect = (evt.currentTarget as SVGSVGElement).getBoundingClientRect();
+    const x = ((evt.clientX - rect.left) / rect.width) * width;
+
+    let nearest = 0;
+    let nearestDist = Infinity;
+
+    pointCoords.forEach((coord, idx) => {
+      const dist = Math.abs(coord.x - x);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = idx;
+      }
     });
-    const price =
-      p.priceEth >= 1 ? p.priceEth.toFixed(3) : p.priceEth.toFixed(4);
-    return `${price} ETH • ${date}`;
+
+    setHoverIndex(nearest);
   }
 
-  // Tooltip box positioning (inside SVG viewBox)
-  const tooltipWidth = 52;
-  const tooltipHeight = 14;
-
-  let tooltipX = activeCoord.x;
-  let tooltipY = activeCoord.y - tooltipHeight - 3;
-
-  if (tooltipX < tooltipWidth / 2) {
-    tooltipX = tooltipWidth / 2;
-  } else if (tooltipX > width - tooltipWidth / 2) {
-    tooltipX = width - tooltipWidth / 2;
-  }
-
-  if (tooltipY < 4) {
-    tooltipY = 4;
+  function handleLeave() {
+    setHoverIndex(null);
   }
 
   return (
     <div className="flex w-full flex-col items-stretch gap-1">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-20 w-full overflow-visible"
-        preserveAspectRatio="none"
-      >
-        {/* area under the (straight) curve */}
-        <path
-          d={`${polyPathD} L ${width} ${height} L 0 ${height} Z`}
-          className="fill-purple-200/40"
-        />
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-20 w-full overflow-visible"
+          preserveAspectRatio="none"
+          onMouseMove={handleMove}
+          onMouseLeave={handleLeave}
+        >
+          {/* area under the curve */}
+          <path
+            d={`${pathD} L ${width} ${height} L 0 ${height} Z`}
+            className="fill-purple-200/30"
+          />
+          {/* main line */}
+          <path
+            d={pathD}
+            className="stroke-purple-600"
+            strokeWidth={1.3}
+            fill="none"
+          />
+          {/* single highlighted point (active or last) */}
+          <circle
+            cx={activeCoord.x}
+            cy={activeCoord.y}
+            r={2.3}
+            className="fill-white"
+          />
+          <circle
+            cx={activeCoord.x}
+            cy={activeCoord.y}
+            r={1.6}
+            className="fill-purple-600"
+          />
+        </svg>
 
-        {/* main smoothed line with draw animation */}
-        <path
-          ref={pathRef}
-          d={smoothPathD}
-          className="stroke-purple-600"
-          strokeWidth={1.2}
-          fill="none"
-          style={
-            pathLength
-              ? {
-                  strokeDasharray: pathLength,
-                  strokeDashoffset: animate ? 0 : pathLength,
-                  transition: "stroke-dashoffset 0.35s ease-out",
-                }
-              : undefined
-          }
-        />
-
-        {/* dots on all points */}
-        {pointCoords.map((p, idx) => {
-          const isActive = idx === activeIndex;
-          const baseRadius = isActive ? 1.9 : 1.3;
-          return (
-            <circle
-              key={idx}
-              cx={p.x}
-              cy={p.y}
-              r={baseRadius}
-              className={isActive ? "fill-purple-700" : "fill-purple-500"}
-              onMouseEnter={() => setHoveredIndex(idx)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            />
-          );
-        })}
-
-        {/* tooltip bubble */}
+        {/* tooltip */}
         {activePoint && (
-          <>
-            <rect
-              x={tooltipX - tooltipWidth / 2}
-              y={tooltipY}
-              width={tooltipWidth}
-              height={tooltipHeight}
-              rx={3}
-              ry={3}
-              className="fill-white"
-              style={{ opacity: 0.95 }}
-            />
-            <rect
-              x={tooltipX - tooltipWidth / 2}
-              y={tooltipY}
-              width={tooltipWidth}
-              height={tooltipHeight}
-              rx={3}
-              ry={3}
-              className="stroke-purple-200"
-              fill="none"
-              strokeWidth={0.4}
-            />
-            <text
-              x={tooltipX}
-              y={tooltipY + tooltipHeight / 2 + 3}
-              textAnchor="middle"
-              className="fill-neutral-800"
-              style={{ fontSize: 5 }}
-            >
-              {formatTooltipLabel(activePoint)}
-            </text>
-          </>
+          <div
+            className="pointer-events-none absolute -top-1 left-0 flex justify-center"
+            style={{
+              transform: `translateX(${(activeCoord.x / width) * 100}%)`,
+            }}
+          >
+            <div className="translate-x-[-50%] rounded-xl bg-white px-2 py-0.5 text-[10px] text-neutral-800 shadow-sm border border-neutral-200">
+              {activePoint.priceEth >= 1
+                ? activePoint.priceEth.toFixed(3)
+                : activePoint.priceEth.toFixed(4)}{" "}
+              ETH{" "}
+              <span className="text-neutral-400">
+                •{" "}
+                {new Date(activePoint.timestamp * 1000).toLocaleDateString(
+                  undefined,
+                  { month: "short", day: "numeric" },
+                )}
+              </span>
+            </div>
+          </div>
         )}
-      </svg>
+      </div>
 
       <div className="flex items-center justify-between text-[10px] text-neutral-500 px-1">
         <span>
