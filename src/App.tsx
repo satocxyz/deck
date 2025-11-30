@@ -501,7 +501,7 @@ function ChainSelector({
 
       {/* Bottom sheet network picker */}
       {open && !disabled && (
-        <div className="fixed inset-0 z-30 flex items-end justify中心 bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full"
@@ -1076,7 +1076,7 @@ function NftDetailPage({
             typeof s.priceEth === "number" &&
             s.priceEth > 0,
         )
-        .sort((a, b) => a.timestamp! - b.timestamp!)
+        .sort((a, b) => (a.timestamp! - b.timestamp!))
         .map((s) => ({
           timestamp: s.timestamp as number,
           priceEth: s.priceEth,
@@ -2035,7 +2035,6 @@ function prettyChain(chain: Chain): string {
   }
 }
 
-
 export default App;
 
 function SellConfirmSheet({
@@ -2061,7 +2060,7 @@ function SellConfirmSheet({
 }) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { sendCalls } = useSendCalls();
+  const { sendCallsAsync } = useSendCalls();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2184,7 +2183,7 @@ function SellConfirmSheet({
 
       // Primary path: Farcaster mini app EIP-5792 via Wagmi
       try {
-        await sendCalls({
+        await sendCallsAsync({
           calls: [
             {
               to: tx.to as `0x${string}`,
@@ -2198,7 +2197,7 @@ function SellConfirmSheet({
         return;
       } catch (e) {
         console.warn(
-          "useSendCalls failed, falling back to sendTransaction",
+          "useSendCallsAsync failed, falling back to sendTransaction",
           e,
         );
       }
