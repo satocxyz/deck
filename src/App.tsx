@@ -1657,6 +1657,16 @@ function NftDetailPage({
 
             {!marketLoading &&
               !salesLoading &&
+              marketError &&
+              chartPoints.length === 0 && (
+                <div className="text-[11px] text-neutral-500 text-center px-4">
+                  We can&apos;t show market data right now.
+                </div>
+              )}
+
+            {!marketLoading &&
+              !salesLoading &&
+              !marketError &&
               chartPoints.length === 0 && (
                 <div className="text-[11px] text-neutral-500 text-center px-4">
                   We don&apos;t have enough historical data to draw a chart
@@ -1664,9 +1674,7 @@ function NftDetailPage({
                 </div>
               )}
 
-            {chartPoints.length > 0 && (
-              <MarketChart points={chartPoints} />
-            )}
+            {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
           </div>
 
           <p className="mt-2 text-[10px] text-neutral-400">
@@ -1674,6 +1682,7 @@ function NftDetailPage({
             executed from this section.
           </p>
         </div>
+
 
         {/* Price summary – bottom with actions */}
         <div
