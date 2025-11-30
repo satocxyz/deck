@@ -1366,7 +1366,7 @@ function NftDetailPage({
     return "Best offer is at floor";
   }
 
-async function handleApproveOpenSea() {
+  async function handleApproveOpenSea() {
   const toast = useToast();
 
   if (!walletClient || !address) {
@@ -1382,7 +1382,7 @@ async function handleApproveOpenSea() {
     return;
   }
 
-  const loadingId = toast("loading", "Sending approval…");
+  toast("loading", "Sending approval…");
   setApproving(true);
   setApprovalErrorMsg(null);
 
@@ -1395,7 +1395,7 @@ async function handleApproveOpenSea() {
       args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
     });
 
-    const txHash = await walletClient.sendTransaction({
+    await walletClient.sendTransaction({
       account: address as `0x${string}`,
       chain: { id: chainId } as any,
       to: contractAddress as `0x${string}`,
@@ -1430,7 +1430,7 @@ async function handleRevokeOpenSea() {
     return;
   }
 
-  const loadingId = toast("loading", "Revoking approval…");
+  toast("loading", "Revoking approval…");
   setRevoking(true);
   setApprovalErrorMsg(null);
 
@@ -1443,7 +1443,7 @@ async function handleRevokeOpenSea() {
       args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
     });
 
-    const txHash = await walletClient.sendTransaction({
+    await walletClient.sendTransaction({
       account: address as `0x${string}`,
       chain: { id: chainId } as any,
       to: contractAddress as `0x${string}`,
@@ -1460,6 +1460,7 @@ async function handleRevokeOpenSea() {
     setRevoking(false);
   }
 }
+
 
 
   if (!nft) return null;
