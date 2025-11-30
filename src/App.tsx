@@ -248,6 +248,89 @@ type MiniAppUser = {
   pfpUrl?: string;
 };
 
+function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = React.useState<ToastItem[]>([]);
+
+  function showToast(type: ToastType, message: string) {
+    const id = Math.random().toString(36).slice(2);
+    const toast: ToastItem = { id, type, message };
+
+    setItems((prev) => [...prev.slice(-2), toast]);
+
+    if (type !== "loading") {
+      setTimeout(() => {
+        setItems((prev) => prev.filter((i) => i.id !== id));
+      }, 3000);
+    }
+
+    return id;
+  }
+
+  function remove(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  return (
+    <ToastContext.Provider value={{ showToast }}>
+      {children}
+
+      {/* ToastHost stays the same UI */}
+      <div className="fixed left-0 right-0 top-3 z-[9999] flex flex-col items-center space-y-2 px-4 pointer-events-none">
+        {items.map((t) => (
+          <div
+            key={t.id}
+            className="
+              pointer-events-auto flex w-full max-w-sm items-center gap-2
+              rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-lg
+              animate-[fadeInUp_0.25s_ease-out]
+            "
+          >
+            {t.type === "success" && (
+              <span className="text-emerald-600 text-lg">✓</span>
+            )}
+            {t.type === "error" && (
+              <span className="text-red-500 text-lg">⚠</span>
+            )}
+            {t.type === "loading" && (
+              <svg
+                className="h-4 w-4 animate-spin text-neutral-500"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+            )}
+            <span className="text-[13px] text-neutral-800 flex-1">
+              {t.message}
+            </span>
+
+            {t.type === "loading" && (
+              <button
+                onClick={() => remove(t.id)}
+                className="text-[11px] text-neutral-500"
+              >
+                Hide
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+
 function App() {
   // Remember last chain from localStorage, default to base
   const [chain, setChain] = useState<Chain>(() => {
@@ -326,8 +409,6 @@ function App() {
           "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-            {/* Toast UI */}
-      <ToastHost />
 
       <header className="mb-4 space-y-3">
         {/* Row 1: Logo + profile */}
@@ -2437,7 +2518,16 @@ function prettyChain(chain: Chain): string {
   }
 }
 
-export default App;
+function AppContainer() {
+  return (
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  );
+}
+
+export default AppContainer;
+
 
 function SellConfirmSheet({
   chain,
