@@ -34,14 +34,17 @@ export function useToast() {
 
 
 
-const style = document.createElement("style");
-style.innerHTML = `
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.innerHTML = `
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  `;
+  document.head.appendChild(style);
 }
-`;
-document.head.appendChild(style);
+
 
 // Minimal Seaport 1.6 ABI for matchAdvancedOrders
 const seaportMatchAdvancedOrdersAbi = [
@@ -863,15 +866,16 @@ function NftDetailPage({
   const [traits, setTraits] = useState<NormalizedTrait[]>([]);
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
+
   const [showSellSheet, setShowSellSheet] = useState(false);
-  // We only use the setter for now, so ignore the state value for TS
-  const [, setShowListSheet] = useState(false);
-
-
+  const [showListSheet, setShowListSheet] = useState(false);
+  const [showCancelSheet, setShowCancelSheet] = useState(false);
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
+  const [listingsRefreshNonce, setListingsRefreshNonce] = useState(0);
+
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
@@ -896,6 +900,25 @@ function NftDetailPage({
   const [approving, setApproving] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
+
+  // Derive "my listing" for this token (if any) from collection listings
+  const myListing: Listing | null = useMemo(() => {
+    if (!address || !nft || !listings.length) return null;
+
+    const tokenIdStr = String(nft.identifier);
+
+    return (
+      listings.find((l) => {
+        const sameToken =
+          (l.tokenId && String(l.tokenId) === tokenIdStr) || false;
+        const sameMaker =
+          !!l.maker && l.maker.toLowerCase() === address.toLowerCase();
+
+        return sameToken && sameMaker;
+      }) ?? null
+    );
+  }, [address, nft, listings]);
+
 
   // Offers + floor
   useEffect(() => {
@@ -969,7 +992,7 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.collection]);
 
-  // Traits (from nft-details endpoint)
+   // Traits (from nft-details endpoint)
   useEffect(() => {
     if (!nft) {
       setTraits([]);
@@ -987,6 +1010,7 @@ function NftDetailPage({
       setTraitsLoading(false);
       return;
     }
+
 
     let cancelled = false;
     setTraitsLoading(true);
@@ -1091,7 +1115,8 @@ function NftDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [chain, nft]);
+   }, [chain, nft, listingsRefreshNonce]);
+
 
   // Sales for this collection (by contract, fallback to collection slug)
   useEffect(() => {
@@ -1541,6 +1566,17 @@ async function handleRevokeOpenSea() {
   const collectionSlug = getCollectionSlug(nft);
   const contractAddress =
     typeof nft.contract === "string" ? nft.contract : undefined;
+  const hasMyListing = !!myListing;
+
+  const listingThumb =
+    myListing?.imageUrl ||
+    myListing?.image_url ||
+    myListing?.image ||
+    nft.image_url ||
+    null;
+
+  const canAcceptBestOffer =
+    !!bestOffer && !!contractAddress && !offersLoading;
 
   const baseSearchQuery =
     (typeof nft.collection === "string" && nft.collection) ||
@@ -2049,7 +2085,7 @@ async function handleRevokeOpenSea() {
           </p>
         </div>
 
-        {/* Price summary – bottom with actions + approval gating */}
+                {/* Price summary – bottom with actions + approval gating + listing info */}
         <div
           className="
             rounded-2xl border border-neutral-200 bg-white/95
@@ -2156,7 +2192,7 @@ async function handleRevokeOpenSea() {
             </p>
           )}
 
-          {/* Action buttons – gated by approval */}
+          {/* Action buttons + listing info */}
           <div className="mt-3 space-y-2">
             {/* If not approved -> single Approve button */}
             {contractAddress && approvalStatus !== "approved" && (
@@ -2180,37 +2216,83 @@ async function handleRevokeOpenSea() {
               </button>
             )}
 
-            {/* If approved -> show Accept + List + Revoke */}
+            {/* If approved -> show Accept + List/Cancel + listing info + revoke */}
             {(!contractAddress || approvalStatus === "approved") && (
               <>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={
-                      !bestOffer || !contractAddress || offersLoading
-                    }
+                    disabled={!canAcceptBestOffer}
                     onClick={() => setShowSellSheet(true)}
                     className={[
                       "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
-                      bestOffer && contractAddress && !offersLoading
+                      canAcceptBestOffer
                         ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
                         : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
                     ].join(" ")}
                   >
-                    {bestOffer && contractAddress
+                    {canAcceptBestOffer
                       ? "Accept best offer"
                       : "No offer available"}
                   </button>
 
                   <button
                     type="button"
-                    disabled={!contractAddress || approvalStatus !== "approved" || !address}
-                    onClick={() => setShowListSheet(true)}
+                    disabled={!contractAddress || !address}
+                    onClick={() =>
+                      hasMyListing
+                        ? setShowCancelSheet(true)
+                        : setShowListSheet(true)
+                    }
                     className="flex-1 rounded-xl border border-purple-500/60 bg-white px-3 py-2 text-[12px] font-semibold text-purple-700 shadow-sm hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    List on OpenSea
+                    {hasMyListing ? "Cancel listing" : "List on OpenSea"}
                   </button>
+                </div>
 
+                {/* Listing info card */}
+                <div className="rounded-xl bg-neutral-50 px-3 py-2 text-[11px]">
+                  {!contractAddress || !address ? (
+                    <span className="text-neutral-500">
+                      Connect wallet to see and manage your listing for
+                      this NFT.
+                    </span>
+                  ) : hasMyListing ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+                        {listingThumb ? (
+                          <img
+                            src={listingThumb}
+                            alt={collectionName}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                            —
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col">
+                        <span className="text-neutral-800">
+                          Listed for{" "}
+                          <span className="font-semibold">
+                            {myListing?.priceFormatted} ETH
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-neutral-500">
+                          Expires{" "}
+                          {formatTimeRemaining(
+                            myListing?.expirationTime ?? null,
+                          ) ?? "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-neutral-500">
+                      This NFT is not listed on OpenSea yet.
+                    </span>
+                  )}
                 </div>
 
                 {contractAddress && approvalStatus === "approved" && (
@@ -2235,12 +2317,14 @@ async function handleRevokeOpenSea() {
 
             {!infoOrGasNoteShown(bestOffer, floor) && (
               <p className="text-[10px] text-neutral-400">
-                You&apos;ll pay network gas for this transaction. Gasless /
-                sponsored sales may be added in a future version.
+                You&apos;ll pay network gas for approval and some future
+                transactions. Listings themselves may be gasless depending
+                on how OpenSea handles them.
               </p>
             )}
           </div>
         </div>
+
       </section>
 
       {showSellSheet && bestOffer && contractAddress && (
@@ -2256,6 +2340,37 @@ async function handleRevokeOpenSea() {
             expirationTime: bestOffer.expirationTime,
           }}
           onClose={() => setShowSellSheet(false)}
+        />
+      )}
+
+      {showListSheet && contractAddress && (
+        <ListNftSheet
+          chain={chain}
+          contractAddress={contractAddress}
+          tokenId={String(nft.identifier)}
+          imageUrl={nft.image_url ?? null}
+          collectionName={collectionName}
+          onClose={() => setShowListSheet(false)}
+          onListed={() => {
+            setShowListSheet(false);
+            setListingsRefreshNonce((n) => n + 1);
+          }}
+        />
+      )}
+
+      {showCancelSheet && contractAddress && myListing && (
+        <CancelListingSheet
+          chain={chain}
+          contractAddress={contractAddress}
+          tokenId={String(nft.identifier)}
+          listing={myListing}
+          imageUrl={listingThumb}
+          collectionName={collectionName}
+          onClose={() => setShowCancelSheet(false)}
+          onCancelled={() => {
+            setShowCancelSheet(false);
+            setListingsRefreshNonce((n) => n + 1);
+          }}
         />
       )}
     </div>
@@ -2779,3 +2894,344 @@ function SellConfirmSheet({
     </div>
   );
 }
+function ListNftSheet({
+  chain,
+  contractAddress,
+  tokenId,
+  imageUrl,
+  collectionName,
+  onClose,
+  onListed,
+}: {
+  chain: Chain;
+  contractAddress: string;
+  tokenId: string;
+  imageUrl: string | null;
+  collectionName: string;
+  onClose: () => void;
+  onListed: () => void;
+}) {
+  const { address } = useAccount();
+  const [price, setPrice] = useState<string>("");
+  const [durationDays, setDurationDays] = useState<string>("7");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function handleList() {
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      if (!address) {
+        setError("Wallet is not connected.");
+        return;
+      }
+
+      const priceNum = Number(price);
+      if (!Number.isFinite(priceNum) || priceNum <= 0) {
+        setError("Please enter a valid price in ETH.");
+        return;
+      }
+
+      const durationNum = Number(durationDays);
+      if (!Number.isFinite(durationNum) || durationNum <= 0) {
+        setError("Please enter a valid duration in days.");
+        return;
+      }
+
+      const res = await fetch("/api/opensea/list-nft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          contractAddress,
+          tokenId,
+          priceEth: priceNum,
+          durationDays: durationNum,
+          sellerAddress: address,
+        }),
+      });
+
+      const json: any = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.ok === false) {
+        setError(
+          json?.message ||
+            "Backend rejected listing request. Check server logs.",
+        );
+        return;
+      }
+
+      setInfo(
+        json?.message ||
+          "Listing request sent to OpenSea. It may take a few seconds to appear.",
+      );
+      onListed();
+    } catch (err) {
+      console.error("ListNftSheet error", err);
+      setError("Failed to create listing. Check console for details.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
+      <button className="absolute inset-0 h-full w-full" onClick={onClose} />
+
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
+
+        <h2 className="text-center text-sm font-semibold text-neutral-900">
+          List on OpenSea
+        </h2>
+
+        <div className="mt-3 flex items-center gap-2 text-[11px]">
+          <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={collectionName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                —
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-neutral-800">
+              {collectionName} #{tokenId}
+            </span>
+            <span className="text-[10px] text-neutral-500">
+              Chain: {prettyChain(chain)}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3 text-[12px]">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-neutral-600">
+              Price (ETH)
+            </label>
+            <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5">
+              <input
+                type="number"
+                min="0"
+                step="0.0001"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full bg-transparent text-[12px] text-neutral-900 outline-none"
+                placeholder="0.05"
+              />
+              <span className="ml-2 text-[11px] text-neutral-500">ETH</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-neutral-600">
+              Duration (days)
+            </label>
+            <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={durationDays}
+                onChange={(e) => setDurationDays(e.target.value)}
+                className="w-full bg-transparent text-[12px] text-neutral-900 outline-none"
+                placeholder="7"
+              />
+              <span className="ml-2 text-[11px] text-neutral-500">
+                days
+              </span>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-1 text-[11px] text-red-500 leading-tight">
+              {error}
+            </div>
+          )}
+
+          {info && !error && (
+            <div className="mt-1 text-[11px] text-emerald-600 leading-tight">
+              {info}
+            </div>
+          )}
+
+          {!info && !error && (
+            <div className="mt-1 text-[11px] text-neutral-500 leading-tight">
+              Your wallet may be asked to sign an off-chain order. The
+              backend will then call OpenSea&apos;s Create Listing API
+              using that signature.
+            </div>
+          )}
+        </div>
+
+        <button
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={submitting}
+          onClick={handleList}
+        >
+          {submitting ? "Listing…" : "List"}
+        </button>
+
+        <button
+          className="mt-2 w-full text-center text-[12px] text-neutral-500"
+          onClick={onClose}
+          disabled={submitting}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CancelListingSheet({
+  chain,
+  contractAddress,
+  tokenId,
+  listing,
+  imageUrl,
+  collectionName,
+  onClose,
+  onCancelled,
+}: {
+  chain: Chain;
+  contractAddress: string;
+  tokenId: string;
+  listing: Listing;
+  imageUrl: string | null;
+  collectionName: string;
+  onClose: () => void;
+  onCancelled: () => void;
+}) {
+  const { address } = useAccount();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function handleCancel() {
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
+
+    try {
+      if (!address) {
+        setError("Wallet is not connected.");
+        return;
+      }
+
+      const res = await fetch("/api/opensea/cancel-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          orderId: listing.id,
+          contractAddress,
+          tokenId,
+          sellerAddress: address,
+        }),
+      });
+
+      const json: any = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.ok === false) {
+        setError(
+          json?.message ||
+            "Backend rejected cancel request. Check server logs.",
+        );
+        return;
+      }
+
+      setInfo(
+        json?.message ||
+          "Cancel request sent. It may take a few seconds for the listing to disappear.",
+      );
+      onCancelled();
+    } catch (err) {
+      console.error("CancelListingSheet error", err);
+      setError("Failed to cancel listing. Check console for details.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
+      <button className="absolute inset-0 h-full w-full" onClick={onClose} />
+
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
+
+        <h2 className="text-center text-sm font-semibold text-neutral-900">
+          Cancel listing
+        </h2>
+
+        <div className="mt-3 flex items-center gap-2 text-[11px]">
+          <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={collectionName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
+                —
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-neutral-800">
+              {collectionName} #{tokenId}
+            </span>
+            <span className="text-[10px] text-neutral-500">
+              Listed for {listing.priceFormatted} ETH
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-3 text-[11px] text-neutral-500 leading-tight">
+          This will request OpenSea to cancel this listing. Depending on
+          the protocol, your wallet may be asked to sign an off-chain
+          message or send a small on-chain transaction.
+        </div>
+
+        {error && (
+          <div className="mt-2 text-[11px] text-red-500 leading-tight">
+            {error}
+          </div>
+        )}
+
+        {info && !error && (
+          <div className="mt-2 text-[11px] text-emerald-600 leading-tight">
+            {info}
+          </div>
+        )}
+
+        <button
+          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={submitting}
+          onClick={handleCancel}
+        >
+          {submitting ? "Cancelling…" : "Cancel listing"}
+        </button>
+
+        <button
+          className="mt-2 w-full text-center text-[12px] text-neutral-500"
+          onClick={onClose}
+          disabled={submitting}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
