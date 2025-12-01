@@ -864,6 +864,8 @@ function NftDetailPage({
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
   const [showSellSheet, setShowSellSheet] = useState(false);
+  const [showListSheet, setShowListSheet] = useState(false);
+
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(false);
@@ -1440,7 +1442,7 @@ function NftDetailPage({
   setApprovalErrorMsg(null);
 
   try {
-    const chainId = chain === "base" ? 8453 : 1;
+    const chainId = chainIdFromChain(chain);
 
     const dataToSend = encodeFunctionData({
       abi: erc721Or1155ApprovalAbi,
@@ -1494,7 +1496,7 @@ async function handleRevokeOpenSea() {
   setApprovalErrorMsg(null);
 
   try {
-    const chainId = chain === "base" ? 8453 : 1;
+    const chainId = chainIdFromChain(chain);
 
     const dataToSend = encodeFunctionData({
       abi: erc721Or1155ApprovalAbi,
@@ -2200,15 +2202,13 @@ async function handleRevokeOpenSea() {
 
                   <button
                     type="button"
-                    disabled
-                    className="
-                      flex-1 rounded-xl border border-dashed border-neutral-300
-                      bg-neutral-50 px-3 py-2 text-[12px] font-semibold
-                      text-neutral-400
-                    "
+                    disabled={!contractAddress || approvalStatus !== "approved" || !address}
+                    onClick={() => setShowListSheet(true)}
+                    className="flex-1 rounded-xl border border-purple-500/60 bg-white px-3 py-2 text-[12px] font-semibold text-purple-700 shadow-sm hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    List (coming soon)
+                    List on OpenSea
                   </button>
+
                 </div>
 
                 {contractAddress && approvalStatus === "approved" && (
@@ -2507,6 +2507,21 @@ function prettyChain(chain: Chain): string {
   }
 }
 
+function chainIdFromChain(chain: Chain): number {
+  switch (chain) {
+    case "base":
+      return 8453;
+    case "ethereum":
+      return 1;
+    case "arbitrum":
+      return 42161;
+    case "optimism":
+      return 10;
+    default:
+      return 1;
+  }
+}
+
 function AppContainer() {
   return (
     <ToastProvider>
@@ -2659,7 +2674,7 @@ function SellConfirmSheet({
         return;
       }
 
-      const chainId = chain === "base" ? 8453 : 1;
+      const chainId = chainIdFromChain(chain);
       const valueBigInt = tx.value != null ? BigInt(tx.value) : 0n;
 
       const txHash = await walletClient.sendTransaction({
