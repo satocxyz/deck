@@ -864,7 +864,9 @@ function NftDetailPage({
   const [traitsLoading, setTraitsLoading] = useState(false);
   const [traitsError, setTraitsError] = useState<string | null>(null);
   const [showSellSheet, setShowSellSheet] = useState(false);
-  const [showListSheet, setShowListSheet] = useState(false);
+  // We only use the setter for now, so ignore the state value for TS
+  const [, setShowListSheet] = useState(false);
+
 
 
   const [listings, setListings] = useState<Listing[]>([]);
