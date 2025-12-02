@@ -1121,7 +1121,7 @@ function NftDetailPage({
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [listingsRefreshNonce, setListingsRefreshNonce] = useState(0);
-
+  const [myListingFromOrder, setMyListingFromOrder] = useState<Listing | null>(null);
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
@@ -1148,7 +1148,10 @@ function NftDetailPage({
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
 
   // Derive "my listing" for this token (if any) from collection listings
-  const myListing: Listing | null = useMemo(() => {
+    const myListing: Listing | null = useMemo(() => {
+    // If we have something explicitly from a successful list flow, use it
+    if (myListingFromOrder) return myListingFromOrder;
+
     if (!address || !nft || !listings.length) return null;
 
     const tokenIdStr = String(nft.identifier);
@@ -1163,7 +1166,7 @@ function NftDetailPage({
         return sameToken && sameMaker;
       }) ?? null
     );
-  }, [address, nft, listings]);
+  }, [address, nft, listings, myListingFromOrder]);
 
 
   // Offers + floor
@@ -1593,6 +1596,12 @@ function NftDetailPage({
       cancelled = true;
     };
   }, [publicClient, address, nft, chain]);
+
+
+    useEffect(() => {
+    // When user wallet or NFT changes → reset the “my listing” cache
+    setMyListingFromOrder(null);
+  }, [address, nft]);
 
   // Fallback market points derived directly from sales
   const derivedMarketPoints: MarketPoint[] = useMemo(
@@ -2597,8 +2606,14 @@ async function handleRevokeOpenSea() {
           imageUrl={nft.image_url ?? null}
           collectionName={collectionName}
           onClose={() => setShowListSheet(false)}
-          onListed={() => {
+          onListed={(listing) => {
             setShowListSheet(false);
+
+            if (listing) {
+              setMyListingFromOrder(listing);
+            }
+
+            // still refresh collection listings for the top-3 block
             setListingsRefreshNonce((n) => n + 1);
           }}
         />
@@ -3154,6 +3169,50 @@ function SellConfirmSheet({
     </div>
   );
 }
+
+function mapOpenSeaOrderToListing(order: any): Listing {
+  const asset = order?.maker_asset_bundle?.assets?.[0];
+
+  const priceWeiStr = order?.current_price ?? "0";
+  let priceEth = 0;
+  let priceFormatted = "0.0000";
+
+  if (typeof priceWeiStr === "string") {
+    const n = Number(priceWeiStr) / 1e18;
+    if (Number.isFinite(n)) {
+      priceEth = n;
+      priceFormatted = n >= 1 ? n.toFixed(3) : n.toFixed(4);
+    }
+  }
+
+  const expiration =
+    typeof order?.expiration_time === "number"
+      ? order.expiration_time
+      : null;
+
+  const makerAddr = order?.maker?.address ?? null;
+
+  const tokenId = asset?.token_id ?? null;
+  const tokenContract = asset?.asset_contract?.address ?? null;
+  const name = asset?.name ?? null;
+  const imageUrl = asset?.image_url ?? null;
+
+  return {
+    id: order?.order_hash ?? "",
+    priceEth,
+    priceFormatted,
+    maker: makerAddr,
+    expirationTime: expiration,
+    protocolAddress: order?.protocol_address ?? null,
+    tokenId,
+    tokenContract,
+    name,
+    imageUrl,
+    image_url: imageUrl,
+    image: imageUrl,
+  };
+}
+
 function ListNftSheet({
   chain,
   contractAddress,
@@ -3169,7 +3228,7 @@ function ListNftSheet({
   imageUrl: string | null;
   collectionName: string;
   onClose: () => void;
-  onListed: () => void;
+  onListed: (listing?: Listing | null) => void;
 }) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -3288,11 +3347,16 @@ function ListNftSheet({
         return;
       }
 
-      setInfo(
-        json?.message ||
-          "Signed Seaport order sent to Deck backend. OpenSea listing call is still stubbed.",
-      );
-      onListed();
+      const order = json?.openSea?.order;
+      let mapped: Listing | null = null;
+
+      if (order) {
+        mapped = mapOpenSeaOrderToListing(order);
+      }
+
+      setInfo(json?.message || "Listing created on OpenSea.");
+      onListed(mapped);
+
     } catch (err) {
       console.error("ListNftSheet error", err);
       setError("Failed to create listing. Check console for details.");
