@@ -3085,11 +3085,25 @@ function SellConfirmSheet({
           )}
 
           {!info && !error && (
-            <div className="mt-2 leading-tight text-[11px] text-neutral-500">
-              For your safety, the transaction will only proceed if the
-              on-chain offer amount exactly matches the value shown here.
+            <div className="mt-2 space-y-1 leading-tight text-[11px] text-neutral-500">
+              <p>
+                For your safety, the transaction will only proceed if the
+                on-chain offer amount exactly matches the value shown here.
+              </p>
+              <p>
+                Your wallet may show a banner like
+                <span className="font-medium">
+                  {" "}
+                  &quot;Proceed with caution – The transaction uses the Seaport
+                  protocol to transfer tokens to an untrusted address&quot;
+                </span>
+                . This is expected for OpenSea Seaport trades and simply
+                indicates that the NFT is being transferred through the Seaport
+                contract.
+              </p>
             </div>
           )}
+
         </div>
 
         <button
@@ -3324,10 +3338,22 @@ function ListNftSheet({
           )}
 
           {!info && !error && (
-            <div className="mt-1 text-[11px] text-neutral-500 leading-tight">
-              Your wallet may be asked to sign an off-chain order. The
-              backend will then call OpenSea&apos;s Create Listing API
-              using that signature.
+            <div className="mt-1 space-y-1 text-[11px] text-neutral-500 leading-tight">
+              <p>
+                Your wallet may be asked to sign an off-chain Seaport order. The
+                backend will then call OpenSea&apos;s Create Listing API using
+                that signature.
+              </p>
+              <p>
+                You might also see a yellow banner like
+                <span className="font-medium">
+                  {" "}
+                  &quot;Proceed with caution – The transaction uses the Seaport
+                  protocol to transfer tokens to an untrusted address&quot;
+                </span>
+                . This is a standard warning for OpenSea listings because the
+                Seaport contract holds your NFT in escrow until it sells.
+              </p>
             </div>
           )}
         </div>
