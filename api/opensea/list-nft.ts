@@ -14,11 +14,8 @@ const bodySchema = z
     sellerAddress: z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid seller address"),
-
-    // full Seaport order you built on the client & signed
-    seaportOrder: z.any(),
   })
-  // allow any future fields
+  // allow seaportOrder + any future fields to pass through
   .passthrough();
 
 function openSeaChainSlug(chain: string): string {
@@ -73,7 +70,6 @@ export default async function handler(
       priceEth,
       durationDays,
       sellerAddress,
-      seaportOrder,
     } = parsed.data;
 
     const apiKey = process.env.OPENSEA_API_KEY;
@@ -86,37 +82,51 @@ export default async function handler(
     }
 
     const chainSlug = openSeaChainSlug(chain);
-    const nowSec = Math.floor(Date.now() / 1000);
-    const expirationSec = nowSec + durationDays * 24 * 60 * 60;
+    const openSeaUrl = `https://api.opensea.io/v2/orders/${chainSlug}/seaport/listings`;
 
-    // Just for debugging / sanity
-    console.log("[list-nft] incoming params", {
+    // --- NEW: pull the signed Seaport order from the body ---------------
+    const anyData = parsed.data as any;
+    const seaportOrder = anyData.seaportOrder;
+
+    if (
+      !seaportOrder ||
+      !seaportOrder.parameters ||
+      !seaportOrder.signature
+    ) {
+      console.error("[list-nft] Missing seaportOrder in request body", {
+        hasSeaportOrder: !!seaportOrder,
+      });
+      return res.status(400).json({
+        ok: false,
+        message:
+          "Missing Seaport order from client. Please refresh and try listing again.",
+      });
+    }
+
+    // protocol address can come from client or we default to Seaport 1.6
+    const protocolAddress =
+      seaportOrder.protocolAddress ??
+      seaportOrder.protocol_address ??
+      SEAPORT_1_6_ADDRESS;
+
+    // This is the exact shape OpenSea expects:
+    // { parameters: {...}, signature: "0x...", protocol_address: "0x..." }
+    const openSeaPayload = {
+      parameters: seaportOrder.parameters,
+      signature: seaportOrder.signature,
+      protocol_address: protocolAddress,
+    };
+
+    // Optional: log a tiny debug summary, not full payload
+    console.log("[list-nft] Creating listing on OpenSea", {
       chainSlug,
       contractAddress,
       tokenId,
       priceEth,
       durationDays,
       sellerAddress,
+      protocolAddress,
     });
-
-    // IMPORTANT: use the documented path with /api/v2
-    const openSeaUrl = `https://api.opensea.io/api/v2/orders/${chainSlug}/seaport/listings`;
-
-    // This matches OpenSea "Create Listing" using a full Seaport order
-    const openSeaPayload: any = {
-      protocol_address: SEAPORT_1_6_ADDRESS,
-      protocol_data: {
-        ...seaportOrder,
-        parameters: {
-          ...seaportOrder.parameters,
-          // Make sure price & times line up with UI
-          startTime: nowSec.toString(),
-          endTime: expirationSec.toString(),
-        },
-      },
-      order_type: "listing",
-      side: "ask",
-    };
 
     const osRes = await fetch(openSeaUrl, {
       method: "POST",
@@ -130,14 +140,12 @@ export default async function handler(
     const osJson = await osRes.json().catch(() => ({}));
 
     if (!osRes.ok) {
-      console.error(
-        "[list-nft] OpenSea error",
-        osRes.status,
-        JSON.stringify(osJson),
-      );
-      return res.status(400).json({
+      console.error("[list-nft] OpenSea error", osRes.status, osJson);
+      return res.status(osRes.status).json({
         ok: false,
-        message: `OpenSea returned HTTP ${osRes.status} when creating listing.`,
+        message:
+          osJson?.message ||
+          `OpenSea returned HTTP ${osRes.status} when creating listing.`,
         raw: osJson,
       });
     }
@@ -151,7 +159,7 @@ export default async function handler(
     console.error("[list-nft] Unexpected error", err);
     return res.status(500).json({
       ok: false,
-      message: "Unexpected error while creating listing.",
+      message: "Unexpected server error while creating listing.",
     });
   }
 }
