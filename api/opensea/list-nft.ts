@@ -2,18 +2,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 
-const bodySchema = z.object({
-  chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
-  contractAddress: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid contract address"),
-  tokenId: z.string().min(1, "Missing tokenId"),
-  priceEth: z.number().positive("Price must be > 0"),
-  durationDays: z.number().int().positive("Duration must be > 0"),
-  sellerAddress: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid seller address"),
-});
+const bodySchema = z
+  .object({
+    chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
+    contractAddress: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid contract address"),
+    tokenId: z.string().min(1, "Missing tokenId"),
+    priceEth: z.number().positive("Price must be > 0"),
+    durationDays: z.number().int().positive("Duration must be > 0"),
+    sellerAddress: z
+      .string()
+      .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid seller address"),
+  })
+  // allow seaportOrder and any future fields
+  .passthrough();
+
 
 function openSeaChainSlug(chain: string): string {
   switch (chain) {

@@ -6,7 +6,12 @@ import {
   useWalletClient,
   usePublicClient,
 } from "wagmi";
-import { encodeFunctionData } from "viem";
+import {
+  encodeFunctionData,
+  type TypedDataDomain,
+} from "viem";
+
+
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 // --- Toast System v2 ---------------------------------------------------------
 
@@ -167,6 +172,186 @@ const erc721Or1155ApprovalAbi = [
     outputs: [],
   },
 ] as const;
+
+// Canonical Seaport 1.6 contract used by OpenSea on L1 + L2s
+const SEAPORT_1_6_ADDRESS =
+  "0x0000000000000068F116a894984E2dB1123Eb395" as const;
+
+// ---- Minimal Seaport typed-data types for a simple listing ----
+type Eip712Types = Record<string, { name: string; type: string }[]>;
+type SeaportOfferItem = {
+  itemType: number;
+  token: `0x${string}`;
+  identifierOrCriteria: bigint;
+  startAmount: bigint;
+  endAmount: bigint;
+};
+
+type SeaportConsiderationItem = {
+  itemType: number;
+  token: `0x${string}`;
+  identifierOrCriteria: bigint;
+  startAmount: bigint;
+  endAmount: bigint;
+  recipient: `0x${string}`;
+};
+
+type SeaportOrderParameters = {
+  offerer: `0x${string}`;
+  zone: `0x${string}`;
+  offer: SeaportOfferItem[];
+  consideration: SeaportConsiderationItem[];
+  orderType: number;
+  startTime: bigint;
+  endTime: bigint;
+  zoneHash: `0x${string}`;
+  salt: bigint;
+  conduitKey: `0x${string}`;
+  totalOriginalConsiderationItems: bigint;
+};
+
+type SeaportOrderComponents = SeaportOrderParameters & {
+  counter: bigint;
+};
+
+type SeaportTypedData = {
+  domain: TypedDataDomain;
+  types: Eip712Types;
+  value: SeaportOrderComponents;
+  parameters: SeaportOrderParameters;
+};
+
+
+
+/**
+ * Build a very simple Seaport 1.6 fixed-price listing:
+ *  - ERC721
+ *  - 1 unit
+ *  - all proceeds to the seller (no fees yet)
+ *
+ * This is enough to get a correct EIP-712 payload for signing.
+ * We still keep the actual OpenSea listing call on the backend stub.
+ */
+function buildSimpleSeaportListingTypedData(args: {
+  chainId: number;
+  offerer: `0x${string}`;
+  contractAddress: `0x${string}`;
+  tokenId: string;
+  priceEth: number;
+  durationDays: number;
+}): SeaportTypedData {
+  const {
+    chainId,
+    offerer,
+    contractAddress,
+    tokenId,
+    priceEth,
+    durationDays,
+  } = args;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const endSec =
+    nowSec + Math.max(1, Math.floor(durationDays || 1)) * 24 * 60 * 60;
+
+  // naive ETH → wei conversion; good enough for signing
+  const priceWei = BigInt(Math.round(priceEth * 1e18));
+  const tokenIdBigInt = BigInt(tokenId);
+
+  const offer: SeaportOfferItem[] = [
+    {
+      // 2 = ERC721
+      itemType: 2,
+      token: contractAddress,
+      identifierOrCriteria: tokenIdBigInt,
+      startAmount: 1n,
+      endAmount: 1n,
+    },
+  ];
+
+  const consideration: SeaportConsiderationItem[] = [
+    {
+      // 0 = native token (ETH / gas token)
+      itemType: 0,
+      token: "0x0000000000000000000000000000000000000000",
+      identifierOrCriteria: 0n,
+      startAmount: priceWei,
+      endAmount: priceWei,
+      recipient: offerer,
+    },
+  ];
+
+  const parameters: SeaportOrderParameters = {
+    offerer,
+    zone: "0x0000000000000000000000000000000000000000",
+    offer,
+    consideration,
+    orderType: 0, // FULL_OPEN
+    startTime: BigInt(nowSec),
+    endTime: BigInt(endSec),
+    zoneHash:
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    // simple random-ish salt
+    salt: BigInt(
+      Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+    ),
+    // for now, no conduit (direct approval to Seaport)
+    conduitKey:
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    totalOriginalConsiderationItems: BigInt(consideration.length),
+  };
+
+  const value: SeaportOrderComponents = {
+    ...parameters,
+    counter: 0n, // OpenSea will override when they persist the order
+  };
+
+  const domain: TypedDataDomain = {
+    name: "Seaport",
+    version: "1.6",
+    chainId,
+    verifyingContract: SEAPORT_1_6_ADDRESS,
+  };
+
+const types: Eip712Types = {
+  EIP712Domain: [
+    { name: "name", type: "string" },
+    { name: "version", type: "string" },
+    { name: "chainId", type: "uint256" },
+    { name: "verifyingContract", type: "address" },
+  ],
+  OfferItem: [
+    { name: "itemType", type: "uint8" },
+    { name: "token", type: "address" },
+    { name: "identifierOrCriteria", type: "uint256" },
+    { name: "startAmount", type: "uint256" },
+    { name: "endAmount", type: "uint256" },
+  ],
+  ConsiderationItem: [
+    { name: "itemType", type: "uint8" },
+    { name: "token", type: "address" },
+    { name: "identifierOrCriteria", type: "uint256" },
+    { name: "startAmount", type: "uint256" },
+    { name: "endAmount", type: "uint256" },
+    { name: "recipient", type: "address" },
+  ],
+  OrderComponents: [
+    { name: "offerer", type: "address" },
+    { name: "zone", type: "address" },
+    { name: "offer", type: "OfferItem[]" },
+    { name: "consideration", type: "ConsiderationItem[]" },
+    { name: "orderType", type: "uint8" },
+    { name: "startTime", type: "uint256" },
+    { name: "endTime", type: "uint256" },
+    { name: "zoneHash", type: "bytes32" },
+    { name: "salt", type: "uint256" },
+    { name: "conduitKey", type: "bytes32" },
+    { name: "counter", type: "uint256" },
+  ],
+};
+
+
+  return { domain, types, value, parameters };
+}
 
 type SafeArea = {
   top: number;
@@ -2912,13 +3097,14 @@ function ListNftSheet({
   onListed: () => void;
 }) {
   const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [price, setPrice] = useState<string>("");
   const [durationDays, setDurationDays] = useState<string>("7");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  async function handleList() {
+   async function handleList() {
     setSubmitting(true);
     setError(null);
     setInfo(null);
@@ -2926,6 +3112,11 @@ function ListNftSheet({
     try {
       if (!address) {
         setError("Wallet is not connected.");
+        return;
+      }
+
+      if (!walletClient) {
+        setError("Wallet client is not available for signing.");
         return;
       }
 
@@ -2941,45 +3132,67 @@ function ListNftSheet({
         return;
       }
 
-const res = await fetch("/api/opensea/list-nft", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    chain,
-    contractAddress,
-    tokenId,
-    priceEth: priceNum,
-    durationDays: durationNum,
-    sellerAddress: address,
-  }),
-});
+      // --- Phase 1: build + sign Seaport 1.6 order locally -----------------
+      const chainId = chainIdFromChain(chain);
 
-const json: any = await res.json().catch(() => ({}));
+      const typed = buildSimpleSeaportListingTypedData({
+        chainId,
+        offerer: address as `0x${string}`,
+        contractAddress: contractAddress as `0x${string}`,
+        tokenId,
+        priceEth: priceNum,
+        durationDays: durationNum,
+      });
 
-if (!res.ok || json.ok === false) {
-  setError(
-    json?.message ||
-      "Backend rejected listing request. Check server logs.",
-  );
-  return;
-}
+      const signature = await walletClient.signTypedData({
+        account: address as `0x${string}`,
+        domain: typed.domain,
+        types: typed.types as any, // viem generic types; safe here
+        primaryType: "OrderComponents",
+        message: typed.value as any,
+      });
 
-// if backend is still stubbed, just show info and DO NOT close sheet
-if (json.stubbed) {
-  setInfo(
-    json?.message ||
-      "Listing flow is not live yet. Backend is stubbed, no real OpenSea listing was created.",
-  );
-  return;
-}
+      console.log("Deck Seaport 1.6 listing order", {
+        parameters: typed.parameters,
+        components: typed.value,
+        signature,
+      });
 
-// real success path (when you later wire Seaport + OpenSea)
-setInfo(
-  json?.message ||
-    "Listing request sent to OpenSea. It may take a few seconds to appear.",
-);
-onListed();
+      // --- Send to backend (still stubbed – no real OpenSea call yet) ------
+      const res = await fetch("/api/opensea/list-nft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          contractAddress,
+          tokenId,
+          priceEth: priceNum,
+          durationDays: durationNum,
+          sellerAddress: address,
+          seaportOrder: {
+            protocolAddress: SEAPORT_1_6_ADDRESS,
+            parameters: typed.parameters,
+            components: typed.value,
+            signature,
+          },
+        }),
+      });
 
+      const json: any = await res.json().catch(() => ({}));
+
+      if (!res.ok || json.ok === false) {
+        setError(
+          json?.message ||
+            "Backend rejected listing request. Check server logs.",
+        );
+        return;
+      }
+
+      setInfo(
+        json?.message ||
+          "Signed Seaport order sent to Deck backend. OpenSea listing call is still stubbed.",
+      );
+      onListed();
     } catch (err) {
       console.error("ListNftSheet error", err);
       setError("Failed to create listing. Check console for details.");
@@ -2987,6 +3200,7 @@ onListed();
       setSubmitting(false);
     }
   }
+
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
