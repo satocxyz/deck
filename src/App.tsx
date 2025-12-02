@@ -8,8 +8,12 @@ import {
 } from "wagmi";
 import {
   encodeFunctionData,
+  type TypedData,
   type TypedDataDomain,
+  type TypedDataField,
+  getAddress,
 } from "viem";
+
 
 
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
@@ -174,8 +178,9 @@ const erc721Or1155ApprovalAbi = [
 ] as const;
 
 // Canonical Seaport 1.6 contract used by OpenSea on L1 + L2s
-const SEAPORT_1_6_ADDRESS =
-  "0x0000000000000068F116a894984E2dB1123Eb395" as const;
+const SEAPORT_1_6_ADDRESS = getAddress(
+  "0x0000000000000068f116a894984e2db1123eb395"
+) as `0x${string}`;
 
 // ---- Minimal Seaport typed-data types for a simple listing ----
 type Eip712Types = Record<string, { name: string; type: string }[]>;
