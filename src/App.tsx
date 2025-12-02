@@ -188,6 +188,13 @@ const erc721Or1155ApprovalAbi = [
 const SEAPORT_1_6_ADDRESS = getAddress(
   "0x0000000000000068f116a894984e2db1123eb395"
 ) as `0x${string}`;
+// --- OpenSea fee config (temporary hard-code: 1% / 100 bps) ----
+const OPENSEA_FEE_BPS = 100; // 100 basis points = 1%
+const FEE_DENOMINATOR = 10_000;
+
+// Official OpenSea fee recipient (Seaport platform fee recipient)
+const OPENSEA_FEE_RECIPIENT =
+  "0x0000a26b00c1F0DF003000390027140000fAa719" as `0x${string}`;
 
 // ---- Minimal Seaport typed-data types for a simple listing ----
 type Eip712Types = Record<string, { name: string; type: string }[]>;
@@ -262,6 +269,13 @@ type SeaportTypedData = {
  * This is enough to get a correct EIP-712 payload for signing.
  * We still keep the actual OpenSea listing call on the backend stub.
  */
+/**
+ * Build a Seaport 1.6 fixed-price listing:
+ *  - ERC721
+ *  - 1 unit
+ *  - 1% marketplace fee to OpenSea (OPENSEA_FEE_BPS)
+ *  - remaining proceeds to the seller
+ */
 function buildSimpleSeaportListingTypedData(args: {
   chainId: number;
   offerer: `0x${string}`;
@@ -283,10 +297,20 @@ function buildSimpleSeaportListingTypedData(args: {
   const endSec =
     nowSec + Math.max(1, Math.floor(durationDays || 1)) * 24 * 60 * 60;
 
-  // naive ETH → wei conversion; good enough for signing
+  // ETH → wei
   const priceWei = BigInt(Math.round(priceEth * 1e18));
   const tokenIdBigInt = BigInt(tokenId);
 
+  // --- Fee split: 1% (OPENSEA_FEE_BPS) to OpenSea, rest to seller ----
+  const osFeeWei =
+    (priceWei * BigInt(OPENSEA_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
+  const sellerWei = priceWei - osFeeWei;
+
+  if (sellerWei <= 0n) {
+    throw new Error("Price too low relative to fees: seller amount <= 0");
+  }
+
+  // Offer: you give 1 ERC721
   const offer: SeaportOfferItem[] = [
     {
       // 2 = ERC721
@@ -298,43 +322,49 @@ function buildSimpleSeaportListingTypedData(args: {
     },
   ];
 
+  // Consideration: buyer sends ETH to seller + OpenSea fee recipient
   const consideration: SeaportConsiderationItem[] = [
     {
-      // 0 = native token (ETH / gas token)
+      // Seller proceeds
+      itemType: 0, // 0 = native token
+      token: "0x0000000000000000000000000000000000000000",
+      identifierOrCriteria: 0n,
+      startAmount: sellerWei,
+      endAmount: sellerWei,
+      recipient: offerer,
+    },
+    {
+      // OpenSea 1% fee
       itemType: 0,
       token: "0x0000000000000000000000000000000000000000",
       identifierOrCriteria: 0n,
-      startAmount: priceWei,
-      endAmount: priceWei,
-      recipient: offerer,
+      startAmount: osFeeWei,
+      endAmount: osFeeWei,
+      recipient: OPENSEA_FEE_RECIPIENT,
     },
   ];
 
-    const parameters: SeaportOrderParameters = {
+  const parameters: SeaportOrderParameters = {
     offerer,
-    // Use OpenSea's standard Seaport zone
+    // OpenSea default Seaport zone
     zone: OPENSEA_ZONE,
     offer,
     consideration,
     orderType: 0, // FULL_OPEN
     startTime: BigInt(nowSec),
     endTime: BigInt(endSec),
-    // OpenSea is fine with zero zoneHash for their default zone
     zoneHash:
       "0x0000000000000000000000000000000000000000000000000000000000000000",
-    // simple random-ish salt
     salt: BigInt(
       Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
     ),
-    // Use OpenSea's shared conduit key (matches OPENSEA_SEAPORT_CONDUIT)
     conduitKey: OPENSEA_CONDUIT_KEY,
     totalOriginalConsiderationItems: BigInt(consideration.length),
   };
 
-
   const value: SeaportOrderComponents = {
     ...parameters,
-    counter: 0n, // OpenSea will override when they persist the order
+    counter: 0n, // OpenSea will override when persisting the order
   };
 
   const domain: TypedDataDomain = {
@@ -344,43 +374,42 @@ function buildSimpleSeaportListingTypedData(args: {
     verifyingContract: SEAPORT_1_6_ADDRESS,
   };
 
-const types: Eip712Types = {
-  EIP712Domain: [
-    { name: "name", type: "string" },
-    { name: "version", type: "string" },
-    { name: "chainId", type: "uint256" },
-    { name: "verifyingContract", type: "address" },
-  ],
-  OfferItem: [
-    { name: "itemType", type: "uint8" },
-    { name: "token", type: "address" },
-    { name: "identifierOrCriteria", type: "uint256" },
-    { name: "startAmount", type: "uint256" },
-    { name: "endAmount", type: "uint256" },
-  ],
-  ConsiderationItem: [
-    { name: "itemType", type: "uint8" },
-    { name: "token", type: "address" },
-    { name: "identifierOrCriteria", type: "uint256" },
-    { name: "startAmount", type: "uint256" },
-    { name: "endAmount", type: "uint256" },
-    { name: "recipient", type: "address" },
-  ],
-  OrderComponents: [
-    { name: "offerer", type: "address" },
-    { name: "zone", type: "address" },
-    { name: "offer", type: "OfferItem[]" },
-    { name: "consideration", type: "ConsiderationItem[]" },
-    { name: "orderType", type: "uint8" },
-    { name: "startTime", type: "uint256" },
-    { name: "endTime", type: "uint256" },
-    { name: "zoneHash", type: "bytes32" },
-    { name: "salt", type: "uint256" },
-    { name: "conduitKey", type: "bytes32" },
-    { name: "counter", type: "uint256" },
-  ],
-};
-
+  const types: Eip712Types = {
+    EIP712Domain: [
+      { name: "name", type: "string" },
+      { name: "version", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+    ],
+    OfferItem: [
+      { name: "itemType", type: "uint8" },
+      { name: "token", type: "address" },
+      { name: "identifierOrCriteria", type: "uint256" },
+      { name: "startAmount", type: "uint256" },
+      { name: "endAmount", type: "uint256" },
+    ],
+    ConsiderationItem: [
+      { name: "itemType", type: "uint8" },
+      { name: "token", type: "address" },
+      { name: "identifierOrCriteria", type: "uint256" },
+      { name: "startAmount", type: "uint256" },
+      { name: "endAmount", type: "uint256" },
+      { name: "recipient", type: "address" },
+    ],
+    OrderComponents: [
+      { name: "offerer", type: "address" },
+      { name: "zone", type: "address" },
+      { name: "offer", type: "OfferItem[]" },
+      { name: "consideration", type: "ConsiderationItem[]" },
+      { name: "orderType", type: "uint8" },
+      { name: "startTime", type: "uint256" },
+      { name: "endTime", type: "uint256" },
+      { name: "zoneHash", type: "bytes32" },
+      { name: "salt", type: "uint256" },
+      { name: "conduitKey", type: "bytes32" },
+      { name: "counter", type: "uint256" },
+    ],
+  };
 
   return { domain, types, value, parameters };
 }
