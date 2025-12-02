@@ -2,41 +2,26 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 
-const chainEnum = z.enum(["base", "ethereum", "arbitrum", "optimism"]);
-
-const addressRegex = /^0x[a-fA-F0-9]{40}$/;
-
-// We keep seaportOrder optional so the endpoint is backwards-compatible.
 const bodySchema = z
   .object({
-    chain: chainEnum,
+    chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]),
     contractAddress: z
       .string()
-      .regex(addressRegex, "Invalid contract address"),
+      .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid contract address"),
     tokenId: z.string().min(1, "Missing tokenId"),
     priceEth: z.number().positive("Price must be > 0"),
     durationDays: z.number().int().positive("Duration must be > 0"),
     sellerAddress: z
       .string()
-      .regex(addressRegex, "Invalid seller address"),
+      .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid seller address"),
 
-    // Optional Seaport order that the frontend now sends
-    seaportOrder: z
-      .object({
-        protocolAddress: z
-          .string()
-          .regex(addressRegex, "Invalid protocolAddress")
-          .optional(),
-        parameters: z.record(z.any()).optional(),
-        components: z.record(z.any()).optional(),
-        signature: z.string().min(1).optional(),
-      })
-      .optional(),
+    // Let seaportOrder be anything for now (we only echo it in debug).
+    seaportOrder: z.any().optional(),
   })
-  // allow future fields without breaking
+  // allow future fields
   .passthrough();
 
-function openSeaChainSlug(chain: z.infer<typeof chainEnum>): string {
+function openSeaChainSlug(chain: string): string {
   switch (chain) {
     case "base":
       return "base";
@@ -66,6 +51,18 @@ export default async function handler(
       .json({ ok: false, message: "Method not allowed. Use POST." });
   }
 
+  // Helper: always return a safe stub so the UI never hard-fails
+  const sendStub = (extra?: Record<string, unknown>) => {
+    const safe = extra ?? {};
+    return res.status(200).json({
+      ok: true,
+      stubbed: true,
+      message:
+        "Listing backend is stubbed. No real OpenSea listing was created. Next step: wire this payload to OpenSea’s Create Listing API.",
+      ...safe,
+    });
+  };
+
   try {
     if (!req.body) {
       return res
@@ -89,17 +86,13 @@ export default async function handler(
       durationDays,
       sellerAddress,
       seaportOrder,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      ...rest // any future fields from the client
-    } = parsed.data;
+      ...rest
+    } = parsed.data as any;
 
+    // We *log* if API key is missing, but we don't fail here because we're stubbed.
     const apiKey = process.env.OPENSEA_API_KEY;
     if (!apiKey) {
-      console.error("[list-nft] Missing OPENSEA_API_KEY.");
-      return res.status(500).json({
-        ok: false,
-        message: "Server missing OpenSea API key.",
-      });
+      console.warn("[list-nft] OPENSEA_API_KEY is not set (stub mode only).");
     }
 
     const chainSlug = openSeaChainSlug(chain);
@@ -108,63 +101,40 @@ export default async function handler(
 
     const openSeaUrl = `https://api.opensea.io/api/v2/orders/${chainSlug}/seaport/listings`;
 
-    // This is what we *plan* to send to OpenSea in the future.
-    // For now, it’s only returned in debug so we can inspect it safely.
+    // What we *plan* to send to OpenSea later.
     const openSeaPayload: Record<string, unknown> = {
-      // These high-level fields are NOT fully documented yet, so keep them in debug.
-      protocol_address:
-        (seaportOrder?.protocolAddress as string | undefined) ??
-        SEAPORT_1_6_ADDRESS,
+      protocol_address: SEAPORT_1_6_ADDRESS,
       chain: chainSlug,
       contract_address: contractAddress,
       token_id: tokenId,
       maker: sellerAddress,
-      // for convenience / debugging:
       price_eth: priceEth,
       duration_days: durationDays,
       listing_start: nowSec,
       listing_end: expirationSec,
+      // anything else we might want to inspect:
+      extra: rest,
     };
 
-    if (seaportOrder?.parameters && seaportOrder?.signature) {
-      // This matches how Seaport orders appear in OpenSea Stream / Get Order
-      // responses (protocol_data.parameters + protocol_data.signature).
-      openSeaPayload.protocol_data = {
-        parameters: seaportOrder.parameters,
-        signature: seaportOrder.signature,
-      };
-    } else if (seaportOrder) {
-      // We got a seaportOrder but it’s incomplete – useful to see in debug.
-      openSeaPayload.partial_seaport_order = seaportOrder;
+    if (seaportOrder) {
+      // Just echo whatever the frontend built, so we can inspect it in logs.
+      openSeaPayload.seaport_order = seaportOrder;
     }
 
-    // -----------------------------------------------------------------------
-    // CURRENT BEHAVIOUR: stub only – no real OpenSea call.
-    // The UI should show a friendly “listing not live yet” message.
-    // -----------------------------------------------------------------------
-    return res.status(200).json({
-      ok: true,
-      stubbed: true,
-      message:
-        "Listing flow isn’t live yet in Deck. No on-chain listing was created – this is just a preview of the payload we’ll send to OpenSea later.",
+    // CURRENT BEHAVIOUR: stub only – no OpenSea call.
+    return sendStub({
       debug: {
         openSeaUrl,
         openSeaPayload,
       },
     });
 
-    /* ----------------------------------------------------------------------
-    // REAL CALL (when you’re ready to go live):
-    //
-    // 1. Replace the early return above with this block.
-    // 2. Carefully shape `openSeaPayload` to match the official
-    //    Create Listing request body in the OpenSea docs.
-    //
+    /* ---------------- REAL CALL (when you go live) ----------------
     const osRes = await fetch(openSeaUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": apiKey,
+        "X-API-KEY": apiKey!,
       },
       body: JSON.stringify(openSeaPayload),
     });
@@ -187,13 +157,13 @@ export default async function handler(
       message: "Listing created on OpenSea.",
       openSea: osJson,
     });
-    ---------------------------------------------------------------------- */
+    -------------------------------------------------------------- */
   } catch (err) {
     console.error("[list-nft] Unexpected error", err);
-    // Don’t reference openSeaUrl/openSeaPayload here – they might not exist
-    return res.status(500).json({
-      ok: false,
-      message: "Unexpected server error while preparing listing.",
+    // Even on unexpected errors, don’t hard fail the UI – return stub.
+    return sendStub({
+      error: "unexpected_error",
+      errorDetail: String(err),
     });
   }
 }
