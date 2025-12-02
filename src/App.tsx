@@ -3149,6 +3149,28 @@ function ListNftSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // --- Fee assumptions for UI preview only ------------------------------
+  // OpenSea error said "expecting 100 basis points" => 1% marketplace fee.
+  const OPENSEA_FEE_BPS = 100; // 100 bps = 1%
+
+  // If later you fetch collection royalty from backend, plug it here (in bps).
+  const COLLECTION_FEE_BPS = 0; // e.g. 500 = 5%
+
+  const priceNum = Number(price);
+  const hasValidPrice = Number.isFinite(priceNum) && priceNum > 0;
+
+  const osFeePct = OPENSEA_FEE_BPS / 10_000; // 0.01
+  const collectionFeePct = COLLECTION_FEE_BPS / 10_000;
+  const totalFeePct = osFeePct + collectionFeePct;
+
+  const osFeeEth = hasValidPrice ? priceNum * osFeePct : 0;
+  const collectionFeeEth = hasValidPrice ? priceNum * collectionFeePct : 0;
+  const netEth = hasValidPrice ? priceNum * (1 - totalFeePct) : 0;
+
+  function formatEth(v: number) {
+    if (!Number.isFinite(v) || v <= 0) return "0";
+    return v >= 1 ? v.toFixed(3) : v.toFixed(4);
+  }
 
    async function handleList() {
     setSubmitting(true);
@@ -3324,6 +3346,38 @@ function ListNftSheet({
               </span>
             </div>
           </div>
+          {hasValidPrice && (
+            <div className="mt-2 space-y-1 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] text-neutral-700">
+              <div className="flex justify-between">
+                <span>OpenSea fee ({(OPENSEA_FEE_BPS / 100).toFixed(2)}%)</span>
+                <span>-{formatEth(osFeeEth)} ETH</span>
+              </div>
+
+              {COLLECTION_FEE_BPS > 0 && (
+                <div className="flex justify-between">
+                  <span>
+                    Collection fee ({(COLLECTION_FEE_BPS / 100).toFixed(2)}%)
+                  </span>
+                  <span>-{formatEth(collectionFeeEth)} ETH</span>
+                </div>
+              )}
+
+              <div className="flex justify-between border-t border-neutral-200 pt-1">
+                <span className="font-medium text-neutral-800">
+                  You&apos;ll receive (before gas)
+                </span>
+                <span className="font-semibold text-emerald-600">
+                  {formatEth(netEth)} ETH
+                </span>
+              </div>
+
+              <p className="mt-1 text-[10px] leading-snug text-neutral-500">
+                This is an estimate based on OpenSea marketplace fees
+                {COLLECTION_FEE_BPS > 0 && " and collection royalties"}.  
+                Actual proceeds may differ slightly on OpenSea.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="mt-1 text-[11px] text-red-500 leading-tight">
