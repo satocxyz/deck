@@ -1121,7 +1121,7 @@ function NftDetailPage({
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [listingsRefreshNonce, setListingsRefreshNonce] = useState(0);
-  const [myListingOverride, setMyListingOverride] = useState<Listing | null>(null);
+  const [myTokenListing, setMyTokenListing] = useState<Listing | null>(null);
 
 
   const [sales, setSales] = useState<Sale[]>([]);
@@ -1148,11 +1148,11 @@ function NftDetailPage({
   const [revoking, setRevoking] = useState(false);
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
 
-  const myListing: Listing | null = useMemo(() => {
-    // 1) if we have an explicit listing from a successful list flow, use it
-    if (myListingOverride) return myListingOverride;
+    const myListing: Listing | null = useMemo(() => {
+    // 1) if we have a direct listing for this token from OpenSea, use it
+    if (myTokenListing) return myTokenListing;
 
-    // 2) otherwise, try to infer from the collection listings
+    // 2) otherwise, try to infer from the collection's top-3 listings
     if (!address || !nft || !listings.length) return null;
 
     const tokenIdStr = String(nft.identifier);
@@ -1167,7 +1167,8 @@ function NftDetailPage({
         return sameToken && sameMaker;
       }) ?? null
     );
-  }, [address, nft, listings, myListingOverride]);
+  }, [address, nft, listings, myTokenListing]);
+
 
 
 
@@ -1558,10 +1559,58 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
+    // Fetch listings specifically for this tokenId + contract (to detect "my listing")
   useEffect(() => {
-    // when user or NFT changes, clear cached "my listing"
-    setMyListingOverride(null);
-  }, [address, nft]);
+    const contractAddress =
+      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!nft || !contractAddress || !address) {
+      setMyTokenListing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setMyTokenListing(null);
+
+    const params = new URLSearchParams({
+      chain,
+      contract: contractAddress,
+      tokenId: String(nft.identifier),
+      limit: "10",
+    });
+
+    fetch(`/api/opensea/listing-by-token?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch token listing");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json.ok || !Array.isArray(json.listings)) {
+          setMyTokenListing(null);
+          return;
+        }
+
+        // Prefer listing where maker == current wallet
+        const lowerAddr = address.toLowerCase();
+        const mine =
+          json.listings.find(
+            (l: Listing) =>
+              l.maker && l.maker.toLowerCase() === lowerAddr,
+          ) ?? null;
+
+        setMyTokenListing(mine);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load token listing", err);
+        setMyTokenListing(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft, address, listingsRefreshNonce]);
 
 
   // Approval status: read isApprovedForAll(owner, OPENSEA_SEAPORT_CONDUIT)
@@ -2611,15 +2660,10 @@ async function handleRevokeOpenSea() {
           collectionName={collectionName}
           onClose={() => setShowListSheet(false)}
           onListed={(listing) => {
-            setShowListSheet(false);
+          setShowListSheet(false);
+          setListingsRefreshNonce((n) => n + 1);
+        }}
 
-            if (listing) {
-              setMyListingOverride(listing);
-            }
-
-            // still refresh collection listings for the top-3 panel
-            setListingsRefreshNonce((n) => n + 1);
-          }}
         />
       )}
 
