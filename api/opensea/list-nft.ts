@@ -144,9 +144,17 @@ export default async function handler(
     ------------------------------------------------------------------------- */
   } catch (err) {
     console.error("[list-nft] Unexpected error", err);
-    return res.status(500).json({
-      ok: false,
-      message: "Unexpected server error while preparing listing.",
+// Current behaviour: only echo payload + guide text.
+    return res.status(200).json({
+    ok: true,
+    stubbed: true,
+    message:
+        "Listing backend is stubbed. No real OpenSea listing was created. Next step: build & sign a Seaport 1.6 order and send it here.",
+    debug: {
+        openSeaUrl,
+        openSeaPayload,
+    },
     });
+
   }
 }

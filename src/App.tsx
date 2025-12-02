@@ -2941,34 +2941,45 @@ function ListNftSheet({
         return;
       }
 
-      const res = await fetch("/api/opensea/list-nft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chain,
-          contractAddress,
-          tokenId,
-          priceEth: priceNum,
-          durationDays: durationNum,
-          sellerAddress: address,
-        }),
-      });
+const res = await fetch("/api/opensea/list-nft", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    chain,
+    contractAddress,
+    tokenId,
+    priceEth: priceNum,
+    durationDays: durationNum,
+    sellerAddress: address,
+  }),
+});
 
-      const json: any = await res.json().catch(() => ({}));
+const json: any = await res.json().catch(() => ({}));
 
-      if (!res.ok || json.ok === false) {
-        setError(
-          json?.message ||
-            "Backend rejected listing request. Check server logs.",
-        );
-        return;
-      }
+if (!res.ok || json.ok === false) {
+  setError(
+    json?.message ||
+      "Backend rejected listing request. Check server logs.",
+  );
+  return;
+}
 
-      setInfo(
-        json?.message ||
-          "Listing request sent to OpenSea. It may take a few seconds to appear.",
-      );
-      onListed();
+// if backend is still stubbed, just show info and DO NOT close sheet
+if (json.stubbed) {
+  setInfo(
+    json?.message ||
+      "Listing flow is not live yet. Backend is stubbed, no real OpenSea listing was created.",
+  );
+  return;
+}
+
+// real success path (when you later wire Seaport + OpenSea)
+setInfo(
+  json?.message ||
+    "Listing request sent to OpenSea. It may take a few seconds to appear.",
+);
+onListed();
+
     } catch (err) {
       console.error("ListNftSheet error", err);
       setError("Failed to create listing. Check console for details.");
