@@ -183,6 +183,24 @@ const SEAPORT_1_6_ADDRESS = getAddress(
 
 // ---- Minimal Seaport typed-data types for a simple listing ----
 type Eip712Types = Record<string, { name: string; type: string }[]>;
+// Helper: recursively convert all bigint values to string so JSON.stringify works
+function serializeBigInt(value: any): any {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => serializeBigInt(v));
+  }
+  if (value && typeof value === "object") {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = serializeBigInt(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 type SeaportOfferItem = {
   itemType: number;
   token: `0x${string}`;
@@ -3163,6 +3181,13 @@ function ListNftSheet({
       });
 
       // --- Send to backend (still stubbed – no real OpenSea call yet) ------
+      const seaportOrderForBackend = serializeBigInt({
+        protocolAddress: SEAPORT_1_6_ADDRESS,
+        parameters: typed.parameters,
+        components: typed.value,
+        signature,
+      });
+
       const res = await fetch("/api/opensea/list-nft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3173,14 +3198,10 @@ function ListNftSheet({
           priceEth: priceNum,
           durationDays: durationNum,
           sellerAddress: address,
-          seaportOrder: {
-            protocolAddress: SEAPORT_1_6_ADDRESS,
-            parameters: typed.parameters,
-            components: typed.value,
-            signature,
-          },
+          seaportOrder: seaportOrderForBackend,
         }),
       });
+
 
       const json: any = await res.json().catch(() => ({}));
 
