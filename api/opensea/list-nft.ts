@@ -14,8 +14,9 @@ const bodySchema = z
     sellerAddress: z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid seller address"),
+    // frontend sends this: { protocolAddress, parameters, components, signature }
+    seaportOrder: z.any(),
   })
-  // allow seaportOrder and future fields
   .passthrough();
 
 function openSeaChainSlug(chain: string): string {
@@ -33,7 +34,7 @@ function openSeaChainSlug(chain: string): string {
   }
 }
 
-// Seaport 1.6 canonical address used by OpenSea
+// Canonical Seaport 1.6 contract used by OpenSea
 const SEAPORT_1_6_ADDRESS =
   "0x0000000000000068f116a894984e2db1123eb395" as const;
 
@@ -47,9 +48,6 @@ export default async function handler(
       .status(405)
       .json({ ok: false, message: "Method not allowed. Use POST." });
   }
-
-  let openSeaUrl: string | null = null;
-  let openSeaPayload: any | null = null;
 
   try {
     if (!req.body) {
@@ -73,7 +71,7 @@ export default async function handler(
       priceEth,
       durationDays,
       sellerAddress,
-      // seaportOrder & any extra fields are in parsed.data because of .passthrough()
+      seaportOrder,
     } = parsed.data as any;
 
     const apiKey = process.env.OPENSEA_API_KEY;
@@ -85,55 +83,73 @@ export default async function handler(
       });
     }
 
-    /**
-     * We expect the client to send:
-     *  seaportOrder: {
-     *    protocolAddress?: string;
-     *    components: OrderComponents; // includes counter
-     *    signature: string;
-     *  }
-     *
-     * components is what OpenSea expects as "parameters" in the body.
-     */
-    const seaportOrder = (parsed.data as any).seaportOrder;
-
+    // --- Validate / normalize seaportOrder from frontend -------------------
     if (!seaportOrder || typeof seaportOrder !== "object") {
       return res.status(400).json({
         ok: false,
         message:
-          "Missing seaportOrder in request body. Build & sign a Seaport 1.6 order on the client and include it as seaportOrder.",
+          "Missing or invalid seaportOrder. Frontend must send the signed Seaport order.",
       });
     }
 
-    const { components, signature, protocolAddress } = seaportOrder as any;
+    const protocolAddress: string =
+      seaportOrder.protocol_address ??
+      seaportOrder.protocolAddress ??
+      SEAPORT_1_6_ADDRESS;
 
-    if (!components || typeof components !== "object") {
+    if (
+      typeof protocolAddress !== "string" ||
+      !/^0x[a-fA-F0-9]{40}$/.test(protocolAddress)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: "Missing or invalid protocol_address for Seaport.",
+      });
+    }
+
+    // Prefer components (OrderComponents with counter), else parameters
+    const orderParameters =
+      seaportOrder.components ?? seaportOrder.parameters;
+
+    if (!orderParameters || typeof orderParameters !== "object") {
       return res.status(400).json({
         ok: false,
         message:
-          "Invalid seaportOrder: missing components (OrderComponents with counter).",
+          "Missing Seaport order parameters. Expected components or parameters on seaportOrder.",
       });
     }
 
-    if (!signature || typeof signature !== "string") {
+    const signature: string | undefined = seaportOrder.signature;
+    if (
+      !signature ||
+      typeof signature !== "string" ||
+      !signature.startsWith("0x")
+    ) {
       return res.status(400).json({
         ok: false,
-        message: "Invalid seaportOrder: missing signature.",
+        message:
+          "Missing or invalid Seaport signature on seaportOrder.signature.",
       });
     }
 
     const chainSlug = openSeaChainSlug(chain);
-    const protocol =
-      (protocolAddress as string | undefined)?.toLowerCase() ??
-      SEAPORT_1_6_ADDRESS.toLowerCase();
+    const openSeaUrl = `https://api.opensea.io/api/v2/orders/${chainSlug}/seaport/listings`;
 
-    // Real Create Listing endpoint
-    openSeaUrl = `https://api.opensea.io/api/v2/orders/${chainSlug}/${protocol}/listings`;
-
-    // Minimal payload OpenSea expects: Seaport order parameters + signature
-    openSeaPayload = {
-      parameters: components,
+    // This shape matches how orders are returned from OpenSea,
+    // and what their docs expect for Create Listing.
+    const openSeaPayload: any = {
+      parameters: orderParameters,
       signature,
+      protocol_address: protocolAddress,
+      // optional metadata – not required but nice to send
+      listing: {
+        chain: chainSlug,
+        contract_address: contractAddress,
+        token_id: tokenId,
+        price: priceEth,
+        duration_days: durationDays,
+        seller_address: sellerAddress,
+      },
     };
 
     const osRes = await fetch(openSeaUrl, {
@@ -145,31 +161,16 @@ export default async function handler(
       body: JSON.stringify(openSeaPayload),
     });
 
-    const osJson = await osRes.json().catch(() => ({} as any));
+    const osJson: any = await osRes.json().catch(() => ({}));
 
     if (!osRes.ok) {
-      console.error(
-        "[list-nft] OpenSea Create Listing error",
-        osRes.status,
-        osJson,
-      );
-
-      const msgFromErrors =
-        Array.isArray((osJson as any)?.errors) &&
-        (osJson as any).errors.join(", ");
-
-      const message =
-        (osJson as any)?.message ||
-        msgFromErrors ||
-        `OpenSea returned HTTP ${osRes.status} while creating listing.`;
-
-      // Surface OpenSea’s message to the mini app so you can see
-      // things like “You have not provided all required creator fees.”
-      return res.status(osRes.status === 400 ? 400 : 502).json({
+      console.error("[list-nft] OpenSea error", osRes.status, osJson);
+      return res.status(osRes.status).json({
         ok: false,
-        message,
-        openSeaStatus: osRes.status,
-        openSeaBody: osJson,
+        message:
+          osJson?.message ||
+          `OpenSea returned HTTP ${osRes.status} when creating listing.`,
+        raw: osJson,
       });
     }
 
@@ -179,15 +180,11 @@ export default async function handler(
       openSea: osJson,
     });
   } catch (err) {
-    console.error("[list-nft] Unexpected error", err, {
-      openSeaUrl,
-      // don’t log full payload; just shape
-      hasPayload: !!openSeaPayload,
-    });
-
+    console.error("[list-nft] Unexpected error", err);
     return res.status(500).json({
       ok: false,
-      message: "Unexpected server error while creating listing.",
+      message:
+        "Unexpected server error while creating listing. Check server logs.",
     });
   }
 }
