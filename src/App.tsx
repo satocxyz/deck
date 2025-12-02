@@ -152,6 +152,14 @@ const seaportMatchAdvancedOrdersAbi = [
 const OPENSEA_SEAPORT_CONDUIT =
   "0x1E0049783F008A0085193E00003D00cd54003c71" as const;
 
+// OpenSea Seaport config (zone + shared conduit key)
+const OPENSEA_ZONE = getAddress(
+  "0x004C00500000aD104D7DBd00e3ae0A5C00560C00"
+) as `0x${string}`;
+
+const OPENSEA_CONDUIT_KEY =
+  "0x0000007b02230091a7ed01230072f7006a004d60a8d4e71d599b8104250f0000" as `0x${string}`;
+
 // Minimal ERC721 / ERC1155 approval ABI
 const erc721Or1155ApprovalAbi = [
   {
@@ -302,25 +310,27 @@ function buildSimpleSeaportListingTypedData(args: {
     },
   ];
 
-  const parameters: SeaportOrderParameters = {
+    const parameters: SeaportOrderParameters = {
     offerer,
-    zone: "0x0000000000000000000000000000000000000000",
+    // Use OpenSea's standard Seaport zone
+    zone: OPENSEA_ZONE,
     offer,
     consideration,
     orderType: 0, // FULL_OPEN
     startTime: BigInt(nowSec),
     endTime: BigInt(endSec),
+    // OpenSea is fine with zero zoneHash for their default zone
     zoneHash:
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     // simple random-ish salt
     salt: BigInt(
       Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
     ),
-    // for now, no conduit (direct approval to Seaport)
-    conduitKey:
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    // Use OpenSea's shared conduit key (matches OPENSEA_SEAPORT_CONDUIT)
+    conduitKey: OPENSEA_CONDUIT_KEY,
     totalOriginalConsiderationItems: BigInt(consideration.length),
   };
+
 
   const value: SeaportOrderComponents = {
     ...parameters,
