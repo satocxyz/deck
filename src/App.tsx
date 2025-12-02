@@ -8,11 +8,10 @@ import {
 } from "wagmi";
 import {
   encodeFunctionData,
-  type TypedData,
   type TypedDataDomain,
-  type TypedDataField,
   getAddress,
 } from "viem";
+
 
 
 
