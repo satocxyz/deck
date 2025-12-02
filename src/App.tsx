@@ -1121,7 +1121,8 @@ function NftDetailPage({
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [listingsRefreshNonce, setListingsRefreshNonce] = useState(0);
-  const [myListingFromOrder, setMyListingFromOrder] = useState<Listing | null>(null);
+  const [myListingOverride, setMyListingOverride] = useState<Listing | null>(null);
+
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
@@ -1147,11 +1148,11 @@ function NftDetailPage({
   const [revoking, setRevoking] = useState(false);
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
 
-  // Derive "my listing" for this token (if any) from collection listings
-    const myListing: Listing | null = useMemo(() => {
-    // If we have something explicitly from a successful list flow, use it
-    if (myListingFromOrder) return myListingFromOrder;
+  const myListing: Listing | null = useMemo(() => {
+    // 1) if we have an explicit listing from a successful list flow, use it
+    if (myListingOverride) return myListingOverride;
 
+    // 2) otherwise, try to infer from the collection listings
     if (!address || !nft || !listings.length) return null;
 
     const tokenIdStr = String(nft.identifier);
@@ -1166,7 +1167,8 @@ function NftDetailPage({
         return sameToken && sameMaker;
       }) ?? null
     );
-  }, [address, nft, listings, myListingFromOrder]);
+  }, [address, nft, listings, myListingOverride]);
+
 
 
   // Offers + floor
@@ -1556,6 +1558,12 @@ function NftDetailPage({
     };
   }, [chain, nft]);
 
+  useEffect(() => {
+    // when user or NFT changes, clear cached "my listing"
+    setMyListingOverride(null);
+  }, [address, nft]);
+
+
   // Approval status: read isApprovedForAll(owner, OPENSEA_SEAPORT_CONDUIT)
   useEffect(() => {
     const contractAddress =
@@ -1598,10 +1606,6 @@ function NftDetailPage({
   }, [publicClient, address, nft, chain]);
 
 
-    useEffect(() => {
-    // When user wallet or NFT changes → reset the “my listing” cache
-    setMyListingFromOrder(null);
-  }, [address, nft]);
 
   // Fallback market points derived directly from sales
   const derivedMarketPoints: MarketPoint[] = useMemo(
@@ -2610,14 +2614,15 @@ async function handleRevokeOpenSea() {
             setShowListSheet(false);
 
             if (listing) {
-              setMyListingFromOrder(listing);
+              setMyListingOverride(listing);
             }
 
-            // still refresh collection listings for the top-3 block
+            // still refresh collection listings for the top-3 panel
             setListingsRefreshNonce((n) => n + 1);
           }}
         />
       )}
+
 
       {showCancelSheet && contractAddress && myListing && (
         <CancelListingSheet
@@ -3339,7 +3344,7 @@ function ListNftSheet({
 
       const json: any = await res.json().catch(() => ({}));
 
-      if (!res.ok || json.ok === false) {
+            if (!res.ok || json.ok === false) {
         setError(
           json?.message ||
             "Backend rejected listing request. Check server logs.",
@@ -3356,6 +3361,7 @@ function ListNftSheet({
 
       setInfo(json?.message || "Listing created on OpenSea.");
       onListed(mapped);
+
 
     } catch (err) {
       console.error("ListNftSheet error", err);
