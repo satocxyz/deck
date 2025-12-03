@@ -3613,7 +3613,7 @@ function ListNftSheet({
 
 function CancelListingSheet({
   chain,
-  contractAddress,
+  contractAddress: _contractAddress,   // mark unused
   tokenId,
   listing,
   imageUrl,
@@ -3630,6 +3630,7 @@ function CancelListingSheet({
   onClose: () => void;
   onCancelled: () => void;
 }) {
+
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient(); // ✅ add this
   const [submitting, setSubmitting] = useState(false);
