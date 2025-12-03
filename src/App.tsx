@@ -2714,8 +2714,18 @@ async function handleRevokeOpenSea() {
           onClose={() => setShowCancelSheet(false)}
           onCancelled={() => {
             setShowCancelSheet(false);
-            setMyListing(null);                // instant UI update
-            setListingsRefreshNonce((n) => n + 1); // keep backend in sync
+
+            // Poll OpenSea until the listing is gone
+            let attempts = 0;
+            const poll = setInterval(() => {
+              attempts++;
+
+              // trigger a refresh
+              setListingsRefreshNonce((n) => n + 1);
+
+              // stop after 10 seconds max
+              if (attempts > 10) clearInterval(poll);
+            }, 1000);
           }}
         />
       )}
