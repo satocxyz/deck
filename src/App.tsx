@@ -350,7 +350,7 @@ function buildSimpleSeaportListingTypedData(args: {
     zone: OPENSEA_ZONE,
     offer,
     consideration,
-    orderType: 0, // FULL_OPEN
+    orderType: 2, // FULL_RESTRICTED
     startTime: BigInt(nowSec),
     endTime: BigInt(endSec),
     zoneHash:
