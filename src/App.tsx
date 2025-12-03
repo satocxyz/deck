@@ -2662,7 +2662,8 @@ async function handleRevokeOpenSea() {
           onClose={() => setShowCancelSheet(false)}
           onCancelled={() => {
             setShowCancelSheet(false);
-            setListingsRefreshNonce((n) => n + 1);
+            setMyListing(null);                // instant UI update
+            setListingsRefreshNonce((n) => n + 1); // keep backend in sync
           }}
         />
       )}
