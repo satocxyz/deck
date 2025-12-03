@@ -148,6 +148,58 @@ const seaportMatchAdvancedOrdersAbi = [
   },
 ] as const;
 
+
+// Minimal Seaport 1.6 ABI — only the cancel() function
+const seaportCancelAbi = [
+  {
+    "type": "function",
+    "name": "cancel",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "orders",
+        "type": "tuple[]",
+        "components": [
+          { "name": "offerer", "type": "address" },
+          { "name": "zone", "type": "address" },
+          {
+            "name": "offer",
+            "type": "tuple[]",
+            "components": [
+              { "name": "itemType", "type": "uint8" },
+              { "name": "token", "type": "address" },
+              { "name": "identifierOrCriteria", "type": "uint256" },
+              { "name": "startAmount", "type": "uint256" },
+              { "name": "endAmount", "type": "uint256" }
+            ]
+          },
+          {
+            "name": "consideration",
+            "type": "tuple[]",
+            "components": [
+              { "name": "itemType", "type": "uint8" },
+              { "name": "token", "type": "address" },
+              { "name": "identifierOrCriteria", "type": "uint256" },
+              { "name": "startAmount", "type": "uint256" },
+              { "name": "endAmount", "type": "uint256" },
+              { "name": "recipient", "type": "address" }
+            ]
+          },
+          { "name": "orderType", "type": "uint8" },
+          { "name": "startTime", "type": "uint256" },
+          { "name": "endTime", "type": "uint256" },
+          { "name": "zoneHash", "type": "bytes32" },
+          { "name": "salt", "type": "uint256" },
+          { "name": "conduitKey", "type": "bytes32" },
+          { "name": "counter", "type": "uint256" }
+        ]
+      }
+    ]
+  }
+];
+
+
+
 // Canonical OpenSea Seaport conduit (same on mainnet, Base, etc.)
 const OPENSEA_SEAPORT_CONDUIT =
   "0x1E0049783F008A0085193E00003D00cd54003c71" as const;
@@ -3579,56 +3631,79 @@ function CancelListingSheet({
   onCancelled: () => void;
 }) {
   const { address } = useAccount();
+  const { data: walletClient } = useWalletClient(); // ✅ add this
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  async function handleCancel() {
-    setSubmitting(true);
-    setError(null);
-    setInfo(null);
+async function handleCancel() {
+  setSubmitting(true);
+  setError(null);
+  setInfo(null);
 
-    try {
-      if (!address) {
-        setError("Wallet is not connected.");
-        return;
-      }
-
-      const res = await fetch("/api/opensea/cancel-listing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chain,
-          orderId: listing.id,
-          contractAddress,
-          tokenId,
-          sellerAddress: address,
-        }),
-      });
-
-      const json: any = await res.json().catch(() => ({}));
-
-      if (!res.ok || json.ok === false) {
-        setError(
-          json?.message ||
-            "Backend rejected cancel request. Check server logs.",
-        );
-        return;
-      }
-
-
-      setInfo(
-        json?.message ||
-          "Cancel request sent. It may take a few seconds for the listing to disappear.",
-      );
-      onCancelled();
-    } catch (err) {
-      console.error("CancelListingSheet error", err);
-      setError("Failed to cancel listing. Check console for details.");
-    } finally {
-      setSubmitting(false);
+  try {
+    if (!address || !walletClient) {           // ✅ add walletClient check
+      setError("Wallet is not connected.");
+      return;
     }
+
+    // 1. fetch order components
+    const ocRes = await fetch("/api/opensea/order-components", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chain,
+        orderId: listing.id,
+        expectedOfferer: address,
+      }),
+    });
+
+    const ocJson = await ocRes.json();
+
+    if (!ocJson.ok) {
+      setError(ocJson.message || "Failed to fetch order components.");
+      return;
+    }
+
+    const seaportAddress = ocJson.seaportAddress;
+    const orderComponents = ocJson.orderComponents;
+
+    if (!seaportAddress || !orderComponents) {
+      setError("Missing Seaport address or order components.");
+      return;
+    }
+
+    const data = encodeFunctionData({
+      abi: seaportCancelAbi,
+      functionName: "cancel",
+      args: [[orderComponents]],
+    });
+
+    const txHash = await walletClient.sendTransaction({
+      account: address as `0x${string}`,
+      chain: {
+        id: chainIdFromChain(chain),
+        name: "",
+        nativeCurrency: undefined,
+        rpcUrls: {},
+      } as any,
+      to: seaportAddress as `0x${string}`,
+      data,
+      value: 0n,
+    });
+
+    setInfo(`Cancel transaction submitted: ${txHash}`);
+    onCancelled();
+    onClose();
+  } catch (err) {
+    console.error("cancel tx error", err);
+    setError("Failed to submit cancel transaction.");
+  } finally {
+    setSubmitting(false);
   }
+}
+
+
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
