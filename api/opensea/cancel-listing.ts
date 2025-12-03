@@ -94,20 +94,32 @@ export default async function handler(
     const osJson: any = await osRes.json().catch(() => ({}));
 
     if (!osRes.ok) {
-      console.error(
-        "[cancel-listing] OpenSea error",
-        osRes.status,
-        osJson,
-      );
-      return res.status(200).json({
+    const raw = osJson as any;
+    const errors: string[] = Array.isArray(raw?.errors) ? raw.errors : [];
+
+    const notSignedZone = errors.some((e) =>
+        typeof e === "string" &&
+        e.toLowerCase().includes("not under a signed zone")
+    );
+
+    if (osRes.status === 400 && notSignedZone) {
+        // This order simply can't be cancelled via the offchain API
+        return res.status(200).json({
         ok: false,
+        reason: "not_signed_zone",
         message:
-          "OpenSea returned HTTP " +
-          osRes.status +
-          " while cancelling this order.",
-        raw: osJson,
-      });
+            "This listing wasn’t created with OpenSea’s SignedZone, so it can’t be cancelled via API. Please cancel it directly on OpenSea.",
+        raw,
+        });
     }
+
+    return res.status(200).json({
+        ok: false,
+        message: `OpenSea returned HTTP ${osRes.status} while cancelling this order.`,
+        raw,
+    });
+    }
+
 
     // Success: OpenSea accepted the cancel request
     return res.status(200).json({

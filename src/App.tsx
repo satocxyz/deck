@@ -3616,6 +3616,7 @@ function CancelListingSheet({
         return;
       }
 
+
       setInfo(
         json?.message ||
           "Cancel request sent. It may take a few seconds for the listing to disappear.",
