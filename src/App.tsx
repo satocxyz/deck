@@ -154,7 +154,7 @@ const OPENSEA_SEAPORT_CONDUIT =
 
 // OpenSea Seaport config (zone + shared conduit key)
 const OPENSEA_ZONE = getAddress(
-  "0x004C00500000aD104D7DBd00e3ae0A5C00560C00"
+  "0x000056f7000000ece9003ca63978907a00ffd100"
 ) as `0x${string}`;
 
 const OPENSEA_CONDUIT_KEY =
