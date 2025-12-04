@@ -2693,12 +2693,12 @@ async function handleRevokeOpenSea() {
           collectionName={collectionName}
           onClose={() => setShowListSheet(false)}
           onListed={(listing) => {
-            setShowListSheet(false);
-            if (listing) {
-              setMyListing(listing);
-            }
-            setListingsRefreshNonce((n) => n + 1);
-          }}
+          if (listing) {
+            setMyListing(listing);
+          }
+          setListingsRefreshNonce((n) => n + 1);
+        }}
+
         />
       )}
 
@@ -3451,9 +3451,9 @@ function ListNftSheet({
       }
 
       setInfo(json?.message || "Listing created on OpenSea.");
-      onListed(mapped);
+      
       setShowSuccessModal(true);
-
+      onListed(mapped);
     } catch (err) {
       console.error("ListNftSheet error", err);
       setError("Failed to create listing. Check console for details.");
