@@ -3333,6 +3333,10 @@ function ListNftSheet({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const openSeaUrl = `https://opensea.io/assets/${openSeaChainSlug(
+  chain,
+)}/${contractAddress}/${tokenId}`;
+
   // --- Fee assumptions for UI preview only ------------------------------
   // OpenSea error said "expecting 100 basis points" => 1% marketplace fee.
   const OPENSEA_FEE_BPS = 100; // 100 bps = 1%
@@ -3618,47 +3622,67 @@ function ListNftSheet({
           Cancel
         </button>
         {showSuccessModal && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <button
-              type="button"
-              className="absolute inset-0 h-full w-full"
-              onClick={() => {
-                setShowSuccessModal(false);
-                onClose(); // also close the sheet
-              }}
-            />
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => {
+        setShowSuccessModal(false);
+        onClose();
+      }}
+    />
 
-            <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-                <span className="text-emerald-600 text-lg">✓</span>
-              </div>
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      {/* Animated checkmark */}
+      <img
+        src="/checkmark-animated.webp"
+        alt="Success"
+        className="mx-auto mb-3 h-12 w-12"
+      />
 
-              <div className="text-center">
-                <h2 className="text-sm font-semibold text-neutral-900">
-                  NFT listed on OpenSea
-                </h2>
-                <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-                  Your listing is now live. You can view or manage it from OpenSea.
-                </p>
-              </div>
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          NFT listed successfully
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          You can cancel or relist your NFT directly from Deck.
+        </p>
+      </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  onClose();
-                }}
-                className="
-                  mt-4 w-full rounded-xl border border-neutral-200
-                  bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-                  hover:bg-neutral-100
-                "
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
+      {/* View on OpenSea button */}
+      <a
+        href={openSeaUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="
+          mt-4 flex w-full items-center justify-center
+          rounded-xl border border-purple-500/70
+          bg-white py-2 text-[12px] font-semibold
+          text-purple-700 hover:bg-purple-50
+        "
+      >
+        View on OpenSea
+      </a>
+
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          onClose();
+        }}
+        className="
+          mt-2 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
 
       </div>
     </div>
