@@ -908,7 +908,14 @@ function ChainSelector({
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pt-3 pb-4 shadow-xl">
+          <div
+  className={
+    isDarkTheme(theme)
+      ? "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-700 bg-[#181818] px-4 pt-3 pb-4 shadow-xl"
+      : "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pt-3 pb-4 shadow-xl"
+  }
+>
+
             <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-neutral-300" />
             <div className="mb-2 text-center text-[12px] font-semibold text-neutral-900">
               Select network
