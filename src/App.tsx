@@ -2389,15 +2389,32 @@ function NftDetailPage({
                 </div>
 
                 {contractAddress && approvalStatus === "approved" && (
-                  <button
-                    type="button"
-                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] font-medium text-neutral-500 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={revoking}
-                    onClick={handleRevokeOpenSea}
-                  >
-                    {revoking ? "Revoking approval…" : "Revoke OpenSea approval"}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="
+                        w-full rounded-xl
+                        border border-[var(--border)]
+                        bg-[var(--surface-secondary)]
+                        px-3 py-1.5 text-[11px] font-medium
+                        text-[var(--text-secondary)]
+                        hover:bg-[var(--surface)]
+                        disabled:cursor-not-allowed disabled:opacity-60
+                      "
+                      disabled={revoking || hasMyListing}
+                      onClick={handleRevokeOpenSea}
+                    >
+                      {revoking ? "Revoking approval…" : "Revoke OpenSea approval"}
+                    </button>
+
+                    {hasMyListing && (
+                      <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                        Cancel your listing before revoking OpenSea approval.
+                      </p>
+                    )}
+                  </>
                 )}
+
               </>
             )}
 
