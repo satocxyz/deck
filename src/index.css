@@ -1,8 +1,66 @@
 @import "tailwindcss";
 
-/* Your root body styling */
+/* ---------------------------------------------
+   THEME VARIABLES (Base Light + Farcaster Dark)
+   --------------------------------------------- */
+:root {
+  /* default to Base light (fallback) */
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --surface-secondary: #f3f4f6;
+  --border: #e5e7eb;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --primary: #0052ff;
+  --primary-hover: #1a6bff;
+  --primary-active: #003fcc;
+  --primary-text: #ffffff;
+}
+
+/* Base Light Theme */
+[data-theme="base-light"] {
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --surface-secondary: #f3f4f6;
+  --border: #e5e7eb;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --primary: #0052ff;
+  --primary-hover: #1a6bff;
+  --primary-active: #003fcc;
+  --primary-text: #ffffff;
+}
+
+/* Farcaster Dark Theme */
+[data-theme="farcaster-dark"] {
+  --bg: #101010;
+  --surface: #181818;
+  --surface-secondary: #1f1f1f;
+  --border: #2a2a2a;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a5a5a5;
+  --text-muted: #6f6f6f;
+
+  --primary: #866aff;
+  --primary-hover: #9b84ff;
+  --primary-active: #231a36;
+  --primary-text: #ffffff;
+}
+
+/* --------------------------------------------------
+   Apply theme vars globally
+   -------------------------------------------------- */
 body {
-  @apply bg-neutral-950 text-white;
+  background-color: var(--bg);
+  color: var(--text-primary);
+
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 

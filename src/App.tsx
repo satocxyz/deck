@@ -695,21 +695,18 @@ function App() {
 
     return (
     <div
-      className={
-        isDarkTheme(theme)
-          ? "min-h-screen bg-[#0D0D0F] text-neutral-50"
-          : "min-h-screen bg-neutral-50 text-neutral-900"
-      }
-      style={{
-        paddingTop: 16 + safeArea.top,
-        paddingBottom: 16 + safeArea.bottom,
-        paddingLeft: 16 + safeArea.left,
-        paddingRight: 16 + safeArea.right,
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-      }}
-      data-theme={theme}
-    >
+  className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)]"
+  style={{
+    paddingTop: 16 + safeArea.top,
+    paddingBottom: 16 + safeArea.bottom,
+    paddingLeft: 16 + safeArea.left,
+    paddingRight: 16 + safeArea.right,
+    fontFamily:
+      "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  }}
+  data-theme={theme}
+>
+
 
 
       <header className="mb-4 space-y-3">
@@ -937,13 +934,15 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
       className="
-        w-full rounded-2xl 
-        bg-neutral-900 px-4 py-3
-        text-sm font-semibold text-white
-        shadow-sm transition-all duration-150
-        hover:bg-neutral-800 
-        disabled:cursor-not-allowed disabled:opacity-60
-      "
+  w-full rounded-2xl 
+  bg-[var(--primary)] px-4 py-3
+  text-sm font-semibold text-[var(--primary-text)]
+  shadow-sm transition-all duration-150
+  hover:bg-[var(--primary-hover)]
+  active:bg-[var(--primary-active)]
+  disabled:cursor-not-allowed disabled:opacity-60
+"
+
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
     </button>
@@ -2631,10 +2630,14 @@ setActionSuccess({
               <button
                 type="button"
                 className="
-                  w-full rounded-xl bg-purple-600 py-2
-                  text-[12px] font-semibold text-white shadow-sm
-                  hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60
-                "
+  w-full rounded-xl py-2
+  bg-[var(--primary)]
+  text-[12px] font-semibold text-[var(--primary-text)] shadow-sm
+  hover:bg-[var(--primary-hover)]
+  active:bg-[var(--primary-active)]
+  disabled:cursor-not-allowed disabled:opacity-60
+"
+
                 disabled={
                   approving ||
                   approvalStatus === "checking" ||
@@ -2657,11 +2660,12 @@ setActionSuccess({
                     disabled={!canAcceptBestOffer}
                     onClick={() => setShowSellSheet(true)}
                     className={[
-                      "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
-                      canAcceptBestOffer
-                        ? "border border-purple-500/60 bg-purple-600 text-white hover:bg-purple-500"
-                        : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
-                    ].join(" ")}
+  "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
+  canAcceptBestOffer
+    ? "border border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
+    : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
+].join(" ")}
+
                   >
                     {canAcceptBestOffer
                       ? "Accept best offer"
@@ -2676,7 +2680,15 @@ setActionSuccess({
                         ? setShowCancelSheet(true)
                         : setShowListSheet(true)
                     }
-                    className="flex-1 rounded-xl border border-purple-500/60 bg-white px-3 py-2 text-[12px] font-semibold text-purple-700 shadow-sm hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="
+  flex-1 rounded-xl border px-3 py-2 text-[12px] font-semibold shadow-sm
+  border-[var(--primary)]
+  text-[var(--primary)]
+  bg-[var(--surface)]
+  hover:bg-[var(--surface-secondary)]
+  disabled:cursor-not-allowed disabled:opacity-60
+"
+
                   >
                     {hasMyListing ? "Cancel listing" : "List on OpenSea"}
                   </button>
@@ -3453,12 +3465,20 @@ function SellConfirmSheet({
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={submitting}
-          onClick={handleConfirm}
-        >
-          {submitting ? "Submitting…" : "Confirm accept offer"}
-        </button>
+  className="
+    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
+    bg-[var(--primary)]
+    text-[var(--primary-text)]
+    hover:bg-[var(--primary-hover)]
+    active:bg-[var(--primary-active)]
+    disabled:cursor-not-allowed disabled:opacity-60
+  "
+  disabled={submitting}
+  onClick={handleConfirm}
+>
+  {submitting ? "Submitting…" : "Confirm accept offer"}
+</button>
+
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
@@ -3919,12 +3939,20 @@ function ListNftSheet({
         </div>
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={submitting}
-          onClick={handleList}
-        >
-          {submitting ? "Listing…" : "List"}
-        </button>
+  className="
+    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
+    bg-[var(--primary)]
+    text-[var(--primary-text)]
+    hover:bg-[var(--primary-hover)]
+    active:bg-[var(--primary-active)]
+    disabled:cursor-not-allowed disabled:opacity-60
+  "
+  disabled={submitting}
+  onClick={handleList}
+>
+  {submitting ? "Listing…" : "List"}
+</button>
+
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
@@ -4201,12 +4229,20 @@ function CancelListingSheet({
         )}
 
         <button
-          className="mt-4 w-full rounded-xl bg-purple-600 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={submitting}
-          onClick={handleCancel}
-        >
-          {submitting ? "Cancelling…" : "Cancel listing"}
-        </button>
+  className="
+    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
+    bg-[var(--primary)]
+    text-[var(--primary-text)]
+    hover:bg-[var(--primary-hover)]
+    active:bg-[var(--primary-active)]
+    disabled:cursor-not-allowed disabled:opacity-60
+  "
+  disabled={submitting}
+  onClick={handleCancel}
+>
+  {submitting ? "Cancelling…" : "Cancel listing"}
+</button>
+
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
