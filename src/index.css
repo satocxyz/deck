@@ -44,14 +44,23 @@
   --surface-secondary: #1f1f1f;
   --border: #2a2a2a;
 
-  --text-primary: #ffffff;       /* true white */
-  --text-secondary: #f5f5f5;     /* slightly softer for labels / headings */
-  --text-muted: #a3a3ac;         /* for helper text */
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #e5e5e5; /* optional softer white for disclaimers */
 
   --primary: #866aff;
   --primary-hover: #9b84ff;
   --primary-active: #231a36;
   --primary-text: #ffffff;
+}
+/* In Farcaster dark mode, force all neutral text utilities to render as white */
+[data-theme="farcaster-dark"] .text-neutral-400,
+[data-theme="farcaster-dark"] .text-neutral-500,
+[data-theme="farcaster-dark"] .text-neutral-600,
+[data-theme="farcaster-dark"] .text-neutral-700,
+[data-theme="farcaster-dark"] .text-neutral-800,
+[data-theme="farcaster-dark"] .text-neutral-900 {
+  color: #ffffff !important;
 }
 
 /* --------------------------------------------------
