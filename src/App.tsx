@@ -1,19 +1,7 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  useAccount,
-  useConnect,
-  useWalletClient,
-  usePublicClient,
-} from "wagmi";
-import {
-  encodeFunctionData,
-  type TypedDataDomain,
-  getAddress,
-} from "viem";
-
-
-
+import { useAccount, useConnect, useWalletClient, usePublicClient } from "wagmi";
+import { encodeFunctionData, type TypedDataDomain, getAddress } from "viem";
 
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
 // --- Toast System v2 ---------------------------------------------------------
@@ -41,7 +29,6 @@ export function useToast() {
 }
 
 
-
 if (typeof document !== "undefined") {
   const style = document.createElement("style");
   style.innerHTML = `
@@ -52,7 +39,6 @@ if (typeof document !== "undefined") {
   `;
   document.head.appendChild(style);
 }
-
 
 // Minimal Seaport 1.6 ABI for matchAdvancedOrders
 const seaportMatchAdvancedOrdersAbi = [
@@ -148,66 +134,60 @@ const seaportMatchAdvancedOrdersAbi = [
   },
 ] as const;
 
-
 // Minimal Seaport 1.6 ABI — only the cancel() function
 const seaportCancelAbi = [
   {
-    "type": "function",
-    "name": "cancel",
-    "stateMutability": "nonpayable",
-    "inputs": [
+    type: "function",
+    name: "cancel",
+    stateMutability: "nonpayable",
+    inputs: [
       {
-        "name": "orders",
-        "type": "tuple[]",
-        "components": [
-          { "name": "offerer", "type": "address" },
-          { "name": "zone", "type": "address" },
+        name: "orders",
+        type: "tuple[]",
+        components: [
+          { name: "offerer", type: "address" },
+          { name: "zone", type: "address" },
           {
-            "name": "offer",
-            "type": "tuple[]",
-            "components": [
-              { "name": "itemType", "type": "uint8" },
-              { "name": "token", "type": "address" },
-              { "name": "identifierOrCriteria", "type": "uint256" },
-              { "name": "startAmount", "type": "uint256" },
-              { "name": "endAmount", "type": "uint256" }
-            ]
+            name: "offer",
+            type: "tuple[]",
+            components: [
+              { name: "itemType", type: "uint8" },
+              { name: "token", type: "address" },
+              { name: "identifierOrCriteria", type: "uint256" },
+              { name: "startAmount", type: "uint256" },
+              { name: "endAmount", type: "uint256" },
+            ],
           },
           {
-            "name": "consideration",
-            "type": "tuple[]",
-            "components": [
-              { "name": "itemType", "type": "uint8" },
-              { "name": "token", "type": "address" },
-              { "name": "identifierOrCriteria", "type": "uint256" },
-              { "name": "startAmount", "type": "uint256" },
-              { "name": "endAmount", "type": "uint256" },
-              { "name": "recipient", "type": "address" }
-            ]
+            name: "consideration",
+            type: "tuple[]",
+            components: [
+              { name: "itemType", type: "uint8" },
+              { name: "token", type: "address" },
+              { name: "identifierOrCriteria", type: "uint256" },
+              { name: "startAmount", type: "uint256" },
+              { name: "endAmount", type: "uint256" },
+              { name: "recipient", type: "address" },
+            ],
           },
-          { "name": "orderType", "type": "uint8" },
-          { "name": "startTime", "type": "uint256" },
-          { "name": "endTime", "type": "uint256" },
-          { "name": "zoneHash", "type": "bytes32" },
-          { "name": "salt", "type": "uint256" },
-          { "name": "conduitKey", "type": "bytes32" },
-          { "name": "counter", "type": "uint256" }
-        ]
-      }
-    ]
-  }
+          { name: "orderType", type: "uint8" },
+          { name: "startTime", type: "uint256" },
+          { name: "endTime", type: "uint256" },
+          { name: "zoneHash", type: "bytes32" },
+          { name: "salt", type: "uint256" },
+          { name: "conduitKey", type: "bytes32" },
+          { name: "counter", type: "uint256" },
+        ],
+      },
+    ],
+  },
 ];
 
-
-
 // Canonical OpenSea Seaport conduit (same on mainnet, Base, etc.)
-const OPENSEA_SEAPORT_CONDUIT =
-  "0x1E0049783F008A0085193E00003D00cd54003c71" as const;
+const OPENSEA_SEAPORT_CONDUIT = "0x1E0049783F008A0085193E00003D00cd54003c71" as const;
 
 // OpenSea Seaport config (zone + shared conduit key)
-const OPENSEA_ZONE = getAddress(
-  "0x000056f7000000ece9003ca63978907a00ffd100"
-) as `0x${string}`;
+const OPENSEA_ZONE = getAddress("0x000056f7000000ece9003ca63978907a00ffd100") as `0x${string}`;
 
 const OPENSEA_CONDUIT_KEY =
   "0x0000007b02230091a7ed01230072f7006a004d60a8d4e71d599b8104250f0000" as `0x${string}`;
@@ -238,15 +218,14 @@ const erc721Or1155ApprovalAbi = [
 
 // Canonical Seaport 1.6 contract used by OpenSea on L1 + L2s
 const SEAPORT_1_6_ADDRESS = getAddress(
-  "0x0000000000000068f116a894984e2db1123eb395"
+  "0x0000000000000068f116a894984e2db1123eb395",
 ) as `0x${string}`;
 // --- OpenSea fee config (temporary hard-code: 1% / 100 bps) ----
 const OPENSEA_FEE_BPS = 100; // 100 basis points = 1%
 const FEE_DENOMINATOR = 10_000;
 
 // Official OpenSea fee recipient (Seaport platform fee recipient)
-const OPENSEA_FEE_RECIPIENT =
-  "0x0000a26b00c1F0DF003000390027140000fAa719" as `0x${string}`;
+const OPENSEA_FEE_RECIPIENT = "0x0000a26b00c1F0DF003000390027140000fAa719" as `0x${string}`;
 
 // ---- Minimal Seaport typed-data types for a simple listing ----
 type Eip712Types = Record<string, { name: string; type: string }[]>;
@@ -310,8 +289,6 @@ type SeaportTypedData = {
   parameters: SeaportOrderParameters;
 };
 
-
-
 /**
  * Build a very simple Seaport 1.6 fixed-price listing:
  *  - ERC721
@@ -336,26 +313,17 @@ function buildSimpleSeaportListingTypedData(args: {
   priceEth: number;
   durationDays: number;
 }): SeaportTypedData {
-  const {
-    chainId,
-    offerer,
-    contractAddress,
-    tokenId,
-    priceEth,
-    durationDays,
-  } = args;
+  const { chainId, offerer, contractAddress, tokenId, priceEth, durationDays } = args;
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const endSec =
-    nowSec + Math.max(1, Math.floor(durationDays || 1)) * 24 * 60 * 60;
+  const endSec = nowSec + Math.max(1, Math.floor(durationDays || 1)) * 24 * 60 * 60;
 
   // ETH → wei
   const priceWei = BigInt(Math.round(priceEth * 1e18));
   const tokenIdBigInt = BigInt(tokenId);
 
   // --- Fee split: 1% (OPENSEA_FEE_BPS) to OpenSea, rest to seller ----
-  const osFeeWei =
-    (priceWei * BigInt(OPENSEA_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
+  const osFeeWei = (priceWei * BigInt(OPENSEA_FEE_BPS)) / BigInt(FEE_DENOMINATOR);
   const sellerWei = priceWei - osFeeWei;
 
   if (sellerWei <= 0n) {
@@ -405,11 +373,8 @@ function buildSimpleSeaportListingTypedData(args: {
     orderType: 2, // FULL_RESTRICTED
     startTime: BigInt(nowSec),
     endTime: BigInt(endSec),
-    zoneHash:
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-    salt: BigInt(
-      Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-    ),
+    zoneHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    salt: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
     conduitKey: OPENSEA_CONDUIT_KEY,
     totalOriginalConsiderationItems: BigInt(consideration.length),
   };
@@ -486,7 +451,6 @@ function isDarkTheme(theme: Theme) {
   return theme === "farcaster-dark";
 }
 
-
 function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const hideTimers = React.useRef<Record<string, number>>({});
@@ -534,13 +498,8 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
-  function updateToast(
-    id: string,
-    patch: Partial<Omit<ToastItem, "id">>,
-  ) {
-    setItems((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    );
+  function updateToast(id: string, patch: Partial<Omit<ToastItem, "id">>) {
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
 
     // If type is changed and becomes non-loading, auto-hide it
     if (patch.type && patch.type !== "loading") {
@@ -553,27 +512,16 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* ToastHost UI */}
-      <div className="fixed left-0 right-0 top-3 z-[9999] flex flex-col items-center space-y-2 px-4 pointer-events-none">
+      <div className="pointer-events-none fixed top-3 right-0 left-0 z-[9999] flex flex-col items-center space-y-2 px-4">
         {items.map((t) => (
           <div
             key={t.id}
-            className="
-              pointer-events-auto flex w-full max-w-sm items-center gap-2
-              rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-lg
-              animate-[fadeInUp_0.25s_ease-out]
-            "
+            className="pointer-events-auto flex w-full max-w-sm animate-[fadeInUp_0.25s_ease-out] items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-lg"
           >
-            {t.type === "success" && (
-              <span className="text-emerald-600 text-lg">✓</span>
-            )}
-            {t.type === "error" && (
-              <span className="text-red-500 text-lg">⚠</span>
-            )}
+            {t.type === "success" && <span className="text-lg text-emerald-600">✓</span>}
+            {t.type === "error" && <span className="text-lg text-red-500">⚠</span>}
             {t.type === "loading" && (
-              <svg
-                className="h-4 w-4 animate-spin text-neutral-500"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4 animate-spin text-neutral-500" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -589,15 +537,10 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
                 />
               </svg>
             )}
-            <span className="text-[13px] text-neutral-800 flex-1">
-              {t.message}
-            </span>
+            <span className="flex-1 text-[13px] text-neutral-800">{t.message}</span>
 
             {t.type === "loading" && (
-              <button
-                onClick={() => hideToast(t.id)}
-                className="text-[11px] text-neutral-500"
-              >
+              <button onClick={() => hideToast(t.id)} className="text-[11px] text-neutral-500">
                 Hide
               </button>
             )}
@@ -607,8 +550,6 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     </ToastContext.Provider>
   );
 }
-
-
 
 function App() {
   // Theme: Base (light) vs Farcaster (dark)
@@ -635,7 +576,6 @@ function App() {
     }
     return "base";
   });
-
 
   const [safeArea, setSafeArea] = useState<SafeArea>({
     top: 0,
@@ -693,31 +633,25 @@ function App() {
 
   const isDetailView = !!selectedNft;
 
-    return (
+  return (
     <div
-  className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)]"
-  style={{
-    paddingTop: 16 + safeArea.top,
-    paddingBottom: 16 + safeArea.bottom,
-    paddingLeft: 16 + safeArea.left,
-    paddingRight: 16 + safeArea.right,
-    fontFamily:
-      "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-  }}
-  data-theme={theme}
->
-
-
-
+      className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)]"
+      style={{
+        paddingTop: 16 + safeArea.top,
+        paddingBottom: 16 + safeArea.bottom,
+        paddingLeft: 16 + safeArea.left,
+        paddingRight: 16 + safeArea.right,
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+      data-theme={theme}
+    >
       <header className="mb-4 space-y-3">
         {/* Row 1: Logo + profile */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col justify-start">
-            <div className="flex items-start gap-2 -mt-[1px]">
+            <div className="-mt-[1px] flex items-start gap-2">
               <img src="/deck-icon.png" alt="Deck" className="h-7 w-auto" />
-              <span className="text-xl font-semibold tracking-tight text-neutral-900">
-                Deck
-              </span>
+              <span className="text-xl font-semibold tracking-tight text-neutral-900">Deck</span>
             </div>
 
             <p className="mt-1 text-[11px] leading-tight text-neutral-500">
@@ -731,21 +665,16 @@ function App() {
           </div>
         </div>
 
-                {/* Row 2: Theme toggle + chain selector */}
+        {/* Row 2: Theme toggle + chain selector */}
         <div className="flex items-center gap-2">
           <ThemeToggle theme={theme} onChange={setTheme} />
 
-          <div className="flex flex-1 justify-end items-center">
+          <div className="flex flex-1 items-center justify-end">
             <div className="w-fit max-w-[240px]">
-              <ChainSelector
-                chain={chain}
-                onChange={setChain}
-                disabled={isDetailView}
-              />
+              <ChainSelector chain={chain} onChange={setChain} disabled={isDetailView} />
             </div>
           </div>
         </div>
-
       </header>
 
       {/* Soft fade separator between header and content */}
@@ -770,8 +699,7 @@ function App() {
 
             {showEmpty && (
               <p className="text-[13px] text-neutral-400">
-                You don&apos;t have any NFTs on {prettyChain(chain)} for this
-                wallet.
+                You don&apos;t have any NFTs on {prettyChain(chain)} for this wallet.
               </p>
             )}
 
@@ -779,41 +707,21 @@ function App() {
               <div className="grid grid-cols-2 gap-3 pb-10">
                 {nfts.map((nft) => (
                   <button
-                    key={`${getCollectionSlug(nft) ?? "unknown"}-${
-                      nft.identifier
-                    }`}
+                    key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
                     type="button"
                     onClick={() => {
                       console.log("NFT object:", nft);
                       setSelectedNft(nft);
                     }}
-                    className="
-                      group flex flex-col overflow-hidden rounded-2xl
-                      border border-neutral-200 bg-white/95
-                      shadow-sm transition-all duration-200
-                      hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg
-                      active:translate-y-0 active:shadow-sm
-                      focus:outline-none focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50
-                      p-2
-                    "
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white/95 p-2 shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50 focus:outline-none active:translate-y-0 active:shadow-sm"
                   >
                     {/* Inner image container */}
-                    <div
-                      className="
-                        relative w-full pb-[100%]
-                        overflow-hidden rounded-xl
-                        bg-gradient-to-br from-neutral-100 to-neutral-200
-                      "
-                    >
+                    <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 pb-[100%]">
                       {nft.image_url ? (
                         <img
                           src={nft.image_url}
                           alt={nft.name || `NFT #${nft.identifier}`}
-                          className="
-                            absolute inset-0 h-full w-full object-cover
-                            transition-transform duration-200
-                            group-hover:scale-[1.03]
-                          "
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                           loading="lazy"
                         />
                       ) : (
@@ -823,20 +731,13 @@ function App() {
                       )}
 
                       {/* Token ID badge */}
-                      <div
-                        className="
-                          absolute right-2 top-2 rounded-full
-                          bg-black/70 px-2 py-0.5
-                          text-[9px] font-medium text-white
-                          backdrop-blur-sm
-                        "
-                      >
+                      <div className="absolute top-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
                         #{nft.identifier}
                       </div>
                     </div>
 
                     {/* Text area */}
-                    <div className="space-y-0.5 px-0.5 pb-1.5 pt-2 text-left">
+                    <div className="space-y-0.5 px-0.5 pt-2 pb-1.5 text-left">
                       <div className="truncate text-[12px] font-semibold text-neutral-900">
                         {nft.name || `NFT #${nft.identifier}`}
                       </div>
@@ -853,11 +754,7 @@ function App() {
         )}
 
         {isDetailView && selectedNft && (
-          <NftDetailPage
-            chain={chain}
-            nft={selectedNft}
-            onBack={() => setSelectedNft(null)}
-          />
+          <NftDetailPage chain={chain} nft={selectedNft} onBack={() => setSelectedNft(null)} />
         )}
       </main>
     </div>
@@ -879,29 +776,20 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
   const { isConnected, address } = useAccount();
   const { connect, connectors, isPending } = useConnect();
 
-  const displayName =
-    user?.displayName || user?.username || "Farcaster user";
+  const displayName = user?.displayName || user?.username || "Farcaster user";
 
   if (isConnected) {
     return (
-      <div
-        className="
-          flex items-center justify-end gap-2
-          rounded-2xl bg-transparent
-          px-1 py-2
-        "
-      >
+      <div className="flex items-center justify-end gap-2 rounded-2xl bg-transparent px-1 py-2">
         {/* Text block – fully right aligned */}
         <div className="flex min-w-0 flex-col items-end text-right">
-          <span className="truncate text-[12px] font-semibold leading-tight text-neutral-900">
+          <span className="truncate text-[12px] leading-tight font-semibold text-neutral-900">
             {displayName}
           </span>
 
           <span className="flex items-center gap-1 text-[10px] leading-tight text-neutral-500">
             <span className="inline-block h-[9px] w-[9px] rounded-[3px] border border-neutral-400/70" />
-            <span className="max-w-[130px] truncate">
-              {shortenAddress(address)}
-            </span>
+            <span className="max-w-[130px] truncate">{shortenAddress(address)}</span>
           </span>
         </div>
 
@@ -910,11 +798,7 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
           <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
           <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
             {user?.pfpUrl ? (
-              <img
-                src={user.pfpUrl}
-                alt={displayName}
-                className="h-full w-full object-cover"
-              />
+              <img src={user.pfpUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
                 ?
@@ -933,51 +817,25 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       type="button"
       disabled={!connector || isPending}
       onClick={() => connect({ connector })}
-      className="
-  w-full rounded-2xl 
-  px-4 py-3
-  text-sm font-semibold
-  bg-[var(--primary)]
-  text-[var(--primary-text)]
-  shadow-sm transition-all duration-150
-  hover:bg-[var(--primary-hover)]
-  active:bg-[var(--primary-active)]
-  disabled:cursor-not-allowed disabled:opacity-60
-"
-
-
+      className="w-full rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-text)] shadow-sm transition-all duration-150 hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
     </button>
   );
 }
-function ThemeToggle({
-  theme,
-  onChange,
-}: {
-  theme: Theme;
-  onChange: (t: Theme) => void;
-}) {
+function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) => void }) {
   const isDark = isDarkTheme(theme);
 
   return (
     <button
       type="button"
-      onClick={() =>
-        onChange(isDark ? "base-light" : "farcaster-dark")
-      }
-      className="
-        inline-flex items-center rounded-full border border-neutral-200
-        bg-white/80 px-1 py-1 text-[10px] font-medium text-neutral-700
-        shadow-sm backdrop-blur-sm
-      "
+      onClick={() => onChange(isDark ? "base-light" : "farcaster-dark")}
+      className="inline-flex items-center rounded-full border border-neutral-200 bg-white/80 px-1 py-1 text-[10px] font-medium text-neutral-700 shadow-sm backdrop-blur-sm"
     >
       <span
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
-          !isDark
-            ? "bg-neutral-900 text-white"
-            : "text-neutral-500",
+          !isDark ? "bg-neutral-900 text-white" : "text-neutral-500",
         ].join(" ")}
       >
         <span>☀️</span>
@@ -986,9 +844,7 @@ function ThemeToggle({
       <span
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
-          isDark
-            ? "bg-purple-600 text-white"
-            : "text-neutral-500",
+          isDark ? "bg-purple-600 text-white" : "text-neutral-500",
         ].join(" ")}
       >
         <span>🌙</span>
@@ -1039,17 +895,10 @@ function ChainSelector({
         type="button"
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
-        className="
-          inline-flex items-center
-          rounded-full border border-neutral-200 bg-white
-          px-3 py-1.5
-          text-[11px] font-medium text-neutral-800 shadow-sm
-          hover:bg-neutral-50 active:bg-neutral-100
-          disabled:cursor-not-allowed disabled:opacity-60
-        "
+        className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 active:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {/* Icon + label + Change all in one row, tight spacing */}
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
           <img src={current.icon} className="h-3.5 w-3.5" alt="" />
           <span>{current.label}</span>
 
@@ -1069,7 +918,7 @@ function ChainSelector({
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-xl">
+          <div className="relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pt-3 pb-4 shadow-xl">
             <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-neutral-300" />
             <div className="mb-2 text-center text-[12px] font-semibold text-neutral-900">
               Select network
@@ -1130,7 +979,7 @@ function NftSkeletonGrid() {
           key={idx}
           className="animate-pulse overflow-hidden rounded-2xl border border-neutral-200 bg-white/90"
         >
-          <div className="w-full pb-[100%] bg-neutral-200/70" />
+          <div className="w-full bg-neutral-200/70 pb-[100%]" />
           <div className="space-y-1 px-2 py-2">
             <div className="h-3 w-4/5 rounded bg-neutral-200" />
             <div className="h-2.5 w-3/5 rounded bg-neutral-200/80" />
@@ -1205,12 +1054,7 @@ type MarketPoint = {
   source: "floor" | "offer" | "sale" | "other";
 };
 
-type ApprovalStatus =
-  | "unknown"
-  | "checking"
-  | "approved"
-  | "not-approved"
-  | "error";
+type ApprovalStatus = "unknown" | "checking" | "approved" | "not-approved" | "error";
 
 function NftDetailPage({
   chain,
@@ -1244,8 +1088,6 @@ function NftDetailPage({
   const [listingsRefreshNonce, setListingsRefreshNonce] = useState(0);
   const [myListing, setMyListing] = useState<Listing | null>(null);
 
-
-
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [salesError, setSalesError] = useState<string | null>(null);
@@ -1261,25 +1103,19 @@ function NftDetailPage({
   const publicClient = usePublicClient();
   const { showToast, updateToast } = useToast();
 
-
-
   // Approval state
-  const [approvalStatus, setApprovalStatus] =
-    useState<ApprovalStatus>("unknown");
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("unknown");
   const [approving, setApproving] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
-  
+
   const [actionSuccess, setActionSuccess] = useState<{
-  title: string;
-  message: string;
-  txHash: string;
+    title: string;
+    message: string;
+    txHash: string;
   } | null>(null);
 
   const [actionError, setActionError] = useState<string | null>(null);
-
-
-
 
   // Offers + floor
   useEffect(() => {
@@ -1329,11 +1165,7 @@ function NftDetailPage({
           },
         );
 
-        const list: SimpleOffer[] = Array.isArray(json.offers)
-          ? json.offers
-          : best
-          ? [best]
-          : [];
+        const list: SimpleOffer[] = Array.isArray(json.offers) ? json.offers : best ? [best] : [];
         setOffers(list.slice(0, 3));
       })
       .catch((err) => {
@@ -1353,7 +1185,7 @@ function NftDetailPage({
     };
   }, [chain, nft?.identifier, nft?.collection]);
 
-   // Traits (from nft-details endpoint)
+  // Traits (from nft-details endpoint)
   useEffect(() => {
     if (!nft) {
       setTraits([]);
@@ -1362,8 +1194,7 @@ function NftDetailPage({
       return;
     }
 
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
+    const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
 
     if (!contractAddress) {
       setTraits([]);
@@ -1371,7 +1202,6 @@ function NftDetailPage({
       setTraitsLoading(false);
       return;
     }
-
 
     let cancelled = false;
     setTraitsLoading(true);
@@ -1441,19 +1271,14 @@ function NftDetailPage({
           return;
         }
 
-        const raw: Listing[] = Array.isArray(json.listings)
-          ? json.listings
-          : [];
+        const raw: Listing[] = Array.isArray(json.listings) ? json.listings : [];
 
         // de-dupe by (tokenContract, tokenId)
         const seen = new Set<string>();
         const unique: Listing[] = [];
 
         for (const l of raw) {
-          const key =
-            (l.tokenContract?.toLowerCase() || "") +
-            ":" +
-            (l.tokenId ?? l.id);
+          const key = (l.tokenContract?.toLowerCase() || "") + ":" + (l.tokenId ?? l.id);
           if (seen.has(key)) continue;
           seen.add(key);
           unique.push(l);
@@ -1476,8 +1301,7 @@ function NftDetailPage({
     return () => {
       cancelled = true;
     };
-   }, [chain, nft, listingsRefreshNonce]);
-
+  }, [chain, nft, listingsRefreshNonce]);
 
   // Sales for this collection (by contract, fallback to collection slug)
   useEffect(() => {
@@ -1488,8 +1312,7 @@ function NftDetailPage({
       return;
     }
 
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
+    const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
     const collectionSlug = getCollectionSlug(nft);
 
     if (!contractAddress && !collectionSlug) {
@@ -1550,8 +1373,7 @@ function NftDetailPage({
       return;
     }
 
-    const contractAddress =
-      typeof nft.contract === "string" ? nft.contract : undefined;
+    const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
     const collectionSlug = getCollectionSlug(nft);
 
     if (!contractAddress && !collectionSlug) {
@@ -1600,8 +1422,7 @@ function NftDetailPage({
         for (const p of raw) {
           if (!p) continue;
 
-          const tsRaw =
-            p.timestamp ?? p.time ?? p.blockTime ?? p.block_timestamp;
+          const tsRaw = p.timestamp ?? p.time ?? p.blockTime ?? p.block_timestamp;
 
           let ts: number | null = null;
           if (typeof tsRaw === "number") {
@@ -1619,18 +1440,14 @@ function NftDetailPage({
           }
 
           const priceRaw =
-            p.priceEth ??
-            p.price_eth ??
-            p.price ??
-            p.salePriceEth ??
-            p.sale_price_eth;
+            p.priceEth ?? p.price_eth ?? p.price ?? p.salePriceEth ?? p.sale_price_eth;
 
           const price =
             typeof priceRaw === "number"
               ? priceRaw
               : typeof priceRaw === "string"
-              ? parseFloat(priceRaw)
-              : NaN;
+                ? parseFloat(priceRaw)
+                : NaN;
 
           if (!ts || !Number.isFinite(price) || price <= 0) continue;
 
@@ -1669,64 +1486,58 @@ function NftDetailPage({
   }, [chain, nft]);
 
   // Fetch listings specifically for this tokenId + contract (to detect "my listing")
-useEffect(() => {
-  const contractAddress =
-    nft && typeof nft.contract === "string" ? nft.contract : undefined;
+  useEffect(() => {
+    const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
 
-  if (!nft || !contractAddress || !address) {
-    setMyListing(null);
-    return;
-  }
-
-  let cancelled = false;
-  setMyListing(null);
-
-  const params = new URLSearchParams({
-    chain,
-    contract: contractAddress,
-    tokenId: String(nft.identifier),
-    limit: "10",
-  });
-
-  fetch(`/api/opensea/listing-by-token?${params.toString()}`)
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch token listing");
-      return res.json();
-    })
-    .then((json) => {
-      if (cancelled) return;
-      if (!json.ok || !Array.isArray(json.listings)) {
-        setMyListing(null);
-        return;
-      }
-
-      // Prefer listing where maker == current wallet
-      const lowerAddr = address.toLowerCase();
-      const mine =
-        json.listings.find(
-          (l: Listing) =>
-            l.maker && l.maker.toLowerCase() === lowerAddr,
-        ) ?? null;
-
-      setMyListing(mine);
-    })
-    .catch((err) => {
-      if (cancelled) return;
-      console.error("Failed to load token listing", err);
+    if (!nft || !contractAddress || !address) {
       setMyListing(null);
+      return;
+    }
+
+    let cancelled = false;
+    setMyListing(null);
+
+    const params = new URLSearchParams({
+      chain,
+      contract: contractAddress,
+      tokenId: String(nft.identifier),
+      limit: "10",
     });
 
-  return () => {
-    cancelled = true;
-  };
-}, [chain, nft, address, listingsRefreshNonce]);
+    fetch(`/api/opensea/listing-by-token?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch token listing");
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        if (!json.ok || !Array.isArray(json.listings)) {
+          setMyListing(null);
+          return;
+        }
 
+        // Prefer listing where maker == current wallet
+        const lowerAddr = address.toLowerCase();
+        const mine =
+          json.listings.find((l: Listing) => l.maker && l.maker.toLowerCase() === lowerAddr) ??
+          null;
 
+        setMyListing(mine);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load token listing", err);
+        setMyListing(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, nft, address, listingsRefreshNonce]);
 
   // Approval status: read isApprovedForAll(owner, OPENSEA_SEAPORT_CONDUIT)
   useEffect(() => {
-    const contractAddress =
-      nft && typeof nft.contract === "string" ? nft.contract : undefined;
+    const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
 
     if (!publicClient || !address || !contractAddress) {
       setApprovalStatus("unknown");
@@ -1742,10 +1553,7 @@ useEffect(() => {
           address: contractAddress as `0x${string}`,
           abi: erc721Or1155ApprovalAbi,
           functionName: "isApprovedForAll",
-          args: [
-            address as `0x${string}`,
-            OPENSEA_SEAPORT_CONDUIT as `0x${string}`,
-          ],
+          args: [address as `0x${string}`, OPENSEA_SEAPORT_CONDUIT as `0x${string}`],
         });
 
         if (!cancelled) {
@@ -1763,8 +1571,6 @@ useEffect(() => {
       cancelled = true;
     };
   }, [publicClient, address, nft, chain]);
-
-
 
   // Fallback market points derived directly from sales
   const derivedMarketPoints: MarketPoint[] = useMemo(
@@ -1787,15 +1593,9 @@ useEffect(() => {
   );
 
   // Use primary market-history if it has enough points, otherwise fall back to sales-derived points
-  const chartPoints: MarketPoint[] =
-    marketPoints.length > 1 ? marketPoints : derivedMarketPoints;
+  const chartPoints: MarketPoint[] = marketPoints.length > 1 ? marketPoints : derivedMarketPoints;
 
-  const isBusy =
-    offersLoading ||
-    traitsLoading ||
-    listingsLoading ||
-    salesLoading ||
-    marketLoading;
+  const isBusy = offersLoading || traitsLoading || listingsLoading || salesLoading || marketLoading;
 
   function formatTimeRemaining(expirationTime: number | null): string | null {
     if (!expirationTime) return null;
@@ -1848,10 +1648,7 @@ useEffect(() => {
     return "Just now";
   }
 
-  function formatBestVsFloorDiff(
-    offer: SimpleOffer | null,
-    f: FloorInfo,
-  ): string | null {
+  function formatBestVsFloorDiff(offer: SimpleOffer | null, f: FloorInfo): string | null {
     if (!offer || f.eth == null || f.eth <= 0) return null;
 
     const diff = offer.priceEth - f.eth;
@@ -1868,155 +1665,137 @@ useEffect(() => {
     return "Best offer is at floor";
   }
 
- async function handleApproveOpenSea() {
-  if (!walletClient || !address) {
-    showToast("error", "Wallet not connected.");
-    return;
+  async function handleApproveOpenSea() {
+    if (!walletClient || !address) {
+      showToast("error", "Wallet not connected.");
+      return;
+    }
+
+    const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      showToast("error", "Missing NFT contract.");
+      return;
+    }
+
+    const loadingId = showToast("loading", "Sending approval…");
+    setApproving(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      const chainId = chainIdFromChain(chain);
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
+      });
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: { id: chainId } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend as `0x${string}`,
+        value: 0n,
+      });
+
+      updateToast(loadingId, {
+        type: "success",
+        message: "NFT approved!",
+      });
+      setApprovalStatus("approved");
+      setActionSuccess({
+        title: "Collection approved",
+        message:
+          "This collection is now approved for trading via OpenSea Seaport. You can list and accept offers from Deck.",
+        txHash,
+      });
+    } catch (err) {
+      console.error("Approval tx failed", err);
+      updateToast(loadingId, {
+        type: "error",
+        message: "Approval failed.",
+      });
+      setApprovalStatus("error");
+      setActionError("Approval failed. Please check your wallet or network and try again.");
+    } finally {
+      setApproving(false);
+    }
   }
 
-  const contractAddress =
-    nft && typeof nft.contract === "string" ? nft.contract : undefined;
+  async function handleRevokeOpenSea() {
+    if (!walletClient || !address) {
+      showToast("error", "Wallet not connected.");
+      return;
+    }
 
-  if (!contractAddress) {
-    showToast("error", "Missing NFT contract.");
-    return;
+    const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
+
+    if (!contractAddress) {
+      showToast("error", "Missing NFT contract.");
+      return;
+    }
+
+    const loadingId = showToast("loading", "Revoking approval…");
+    setRevoking(true);
+    setApprovalErrorMsg(null);
+
+    try {
+      const chainId = chainIdFromChain(chain);
+
+      const dataToSend = encodeFunctionData({
+        abi: erc721Or1155ApprovalAbi,
+        functionName: "setApprovalForAll",
+        args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
+      });
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: { id: chainId } as any,
+        to: contractAddress as `0x${string}`,
+        data: dataToSend as `0x${string}`,
+        value: 0n,
+      });
+
+      updateToast(loadingId, {
+        type: "success",
+        message: "Approval revoked",
+      });
+      setApprovalStatus("not-approved");
+      setActionSuccess({
+        title: "Approval revoked",
+        message:
+          "OpenSea Seaport approval for this collection has been revoked. You&apos;ll need to approve again before trading.",
+        txHash,
+      });
+    } catch (err) {
+      console.error("Revoke tx failed", err);
+      updateToast(loadingId, {
+        type: "error",
+        message: "Revoke failed.",
+      });
+      setApprovalStatus("error");
+      setActionError("We couldn&apos;t revoke this approval. Please try again.");
+    } finally {
+      setRevoking(false);
+    }
   }
-
-  const loadingId = showToast("loading", "Sending approval…");
-  setApproving(true);
-  setApprovalErrorMsg(null);
-
-  try {
-    const chainId = chainIdFromChain(chain);
-
-    const dataToSend = encodeFunctionData({
-      abi: erc721Or1155ApprovalAbi,
-      functionName: "setApprovalForAll",
-      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
-    });
-
-    const txHash = await walletClient.sendTransaction({
-  account: address as `0x${string}`,
-  chain: { id: chainId } as any,
-  to: contractAddress as `0x${string}`,
-  data: dataToSend as `0x${string}`,
-  value: 0n,
-});
-
-updateToast(loadingId, {
-  type: "success",
-  message: "NFT approved!",
-});
-setApprovalStatus("approved");
-setActionSuccess({
-  title: "Collection approved",
-  message:
-    "This collection is now approved for trading via OpenSea Seaport. You can list and accept offers from Deck.",
-  txHash,
-});
-
-  } catch (err) {
-    console.error("Approval tx failed", err);
-    updateToast(loadingId, {
-      type: "error",
-      message: "Approval failed.",
-    });
-    setApprovalStatus("error");
-    setActionError("Approval failed. Please check your wallet or network and try again.");
-  } finally {
-    setApproving(false);
-  }
-}
-
-
-
-async function handleRevokeOpenSea() {
-  if (!walletClient || !address) {
-    showToast("error", "Wallet not connected.");
-    return;
-  }
-
-  const contractAddress =
-    nft && typeof nft.contract === "string" ? nft.contract : undefined;
-
-  if (!contractAddress) {
-    showToast("error", "Missing NFT contract.");
-    return;
-  }
-
-  const loadingId = showToast("loading", "Revoking approval…");
-  setRevoking(true);
-  setApprovalErrorMsg(null);
-
-  try {
-    const chainId = chainIdFromChain(chain);
-
-    const dataToSend = encodeFunctionData({
-      abi: erc721Or1155ApprovalAbi,
-      functionName: "setApprovalForAll",
-      args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
-    });
-
-    const txHash = await walletClient.sendTransaction({
-  account: address as `0x${string}`,
-  chain: { id: chainId } as any,
-  to: contractAddress as `0x${string}`,
-  data: dataToSend as `0x${string}`,
-  value: 0n,
-});
-
-updateToast(loadingId, {
-  type: "success",
-  message: "Approval revoked",
-});
-setApprovalStatus("not-approved");
-setActionSuccess({
-  title: "Approval revoked",
-  message:
-    "OpenSea Seaport approval for this collection has been revoked. You&apos;ll need to approve again before trading.",
-  txHash,
-});
-
-  } catch (err) {
-    console.error("Revoke tx failed", err);
-    updateToast(loadingId, {
-      type: "error",
-      message: "Revoke failed.",
-    });
-    setApprovalStatus("error");
-    setActionError("We couldn&apos;t revoke this approval. Please try again.");
-  } finally {
-    setRevoking(false);
-  }
-}
-
-
-
 
   if (!nft) return null;
 
   const collectionName = getCollectionLabel(nft);
   const chainLabel = prettyChain(chain);
   const collectionSlug = getCollectionSlug(nft);
-  const contractAddress =
-    typeof nft.contract === "string" ? nft.contract : undefined;
+  const contractAddress = typeof nft.contract === "string" ? nft.contract : undefined;
   const hasMyListing = !!myListing;
 
   const listingThumb =
-    myListing?.imageUrl ||
-    myListing?.image_url ||
-    myListing?.image ||
-    nft.image_url ||
-    null;
+    myListing?.imageUrl || myListing?.image_url || myListing?.image || nft.image_url || null;
 
-  const canAcceptBestOffer =
-    !!bestOffer && !!contractAddress && !offersLoading;
+  const canAcceptBestOffer = !!bestOffer && !!contractAddress && !offersLoading;
 
   const baseSearchQuery =
-    (typeof nft.collection === "string" && nft.collection) ||
-    nft.name ||
-    nft.identifier ||
-    "";
+    (typeof nft.collection === "string" && nft.collection) || nft.name || nft.identifier || "";
 
   const chainSlugOs = openSeaChainSlug(chain);
 
@@ -2041,20 +1820,13 @@ setActionSuccess({
   }
 
   return (
-    <div
-      className="relative space-y-4 pb-20"
-      style={{ opacity: isBusy ? 0.96 : 1 }}
-    >
+    <div className="relative space-y-4 pb-20" style={{ opacity: isBusy ? 0.96 : 1 }}>
       {/* Top bar */}
       <div className="mb-1 flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="
-            inline-flex items-center gap-1 rounded-full border border-neutral-200
-            bg-white px-3 py-1.5 text-[11px] text-neutral-700
-            shadow-sm hover:border-neutral-300 hover:bg-neutral-50
-          "
+          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] text-neutral-700 shadow-sm hover:border-neutral-300 hover:bg-neutral-50"
         >
           <span className="text-xs">←</span>
           <span>Back to gallery</span>
@@ -2062,15 +1834,7 @@ setActionSuccess({
       </div>
 
       {/* Hero section */}
-      <section
-  className="
-    flex flex-col gap-3 rounded-3xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+      <section className="flex flex-col gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
         <div className="flex gap-3">
           <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-neutral-100">
             {nft.image_url ? (
@@ -2089,21 +1853,16 @@ setActionSuccess({
           <div className="flex min-w-0 flex-1 flex-col justify-between">
             <div>
               <div className="text-sm font-semibold text-[var(--text-primary)]">
-
                 {nft.name || `Token #${nft.identifier}`}
               </div>
-              <div className="mt-0.5 text-[11px] text-neutral-500">
-                {collectionName}
-              </div>
+              <div className="mt-0.5 text-[11px] text-neutral-500">{collectionName}</div>
               <div className="mt-0.5 text-[10px] text-neutral-400">
                 {chainLabel} • ID {nft.identifier}
               </div>
             </div>
 
             {nft.description && (
-              <p className="mt-2 line-clamp-3 text-[11px] text-neutral-600">
-                {nft.description}
-              </p>
+              <p className="mt-2 line-clamp-3 text-[11px] text-neutral-600">{nft.description}</p>
             )}
           </div>
         </div>
@@ -2116,14 +1875,7 @@ setActionSuccess({
                 href={nftUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="
-  w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)]
-  px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)]
-  hover:bg-[var(--surface)]
-  hover:border-[var(--primary)]
-"
-
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--surface)]"
               >
                 View on OpenSea
               </a>
@@ -2134,14 +1886,7 @@ setActionSuccess({
                 href={collectionUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="
-  w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)]
-  px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)]
-  hover:bg-[var(--surface)]
-  hover:border-[var(--primary)]
-"
-
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--surface)]"
               >
                 View collection
               </a>
@@ -2153,38 +1898,20 @@ setActionSuccess({
       {/* Traits + market sections */}
       <section className="space-y-3">
         {/* Traits */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <div className="
-  text-[11px] font-semibold uppercase tracking-wide
-  text-[var(--text-secondary)]
-">
-
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
               Traits
             </div>
-            {traitsLoading && (
-              <div className="text-[10px] text-neutral-500">Loading…</div>
-            )}
+            {traitsLoading && <div className="text-[10px] text-neutral-500">Loading…</div>}
           </div>
 
           {traitsError && !traitsLoading && (
-            <div className="text-[11px] text-neutral-500">
-              We can&apos;t show traits right now.
-            </div>
+            <div className="text-[11px] text-neutral-500">We can&apos;t show traits right now.</div>
           )}
 
           {!traitsLoading && !traitsError && traits.length === 0 && (
-            <div className="text-[11px] text-neutral-500">
-              No traits available for this NFT.
-            </div>
+            <div className="text-[11px] text-neutral-500">No traits available for this NFT.</div>
           )}
 
           {!traitsLoading && !traitsError && traits.length > 0 && (
@@ -2192,17 +1919,12 @@ setActionSuccess({
               {traits.map((trait) => (
                 <div
                   key={`${trait.label}-${trait.value}`}
-                  className="
-                    rounded-xl border border-neutral-200 bg-neutral-50 
-                    px-2 py-1 text-[10px]
-                  "
+                  className="rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
                 >
-                  <div className="text-[9px] uppercase tracking-wide text-neutral-500">
+                  <div className="text-[9px] tracking-wide text-neutral-500 uppercase">
                     {trait.label}
                   </div>
-                  <div className="text-[11px] text-neutral-900">
-                    {trait.value}
-                  </div>
+                  <div className="text-[11px] text-neutral-900">{trait.value}</div>
                 </div>
               ))}
             </div>
@@ -2210,26 +1932,12 @@ setActionSuccess({
         </div>
 
         {/* Listing – top 3 cheapest listings in this collection */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
           <div className="mb-1 flex items-center justify-between">
-            <div className="
-  text-[11px] font-semibold uppercase tracking-wide
-  text-[var(--text-secondary)]
-">
-
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
               Listing
             </div>
-            <span className="text-[10px] text-neutral-400">
-              Top 3 cheapest listings
-            </span>
+            <span className="text-[10px] text-neutral-400">Top 3 cheapest listings</span>
           </div>
 
           {listingsLoading && (
@@ -2254,28 +1962,19 @@ setActionSuccess({
             <div className="space-y-1.5 text-[11px]">
               {listings.map((listing) => {
                 const thumb =
-                  listing.imageUrl ||
-                  listing.image_url ||
-                  listing.image ||
-                  nft.image_url ||
-                  null;
+                  listing.imageUrl || listing.image_url || listing.image || nft.image_url || null;
 
                 const tokenLabel: string =
                   (listing.name && listing.name.length > 0
                     ? listing.name
                     : listing.tokenId
-                    ? `${collectionName} #${listing.tokenId}`
-                    : collectionName) ?? collectionName;
+                      ? `${collectionName} #${listing.tokenId}`
+                      : collectionName) ?? collectionName;
 
                 return (
                   <div
                     key={listing.id}
-                    className="
-  flex items-center gap-2 rounded-xl
-  bg-[var(--surface-secondary)]
-  px-2 py-1.5
-"
-
+                    className="flex items-center gap-2 rounded-xl bg-[var(--surface-secondary)] px-2 py-1.5"
                   >
                     {/* Thumbnail */}
                     <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
@@ -2325,21 +2024,9 @@ setActionSuccess({
         </div>
 
         {/* Offers – top 3 WETH offers */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
           <div className="mb-1 flex items-center justify-between">
-            <div className="
-  text-[11px] font-semibold uppercase tracking-wide
-  text-[var(--text-secondary)]
-">
-
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
               Offers
             </div>
             <span className="text-[10px] text-neutral-400">
@@ -2368,35 +2055,23 @@ setActionSuccess({
           {!offersLoading && !offersError && offers.length > 0 && (
             <div className="space-y-1.5 text-[11px]">
               {offers.map((offer, idx) => {
-                const isBest =
-                  bestOffer && offer.id === bestOffer.id && idx === 0;
+                const isBest = bestOffer && offer.id === bestOffer.id && idx === 0;
                 return (
                   <div
                     key={offer.id}
-                    className="
-  flex items-center justify-between rounded-xl
-  bg-[var(--surface-secondary)]
-  px-2 py-1.5
-"
-
+                    className="flex items-center justify-between rounded-xl bg-[var(--surface-secondary)] px-2 py-1.5"
                   >
                     <div className="flex flex-col">
-                      <span className="text-emerald-600">
-                        {offer.priceFormatted} WETH
-                      </span>
+                      <span className="text-emerald-600">{offer.priceFormatted} WETH</span>
                       <span className="text-[10px] text-neutral-500">
-                        {offer.maker
-                          ? `From ${shortenAddress(offer.maker)}`
-                          : "Unknown maker"}
+                        {offer.maker ? `From ${shortenAddress(offer.maker)}` : "Unknown maker"}
                       </span>
                     </div>
                     <div className="flex flex-col items-end text-right text-[10px]">
                       <span className="text-neutral-500">
                         {formatTimeRemaining(offer.expirationTime) ?? "—"}
                       </span>
-                      <span className="text-neutral-400">
-                        {isBest ? "Best offer" : "Offer"}
-                      </span>
+                      <span className="text-neutral-400">{isBest ? "Best offer" : "Offer"}</span>
                     </div>
                   </div>
                 );
@@ -2406,24 +2081,12 @@ setActionSuccess({
         </div>
 
         {/* Sales – last 3 sales for this collection */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
           <div className="mb-1 flex items-center justify-between">
-            <div className="
-  text-[11px] font-semibold uppercase tracking-wide
-  text-[var(--text-secondary)]
-">
-
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
               Sales
             </div>
-          <span className="text-[10px] text-neutral-400">Last 3 sales</span>
+            <span className="text-[10px] text-neutral-400">Last 3 sales</span>
           </div>
 
           {salesLoading && (
@@ -2448,15 +2111,10 @@ setActionSuccess({
             <div className="space-y-1.5 text-[11px]">
               {sales.slice(0, 3).map((sale) => {
                 const fallbackCollectionLabel =
-                  sale.collectionName ||
-                  sale.collectionSlug ||
-                  collectionSlug ||
-                  collectionName;
+                  sale.collectionName || sale.collectionSlug || collectionSlug || collectionName;
 
                 const tokenLabelFromAny =
-                  (sale as any).tokenName ||
-                  (sale as any).nftName ||
-                  (sale as any).name;
+                  (sale as any).tokenName || (sale as any).nftName || (sale as any).name;
 
                 const saleLabel: string =
                   tokenLabelFromAny ||
@@ -2467,32 +2125,22 @@ setActionSuccess({
                 return (
                   <div
                     key={sale.id}
-                    className="
-  flex items-center justify-between rounded-xl
-  bg-[var(--surface-secondary)]
-  px-2 py-1.5
-"
-
+                    className="flex items-center justify-between rounded-xl bg-[var(--surface-secondary)] px-2 py-1.5"
                   >
                     <div className="flex flex-col">
                       <span className="text-neutral-700">
-                        {sale.priceFormatted}{" "}
-                        {sale.paymentTokenSymbol ?? "ETH"}
+                        {sale.priceFormatted} {sale.paymentTokenSymbol ?? "ETH"}
                       </span>
                       <span className="text-[10px] text-neutral-500">
                         {sale.seller
                           ? sale.buyer
-                            ? `From ${shortenAddress(
-                                sale.seller,
-                              )} → ${shortenAddress(sale.buyer)}`
+                            ? `From ${shortenAddress(sale.seller)} → ${shortenAddress(sale.buyer)}`
                             : `From ${shortenAddress(sale.seller)}`
                           : "Unknown counterparties"}
                       </span>
                     </div>
                     <div className="flex flex-col items-end text-right text-[10px]">
-                      <span className="max-w-[150px] truncate text-neutral-700">
-                        {saleLabel}
-                      </span>
+                      <span className="max-w-[150px] truncate text-neutral-700">{saleLabel}</span>
                       <span className="text-neutral-500">
                         {formatTimeAgo(sale.timestamp) ?? "—"}
                       </span>
@@ -2505,60 +2153,30 @@ setActionSuccess({
         </div>
 
         {/* Market: recent sale prices chart, with fallback */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <div className="
-  text-[11px] font-semibold uppercase tracking-wide
-  text-[var(--text-secondary)]
-">
-
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
               Market
             </div>
-            <span className="text-[10px] text-neutral-400">
-              Recent collection sales
-            </span>
+            <span className="text-[10px] text-neutral-400">Recent collection sales</span>
           </div>
 
-          <div
-            className="
-              flex h-32 items-center justify-center rounded-2xl
-              bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50
-              px-2
-            "
-          >
-            {(marketLoading || (salesLoading && !chartPoints.length)) &&
-              !chartPoints.length && (
-                <div className="text-[11px] text-neutral-500">
-                  Loading market data…
-                </div>
-              )}
+          <div className="flex h-32 items-center justify-center rounded-2xl bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50 px-2">
+            {(marketLoading || (salesLoading && !chartPoints.length)) && !chartPoints.length && (
+              <div className="text-[11px] text-neutral-500">Loading market data…</div>
+            )}
 
-            {!marketLoading &&
-              !salesLoading &&
-              marketError &&
-              chartPoints.length === 0 && (
-                <div className="text-[11px] text-neutral-500 text-center px-4">
-                  We can&apos;t show market data right now.
-                </div>
-              )}
+            {!marketLoading && !salesLoading && marketError && chartPoints.length === 0 && (
+              <div className="px-4 text-center text-[11px] text-neutral-500">
+                We can&apos;t show market data right now.
+              </div>
+            )}
 
-            {!marketLoading &&
-              !salesLoading &&
-              !marketError &&
-              chartPoints.length === 0 && (
-                <div className="text-[11px] text-neutral-500 text-center px-4">
-                  We don&apos;t have enough historical data to draw a chart
-                  yet.
-                </div>
-              )}
+            {!marketLoading && !salesLoading && !marketError && chartPoints.length === 0 && (
+              <div className="px-4 text-center text-[11px] text-neutral-500">
+                We don&apos;t have enough historical data to draw a chart yet.
+              </div>
+            )}
 
             {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
           </div>
@@ -2568,25 +2186,13 @@ setActionSuccess({
           </p>
         </div>
 
-                {/* Price summary – bottom with actions + approval gating + listing info */}
-        <div
-  className="
-    rounded-2xl
-    border border-[var(--border)]
-    bg-[var(--surface)]
-    p-3 shadow-sm
-  "
->
-
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+        {/* Price summary – bottom with actions + approval gating + listing info */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
+          <div className="mb-2 text-[11px] font-semibold tracking-wide text-neutral-600 uppercase">
             Price
           </div>
 
-          {offersLoading && (
-            <div className="text-[11px] text-neutral-500">
-              Loading price data…
-            </div>
-          )}
+          {offersLoading && <div className="text-[11px] text-neutral-500">Loading price data…</div>}
 
           {!offersLoading && offersError && (
             <div className="text-[11px] text-neutral-500">
@@ -2594,64 +2200,50 @@ setActionSuccess({
             </div>
           )}
 
-          {!offersLoading &&
-            !offersError &&
-            !bestOffer &&
-            !floor.formatted && (
-              <div className="text-[11px] text-neutral-500">
-                No price data available for this NFT.
-              </div>
-            )}
+          {!offersLoading && !offersError && !bestOffer && !floor.formatted && (
+            <div className="text-[11px] text-neutral-500">
+              No price data available for this NFT.
+            </div>
+          )}
 
-          {!offersLoading &&
-            !offersError &&
-            (bestOffer || floor.formatted) && (
-              <div className="space-y-1 text-[11px]">
-                {bestOffer && (
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-neutral-600">Best offer</span>
-                    <div className="flex flex-col items-end">
-                      <span className="font-semibold text-emerald-600">
-                        {bestOffer.priceFormatted} WETH
-                      </span>
-                      {formatTimeRemaining(bestOffer.expirationTime) && (
-                        <span className="text-[10px] text-neutral-500">
-                          Expires in{" "}
-                          {formatTimeRemaining(bestOffer.expirationTime)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {floor.formatted && (
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-neutral-600">
-                      Collection floor
+          {!offersLoading && !offersError && (bestOffer || floor.formatted) && (
+            <div className="space-y-1 text-[11px]">
+              {bestOffer && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-600">Best offer</span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-semibold text-emerald-600">
+                      {bestOffer.priceFormatted} WETH
                     </span>
-                    <span className="text-neutral-800">
-                      {floor.formatted} ETH
-                    </span>
-                  </div>
-                )}
-                {bestOffer &&
-                  floor.formatted &&
-                  formatBestVsFloorDiff(bestOffer, floor) && (
-                    <div className="flex items-baseline justify-between pt-0.5">
-                      <span className="text-neutral-500">Context</span>
+                    {formatTimeRemaining(bestOffer.expirationTime) && (
                       <span className="text-[10px] text-neutral-500">
-                        {formatBestVsFloorDiff(bestOffer, floor)}
+                        Expires in {formatTimeRemaining(bestOffer.expirationTime)}
                       </span>
-                    </div>
-                  )}
-              </div>
-            )}
+                    )}
+                  </div>
+                </div>
+              )}
+              {floor.formatted && (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-neutral-600">Collection floor</span>
+                  <span className="text-neutral-800">{floor.formatted} ETH</span>
+                </div>
+              )}
+              {bestOffer && floor.formatted && formatBestVsFloorDiff(bestOffer, floor) && (
+                <div className="flex items-baseline justify-between pt-0.5">
+                  <span className="text-neutral-500">Context</span>
+                  <span className="text-[10px] text-neutral-500">
+                    {formatBestVsFloorDiff(bestOffer, floor)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Approval status row */}
           {contractAddress && (
             <div className="mt-3 flex items-center justify-between text-[10px]">
-              <span className="text-neutral-500">
-                OpenSea trading approval
-              </span>
+              <span className="text-neutral-500">OpenSea trading approval</span>
               <span className="font-medium">
                 {approvalStatus === "approved" && (
                   <span className="text-emerald-600">Approved</span>
@@ -2662,21 +2254,13 @@ setActionSuccess({
                 {approvalStatus === "checking" && (
                   <span className="text-neutral-500">Checking…</span>
                 )}
-                {approvalStatus === "error" && (
-                  <span className="text-red-500">Error</span>
-                )}
-                {approvalStatus === "unknown" && (
-                  <span className="text-neutral-400">Unknown</span>
-                )}
+                {approvalStatus === "error" && <span className="text-red-500">Error</span>}
+                {approvalStatus === "unknown" && <span className="text-neutral-400">Unknown</span>}
               </span>
             </div>
           )}
 
-          {approvalErrorMsg && (
-            <p className="mt-1 text-[10px] text-red-500">
-              {approvalErrorMsg}
-            </p>
-          )}
+          {approvalErrorMsg && <p className="mt-1 text-[10px] text-red-500">{approvalErrorMsg}</p>}
 
           {/* Action buttons + listing info */}
           <div className="mt-3 space-y-2">
@@ -2684,27 +2268,11 @@ setActionSuccess({
             {contractAddress && approvalStatus !== "approved" && (
               <button
                 type="button"
-                className="
-  w-full rounded-xl py-2
-  text-[12px] font-semibold shadow-sm
-  bg-[var(--primary)]
-  text-[var(--primary-text)]
-  hover:bg-[var(--primary-hover)]
-  active:bg-[var(--primary-active)]
-  disabled:cursor-not-allowed disabled:opacity-60
-"
-
-
-                disabled={
-                  approving ||
-                  approvalStatus === "checking" ||
-                  !address
-                }
+                className="w-full rounded-xl bg-[var(--primary)] py-2 text-[12px] font-semibold text-[var(--primary-text)] shadow-sm hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={approving || approvalStatus === "checking" || !address}
                 onClick={handleApproveOpenSea}
               >
-                {approving
-                  ? "Approving…"
-                  : "Approve collection for OpenSea"}
+                {approving ? "Approving…" : "Approve collection for OpenSea"}
               </button>
             )}
 
@@ -2717,37 +2285,22 @@ setActionSuccess({
                     disabled={!canAcceptBestOffer}
                     onClick={() => setShowSellSheet(true)}
                     className={[
-  "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
-  canAcceptBestOffer
-    ? "border border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
-    : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
-].join(" ")}
-
-
+                      "flex-1 rounded-xl px-3 py-2 text-[12px] font-semibold shadow-sm",
+                      canAcceptBestOffer
+                        ? "border border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-text)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
+                        : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
+                    ].join(" ")}
                   >
-                    {canAcceptBestOffer
-                      ? "Accept best offer"
-                      : "No offer available"}
+                    {canAcceptBestOffer ? "Accept best offer" : "No offer available"}
                   </button>
 
                   <button
                     type="button"
                     disabled={!contractAddress || !address}
                     onClick={() =>
-                      hasMyListing
-                        ? setShowCancelSheet(true)
-                        : setShowListSheet(true)
+                      hasMyListing ? setShowCancelSheet(true) : setShowListSheet(true)
                     }
-                    className="
-  flex-1 rounded-xl border px-3 py-2 text-[12px] font-semibold shadow-sm
-  border-[var(--primary)]
-  text-[var(--primary)]
-  bg-[var(--surface)]
-  hover:bg-[var(--surface-secondary)]
-  disabled:cursor-not-allowed disabled:opacity-60
-"
-
-
+                    className="flex-1 rounded-xl border border-[var(--primary)] bg-[var(--surface)] px-3 py-2 text-[12px] font-semibold text-[var(--primary)] shadow-sm hover:bg-[var(--surface-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {hasMyListing ? "Cancel listing" : "List on OpenSea"}
                   </button>
@@ -2757,8 +2310,7 @@ setActionSuccess({
                 <div className="rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px]">
                   {!contractAddress || !address ? (
                     <span className="text-neutral-500">
-                      Connect wallet to see and manage your listing for
-                      this NFT.
+                      Connect wallet to see and manage your listing for this NFT.
                     </span>
                   ) : hasMyListing ? (
                     <div className="flex items-center gap-2">
@@ -2779,40 +2331,27 @@ setActionSuccess({
                       <div className="flex flex-1 flex-col">
                         <span className="text-neutral-800">
                           Listed for{" "}
-                          <span className="font-semibold">
-                            {myListing?.priceFormatted} ETH
-                          </span>
+                          <span className="font-semibold">{myListing?.priceFormatted} ETH</span>
                         </span>
                         <span className="text-[10px] text-neutral-500">
                           Expires{" "}
-                          {formatTimeRemaining(
-                            myListing?.expirationTime ?? null,
-                          ) ?? "Unknown"}
+                          {formatTimeRemaining(myListing?.expirationTime ?? null) ?? "Unknown"}
                         </span>
                       </div>
                     </div>
                   ) : (
-                    <span className="text-neutral-500">
-                      This NFT is not listed on OpenSea yet.
-                    </span>
+                    <span className="text-neutral-500">This NFT is not listed on OpenSea yet.</span>
                   )}
                 </div>
 
                 {contractAddress && approvalStatus === "approved" && (
                   <button
                     type="button"
-                    className="
-                      w-full rounded-xl border border-neutral-200
-                      bg-neutral-50 px-3 py-1.5 text-[11px] font-medium
-                      text-neutral-500 hover:bg-neutral-100
-                      disabled:cursor-not-allowed disabled:opacity-60
-                    "
+                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] font-medium text-neutral-500 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={revoking}
                     onClick={handleRevokeOpenSea}
                   >
-                    {revoking
-                      ? "Revoking approval…"
-                      : "Revoke OpenSea approval"}
+                    {revoking ? "Revoking approval…" : "Revoke OpenSea approval"}
                   </button>
                 )}
               </>
@@ -2820,14 +2359,12 @@ setActionSuccess({
 
             {!infoOrGasNoteShown(bestOffer, floor) && (
               <p className="text-[10px] text-neutral-400">
-                You&apos;ll pay network gas for approval and some future
-                transactions. Listings themselves may be gasless depending
-                on how OpenSea handles them.
+                You&apos;ll pay network gas for approval and some future transactions. Listings
+                themselves may be gasless depending on how OpenSea handles them.
               </p>
             )}
           </div>
         </div>
-
       </section>
 
       {showSellSheet && bestOffer && contractAddress && (
@@ -2855,15 +2392,13 @@ setActionSuccess({
           collectionName={collectionName}
           onClose={() => setShowListSheet(false)}
           onListed={(listing) => {
-          if (listing) {
-            setMyListing(listing);
-          }
-          setListingsRefreshNonce((n) => n + 1);
-        }}
-
+            if (listing) {
+              setMyListing(listing);
+            }
+            setListingsRefreshNonce((n) => n + 1);
+          }}
         />
       )}
-
 
       {showCancelSheet && contractAddress && myListing && (
         <CancelListingSheet
@@ -2892,105 +2427,73 @@ setActionSuccess({
         />
       )}
       {actionSuccess && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => setActionSuccess(null)}
-    />
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            onClick={() => setActionSuccess(null)}
+          />
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+              <span className="text-lg text-emerald-600">✓</span>
+            </div>
 
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-        <span className="text-emerald-600 text-lg">✓</span>
-      </div>
+            <div className="text-center">
+              <h2 className="text-sm font-semibold text-neutral-900">{actionSuccess.title}</h2>
+              <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                {actionSuccess.message}
+              </p>
+            </div>
 
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          {actionSuccess.title}
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          {actionSuccess.message}
-        </p>
-      </div>
+            <a
+              href={txExplorerUrl(chain, actionSuccess.txHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
+            >
+              View on explorer
+            </a>
 
-      <a
-        href={txExplorerUrl(chain, actionSuccess.txHash)}
-        target="_blank"
-        rel="noreferrer"
-        className="
-          mt-4 flex w-full items-center justify-center
-          rounded-xl border border-purple-500/70
-          bg-white py-2 text-[12px] font-semibold
-          text-purple-700 hover:bg-purple-50
-        "
-      >
-        View on explorer
-      </a>
+            <button
+              type="button"
+              onClick={() => setActionSuccess(null)}
+              className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
-      <button
-        type="button"
-        onClick={() => setActionSuccess(null)}
-        className="
-          mt-2 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+      {actionError && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            onClick={() => setActionError(null)}
+          />
 
-{actionError && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => setActionError(null)}
-    />
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+              <span className="text-lg text-red-500">!</span>
+            </div>
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
+            <div className="text-center">
+              <h2 className="text-sm font-semibold text-neutral-900">Action failed</h2>
+              <p className="mt-1 text-[11px] leading-snug text-neutral-500">{actionError}</p>
+            </div>
 
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-        <span className="text-red-500 text-lg">!</span>
-      </div>
-
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Action failed
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          {actionError}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setActionError(null)}
-        className="
-          mt-4 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2999,10 +2502,7 @@ setActionSuccess({
  * Small helper so TS is happy for the extra note
  * (always returns false for now – just a hook to evolve later)
  */
-function infoOrGasNoteShown(
-  _bestOffer: SimpleOffer | null,
-  _floor: FloorInfo,
-): boolean {
+function infoOrGasNoteShown(_bestOffer: SimpleOffer | null, _floor: FloorInfo): boolean {
   return false;
 }
 
@@ -3043,8 +2543,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
   const height = 120;
 
   const pointCoords = filtered.map((p, idx) => {
-    const x =
-      filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
+    const x = filtered.length === 1 ? width / 2 : (idx / (filtered.length - 1)) * width;
 
     const normalized = (p.priceEth - paddedMin) / range;
     const y = height - normalized * (height - 8) - 4; // top/bottom padding
@@ -3052,18 +2551,14 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     return { x, y };
   });
 
-  const pathD = pointCoords
-    .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-    .join(" ");
+  const pathD = pointCoords.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 
   const lastIdx = filtered.length - 1;
   const last = filtered[lastIdx];
 
   const activeIndex = hoverIndex;
-  const activePoint =
-    activeIndex != null ? filtered[activeIndex] : null;
-  const activeCoord =
-    activeIndex != null ? pointCoords[activeIndex] : null;
+  const activePoint = activeIndex != null ? filtered[activeIndex] : null;
+  const activeCoord = activeIndex != null ? pointCoords[activeIndex] : null;
 
   function handleMove(evt: React.MouseEvent<SVGSVGElement>) {
     const rect = (evt.currentTarget as SVGSVGElement).getBoundingClientRect();
@@ -3087,8 +2582,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
     setHoverIndex(null);
   }
 
-  const formatEth = (v: number) =>
-    v >= 1 ? v.toFixed(3) : v.toFixed(4);
+  const formatEth = (v: number) => (v >= 1 ? v.toFixed(3) : v.toFixed(4));
 
   const formatShortDate = (ts: number) =>
     new Date(ts * 1000).toLocaleDateString(undefined, {
@@ -3127,12 +2621,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
           onMouseLeave={handleLeave}
         >
           {/* main line only (no fill) */}
-          <path
-            d={pathD}
-            className="stroke-purple-600"
-            strokeWidth={1.4}
-            fill="none"
-          />
+          <path d={pathD} className="stroke-purple-600" strokeWidth={1.4} fill="none" />
 
           {/* highlighted point + guide only on hover */}
           {activePoint && activeCoord && (
@@ -3146,18 +2635,8 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
                 strokeWidth={0.5}
                 strokeDasharray="2 2"
               />
-              <circle
-                cx={activeCoord.x}
-                cy={activeCoord.y}
-                r={3.2}
-                className="fill-white"
-              />
-              <circle
-                cx={activeCoord.x}
-                cy={activeCoord.y}
-                r={2.2}
-                className="fill-purple-600"
-              />
+              <circle cx={activeCoord.x} cy={activeCoord.y} r={3.2} className="fill-white" />
+              <circle cx={activeCoord.x} cy={activeCoord.y} r={2.2} className="fill-purple-600" />
             </>
           )}
         </svg>
@@ -3172,9 +2651,7 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
           >
             <div className="translate-x-[-50%] rounded-md border border-neutral-200 bg-white px-2 py-[2px] text-[10px] text-neutral-800 shadow-sm">
               {formatEth(activePoint.priceEth)} ETH{" "}
-              <span className="text-neutral-400">
-                • {formatShortDate(activePoint.timestamp)}
-              </span>
+              <span className="text-neutral-400">• {formatShortDate(activePoint.timestamp)}</span>
             </div>
           </div>
         )}
@@ -3198,16 +2675,12 @@ function getCollectionLabel(nft: OpenSeaNft): string {
   if (typeof nft.collection === "string") {
     const words = nft.collection.replace(/[-_]+/g, " ").trim().split(/\s+/);
     if (words.length === 0) return "Unknown collection";
-    return words
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+    return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   }
 
   return (
     nft.collection.name ||
-    nft.collection.slug
-      ?.replace(/[-_]+/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+    nft.collection.slug?.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ||
     "Unknown collection"
   );
 }
@@ -3281,7 +2754,6 @@ function AppContainer() {
 
 export default AppContainer;
 
-
 function SellConfirmSheet({
   chain,
   orderHash,
@@ -3322,8 +2794,7 @@ function SellConfirmSheet({
 
   const feePct = 2.5 / 100;
   const payout = offer.priceEth * (1 - feePct);
-  const payoutFormatted =
-    payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
+  const payoutFormatted = payout >= 1 ? payout.toFixed(3) : payout.toFixed(4);
 
   function formatExpiration() {
     if (!offer.expirationTime) return "Unknown";
@@ -3378,10 +2849,7 @@ function SellConfirmSheet({
       }
 
       if (!json.safeToFill) {
-        setInfo(
-          json.message ||
-            "Accepting offers is not enabled yet. No transaction was created.",
-        );
+        setInfo(json.message || "Accepting offers is not enabled yet. No transaction was created.");
         return;
       }
 
@@ -3399,21 +2867,13 @@ function SellConfirmSheet({
         tx.inputData &&
         Array.isArray(tx.inputData.orders)
       ) {
-        const { orders, criteriaResolvers, fulfillments, recipient } =
-          tx.inputData;
+        const { orders, criteriaResolvers, fulfillments, recipient } = tx.inputData;
 
-        if (
-          recipient &&
-          address &&
-          recipient.toLowerCase() !== address.toLowerCase()
-        ) {
-          console.error(
-            "Recipient from backend does not match current address",
-            {
-              recipient,
-              address,
-            },
-          );
+        if (recipient && address && recipient.toLowerCase() !== address.toLowerCase()) {
+          console.error("Recipient from backend does not match current address", {
+            recipient,
+            address,
+          });
           setError("Recipient mismatch between wallet and fulfillment data.");
           return;
         }
@@ -3427,9 +2887,7 @@ function SellConfirmSheet({
         }) as `0x${string}`;
       } else {
         console.error("Unexpected tx payload from backend:", tx);
-        setError(
-          "Backend did not return a usable transaction payload from OpenSea.",
-        );
+        setError("Backend did not return a usable transaction payload from OpenSea.");
         return;
       }
 
@@ -3451,55 +2909,41 @@ function SellConfirmSheet({
 
       setInfo(`Transaction submitted: ${txHash}`);
       setLastTxHash(txHash);
-      setShowSuccessModal(true);  // show success modal
+      setShowSuccessModal(true); // show success modal
       // don't call onClose() here; modal will close the sheet
-
     } catch (err) {
       console.error("Error while sending transaction", err);
-      openErrorModal("Failed to send transaction. Please check your wallet or network and try again.");
+      openErrorModal(
+        "Failed to send transaction. Please check your wallet or network and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
-
   }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="
-  relative z-[70] w-full max-w-sm rounded-t-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-4 shadow-xl
-">
-
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-xl">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-900">
-          Accept best offer
-        </h2>
+        <h2 className="text-center text-sm font-semibold text-neutral-900">Accept best offer</h2>
 
         <div className="mt-4 space-y-3 text-[12px]">
           <div className="flex justify-between">
             <span className="text-neutral-600">Offer</span>
-            <span className="font-semibold text-neutral-900">
-              {offer.priceFormatted} WETH
-            </span>
+            <span className="font-semibold text-neutral-900">{offer.priceFormatted} WETH</span>
           </div>
 
           <div className="flex justify-between">
             <span className="text-neutral-600">OpenSea fee (2.5%)</span>
-            <span className="text-neutral-500">
-              -{(offer.priceEth * 0.025).toFixed(4)} WETH
-            </span>
+            <span className="text-neutral-500">-{(offer.priceEth * 0.025).toFixed(4)} WETH</span>
           </div>
 
           <div className="flex justify-between border-t border-neutral-200 pt-1">
             <span className="text-neutral-700">You&apos;ll receive</span>
-            <span className="font-semibold text-emerald-600">
-              {payoutFormatted} WETH
-            </span>
+            <span className="font-semibold text-emerald-600">{payoutFormatted} WETH</span>
           </div>
 
           <div className="flex justify-between pt-1">
@@ -3507,55 +2951,39 @@ function SellConfirmSheet({
             <span className="text-neutral-600">{formatExpiration()}</span>
           </div>
 
-          {error && (
-            <div className="mt-2 leading-tight text-[11px] text-red-500">
-              {error}
-            </div>
-          )}
+          {error && <div className="mt-2 text-[11px] leading-tight text-red-500">{error}</div>}
 
           {info && !error && (
-            <div className="mt-2 leading-tight text-[11px] text-amber-600">
-              {info}
-            </div>
+            <div className="mt-2 text-[11px] leading-tight text-amber-600">{info}</div>
           )}
 
           {!info && !error && (
-            <div className="mt-2 space-y-1 leading-tight text-[11px] text-[var(--text-muted)]">
+            <div className="mt-2 space-y-1 text-[11px] leading-tight text-[var(--text-muted)]">
               <p>
-                For your safety, the transaction will only proceed if the
-                on-chain offer amount exactly matches the value shown here.
+                For your safety, the transaction will only proceed if the on-chain offer amount
+                exactly matches the value shown here.
               </p>
               <p>
                 Your wallet may show a banner like
                 <span className="font-medium">
                   {" "}
-                  &quot;Proceed with caution – The transaction uses the Seaport
-                  protocol to transfer tokens to an untrusted address&quot;
+                  &quot;Proceed with caution – The transaction uses the Seaport protocol to transfer
+                  tokens to an untrusted address&quot;
                 </span>
-                . This is expected for OpenSea Seaport trades and simply
-                indicates that the NFT is being transferred through the Seaport
-                contract.
+                . This is expected for OpenSea Seaport trades and simply indicates that the NFT is
+                being transferred through the Seaport contract.
               </p>
             </div>
           )}
-
         </div>
 
         <button
-  className="
-    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
-    bg-[var(--primary)]
-    text-[var(--primary-text)]
-    hover:bg-[var(--primary-hover)]
-    active:bg-[var(--primary-active)]
-    disabled:cursor-not-allowed disabled:opacity-60
-  "
-  disabled={submitting}
-  onClick={handleConfirm}
->
-  {submitting ? "Submitting…" : "Confirm accept offer"}
-</button>
-
+          className="mt-4 w-full rounded-xl bg-[var(--primary)] py-2 text-[12px] font-semibold text-[var(--primary-text)] shadow-sm hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={submitting}
+          onClick={handleConfirm}
+        >
+          {submitting ? "Submitting…" : "Confirm accept offer"}
+        </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
@@ -3565,113 +2993,84 @@ function SellConfirmSheet({
           Cancel
         </button>
         {showSuccessModal && lastTxHash && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => {
-        setShowSuccessModal(false);
-        onClose(); // close the sheet
-      }}
-    />
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <button
+              type="button"
+              className="absolute inset-0 h-full w-full"
+              onClick={() => {
+                setShowSuccessModal(false);
+                onClose(); // close the sheet
+              }}
+            />
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
+            <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+              {/* Success icon */}
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                <span className="text-lg text-emerald-600">✓</span>
+              </div>
 
-      {/* Success icon */}
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-        <span className="text-emerald-600 text-lg">✓</span>
-      </div>
+              <div className="text-center">
+                <h2 className="text-sm font-semibold text-neutral-900">Offer accepted</h2>
+                <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                  You&apos;ve sold this NFT. You can view the transaction on the block explorer.
+                </p>
+              </div>
 
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Offer accepted
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          You&apos;ve sold this NFT. You can view the transaction on the block explorer.
-        </p>
-      </div>
+              <a
+                href={txExplorerUrl(chain, lastTxHash)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
+              >
+                View on explorer
+              </a>
 
-      <a
-        href={txExplorerUrl(chain, lastTxHash)}
-        target="_blank"
-        rel="noreferrer"
-        className="
-          mt-4 flex w-full items-center justify-center
-          rounded-xl border border-purple-500/70
-          bg-white py-2 text-[12px] font-semibold
-          text-purple-700 hover:bg-purple-50
-        "
-      >
-        View on explorer
-      </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  onClose();
+                }}
+                className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
-      <button
-        type="button"
-        onClick={() => {
-          setShowSuccessModal(false);
-          onClose();
-        }}
-        className="
-          mt-2 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <button
+              type="button"
+              className="absolute inset-0 h-full w-full"
+              onClick={() => setShowErrorModal(false)}
+            />
 
-{showErrorModal && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => setShowErrorModal(false)}
-    />
+            <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+              {/* Error icon */}
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <span className="text-lg text-red-500">!</span>
+              </div>
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
+              <div className="text-center">
+                <h2 className="text-sm font-semibold text-neutral-900">Accept offer failed</h2>
+                <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                  {errorMessage ||
+                    "We couldn&apos;t complete this trade. Please try again in a moment."}
+                </p>
+              </div>
 
-      {/* Error icon */}
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-        <span className="text-red-500 text-lg">!</span>
-      </div>
-
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Accept offer failed
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          {errorMessage || "We couldn&apos;t complete this trade. Please try again in a moment."}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowErrorModal(false)}
-        className="
-          mt-4 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
+              <button
+                type="button"
+                onClick={() => setShowErrorModal(false)}
+                className="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3692,10 +3091,7 @@ function mapOpenSeaOrderToListing(order: any): Listing {
     }
   }
 
-  const expiration =
-    typeof order?.expiration_time === "number"
-      ? order.expiration_time
-      : null;
+  const expiration = typeof order?.expiration_time === "number" ? order.expiration_time : null;
 
   const makerAddr = order?.maker?.address ?? null;
 
@@ -3753,8 +3149,8 @@ function ListNftSheet({
     setShowErrorModal(true);
   }
   const openSeaUrl = `https://opensea.io/assets/${openSeaChainSlug(
-  chain,
-)}/${contractAddress}/${tokenId}`;
+    chain,
+  )}/${contractAddress}/${tokenId}`;
 
   // --- Fee assumptions for UI preview only ------------------------------
   // OpenSea error said "expecting 100 basis points" => 1% marketplace fee.
@@ -3779,7 +3175,7 @@ function ListNftSheet({
     return v >= 1 ? v.toFixed(3) : v.toFixed(4);
   }
 
-   async function handleList() {
+  async function handleList() {
     setSubmitting(true);
     setError(null);
     setInfo(null);
@@ -3799,7 +3195,6 @@ function ListNftSheet({
         openErrorModal("Wallet client is not available for signing.");
         return;
       }
-
 
       const durationNum = Number(durationDays);
       if (!Number.isFinite(durationNum) || durationNum <= 0) {
@@ -3855,7 +3250,6 @@ function ListNftSheet({
         }),
       });
 
-
       const json: any = await res.json().catch(() => ({}));
 
       if (!res.ok || json.ok === false) {
@@ -3866,7 +3260,6 @@ function ListNftSheet({
         return;
       }
 
-
       const order = json?.openSea?.order;
       let mapped: Listing | null = null;
 
@@ -3875,7 +3268,7 @@ function ListNftSheet({
       }
 
       setInfo(json?.message || "Listing created on OpenSea.");
-      
+
       setShowSuccessModal(true);
       onListed(mapped);
     } catch (err) {
@@ -3884,35 +3277,21 @@ function ListNftSheet({
     } finally {
       setSubmitting(false);
     }
-
   }
-
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="
-  relative z-[70] w-full max-w-sm rounded-t-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-4 shadow-xl
-">
-
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-xl">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-900">
-          List on OpenSea
-        </h2>
+        <h2 className="text-center text-sm font-semibold text-neutral-900">List on OpenSea</h2>
 
         <div className="mt-3 flex items-center gap-2 text-[11px]">
           <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={collectionName}
-                className="h-full w-full object-cover"
-              />
+              <img src={imageUrl} alt={collectionName} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
                 —
@@ -3923,36 +3302,21 @@ function ListNftSheet({
             <span className="text-neutral-800">
               {collectionName} #{tokenId}
             </span>
-            <span className="text-[10px] text-neutral-500">
-              Chain: {prettyChain(chain)}
-            </span>
+            <span className="text-[10px] text-neutral-500">Chain: {prettyChain(chain)}</span>
           </div>
         </div>
 
         <div className="mt-4 space-y-3 text-[12px]">
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-neutral-600">
-              Price (ETH)
-            </label>
-            <div className="
-  flex items-center rounded-xl
-  border border-[var(--border)]
-  bg-[var(--surface-secondary)]
-  px-3 py-1.5
-"
->
+            <label className="text-[11px] text-neutral-600">Price (ETH)</label>
+            <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-1.5">
               <input
                 type="number"
                 min="0"
                 step="0.0001"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="
-  w-full bg-transparent text-[12px]
-  text-[var(--text-primary)]
-  outline-none
-"
-
+                className="w-full bg-transparent text-[12px] text-[var(--text-primary)] outline-none"
                 placeholder="0.05"
               />
               <span className="ml-2 text-[11px] text-neutral-500">ETH</span>
@@ -3960,40 +3324,22 @@ function ListNftSheet({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-neutral-600">
-              Duration (days)
-            </label>
-            <div className="
-  flex items-center rounded-xl
-  border border-[var(--border)]
-  bg-[var(--surface-secondary)]
-  px-3 py-1.5
-">
+            <label className="text-[11px] text-neutral-600">Duration (days)</label>
+            <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-1.5">
               <input
                 type="number"
                 min="1"
                 step="1"
                 value={durationDays}
                 onChange={(e) => setDurationDays(e.target.value)}
-                className="
-  w-full bg-transparent text-[12px]
-  text-[var(--text-primary)]
-  outline-none
-"
-
+                className="w-full bg-transparent text-[12px] text-[var(--text-primary)] outline-none"
                 placeholder="7"
               />
-              <span className="ml-2 text-[11px] text-neutral-500">
-                days
-              </span>
+              <span className="ml-2 text-[11px] text-neutral-500">days</span>
             </div>
           </div>
           {hasValidPrice && (
-            <div className="
-    mt-2 space-y-1 rounded-xl
-    bg-[var(--surface-secondary)]
-    px-3 py-2 text-[11px] text-[var(--text-primary)]
-  ">
+            <div className="mt-2 space-y-1 rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px] text-[var(--text-primary)]">
               <div className="flex justify-between">
                 <span>OpenSea fee ({(OPENSEA_FEE_BPS / 100).toFixed(2)}%)</span>
                 <span>-{formatEth(osFeeEth)} ETH</span>
@@ -4001,9 +3347,7 @@ function ListNftSheet({
 
               {COLLECTION_FEE_BPS > 0 && (
                 <div className="flex justify-between">
-                  <span>
-                    Collection fee ({(COLLECTION_FEE_BPS / 100).toFixed(2)}%)
-                  </span>
+                  <span>Collection fee ({(COLLECTION_FEE_BPS / 100).toFixed(2)}%)</span>
                   <span>-{formatEth(collectionFeeEth)} ETH</span>
                 </div>
               )}
@@ -4012,67 +3356,50 @@ function ListNftSheet({
                 <span className="font-medium text-neutral-800">
                   You&apos;ll receive (before gas)
                 </span>
-                <span className="font-semibold text-emerald-600">
-                  {formatEth(netEth)} ETH
-                </span>
+                <span className="font-semibold text-emerald-600">{formatEth(netEth)} ETH</span>
               </div>
 
               <p className="mt-1 text-[10px] leading-snug text-[var(--text-muted)]">
                 This is an estimate based on OpenSea marketplace fees
-                {COLLECTION_FEE_BPS > 0 && " and collection royalties"}.  
-                Actual proceeds may differ slightly on OpenSea.
+                {COLLECTION_FEE_BPS > 0 && " and collection royalties"}. Actual proceeds may differ
+                slightly on OpenSea.
               </p>
             </div>
           )}
 
-          {error && (
-            <div className="mt-1 text-[11px] text-red-500 leading-tight">
-              {error}
-            </div>
-          )}
+          {error && <div className="mt-1 text-[11px] leading-tight text-red-500">{error}</div>}
 
           {info && !error && (
-            <div className="mt-1 text-[11px] text-emerald-600 leading-tight">
-              {info}
-            </div>
+            <div className="mt-1 text-[11px] leading-tight text-emerald-600">{info}</div>
           )}
 
           {!info && !error && (
-            <div className="mt-1 space-y-1 text-[11px] text-[var(--text-muted)] leading-tight">
+            <div className="mt-1 space-y-1 text-[11px] leading-tight text-[var(--text-muted)]">
               <p>
-                Your wallet may be asked to sign an off-chain Seaport order. The
-                backend will then call OpenSea&apos;s Create Listing API using
-                that signature.
+                Your wallet may be asked to sign an off-chain Seaport order. The backend will then
+                call OpenSea&apos;s Create Listing API using that signature.
               </p>
               <p>
                 You might also see a yellow banner like
                 <span className="font-medium">
                   {" "}
-                  &quot;Proceed with caution – The transaction uses the Seaport
-                  protocol to transfer tokens to an untrusted address&quot;
+                  &quot;Proceed with caution – The transaction uses the Seaport protocol to transfer
+                  tokens to an untrusted address&quot;
                 </span>
-                . This is a standard warning for OpenSea listings because the
-                Seaport contract holds your NFT in escrow until it sells.
+                . This is a standard warning for OpenSea listings because the Seaport contract holds
+                your NFT in escrow until it sells.
               </p>
             </div>
           )}
         </div>
 
         <button
-  className="
-    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
-    bg-[var(--primary)]
-    text-[var(--primary-text)]
-    hover:bg-[var(--primary-hover)]
-    active:bg-[var(--primary-active)]
-    disabled:cursor-not-allowed disabled:opacity-60
-  "
-  disabled={submitting}
-  onClick={handleList}
->
-  {submitting ? "Listing…" : "List"}
-</button>
-
+          className="mt-4 w-full rounded-xl bg-[var(--primary)] py-2 text-[12px] font-semibold text-[var(--primary-text)] shadow-sm hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={submitting}
+          onClick={handleList}
+        >
+          {submitting ? "Listing…" : "List"}
+        </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
@@ -4082,118 +3409,85 @@ function ListNftSheet({
           Cancel
         </button>
         {showSuccessModal && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => {
-        setShowSuccessModal(false);
-        onClose();
-      }}
-    />
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <button
+              type="button"
+              className="absolute inset-0 h-full w-full"
+              onClick={() => {
+                setShowSuccessModal(false);
+                onClose();
+              }}
+            />
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
+            <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+              {/* Animated checkmark */}
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                <span className="text-lg text-emerald-600">✓</span>
+              </div>
 
-      {/* Animated checkmark */}
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-        <span className="text-emerald-600 text-lg">✓</span>
-      </div>
+              <div className="text-center">
+                <h2 className="text-sm font-semibold text-neutral-900">NFT listed successfully</h2>
+                <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                  You can cancel or relist your NFT directly from Deck.
+                </p>
+              </div>
 
+              {/* View on OpenSea button */}
+              <a
+                href={openSeaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
+              >
+                View on OpenSea
+              </a>
 
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          NFT listed successfully
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          You can cancel or relist your NFT directly from Deck.
-        </p>
-      </div>
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  onClose();
+                }}
+                className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+        {showErrorModal && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            {/* click outside to close */}
+            <button
+              type="button"
+              className="absolute inset-0 h-full w-full"
+              onClick={() => setShowErrorModal(false)}
+            />
 
-      {/* View on OpenSea button */}
-      <a
-        href={openSeaUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="
-          mt-4 flex w-full items-center justify-center
-          rounded-xl border border-purple-500/70
-          bg-white py-2 text-[12px] font-semibold
-          text-purple-700 hover:bg-purple-50
-        "
-      >
-        View on OpenSea
-      </a>
+            <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
+              {/* Error icon */}
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <span className="text-lg text-red-500">!</span>
+              </div>
 
-      {/* Close button */}
-      <button
-        type="button"
-        onClick={() => {
-          setShowSuccessModal(false);
-          onClose();
-        }}
-        className="
-          mt-2 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-{showErrorModal && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    {/* click outside to close */}
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => setShowErrorModal(false)}
-    />
+              <div className="text-center">
+                <h2 className="text-sm font-semibold text-neutral-900">Listing failed</h2>
+                <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                  {errorMessage || "We couldn't create this listing. Please try again in a moment."}
+                </p>
+              </div>
 
-    <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
-
-      {/* Error icon */}
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-        <span className="text-red-500 text-lg">!</span>
-      </div>
-
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Listing failed
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          {errorMessage ||
-            "We couldn't create this listing. Please try again in a moment."}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowErrorModal(false)}
-        className="
-          mt-4 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
-
+              <button
+                type="button"
+                onClick={() => setShowErrorModal(false)}
+                className="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -4201,7 +3495,7 @@ function ListNftSheet({
 
 function CancelListingSheet({
   chain,
-  contractAddress: _contractAddress,   // mark unused
+  contractAddress: _contractAddress, // mark unused
   tokenId,
   listing,
   imageUrl,
@@ -4262,9 +3556,7 @@ function CancelListingSheet({
       const ocJson = await ocRes.json();
 
       if (!ocJson.ok) {
-        openErrorModal(
-          ocJson.message || "Failed to fetch order components from backend.",
-        );
+        openErrorModal(ocJson.message || "Failed to fetch order components from backend.");
         return;
       }
 
@@ -4311,27 +3603,15 @@ function CancelListingSheet({
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="
-  relative z-[70] w-full max-w-sm rounded-t-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-4 shadow-xl
-">
-
+      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-xl">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
-        <h2 className="text-center text-sm font-semibold text-neutral-900">
-          Cancel listing
-        </h2>
+        <h2 className="text-center text-sm font-semibold text-neutral-900">Cancel listing</h2>
 
         <div className="mt-3 flex items-center gap-2 text-[11px]">
           <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={collectionName}
-                className="h-full w-full object-cover"
-              />
+              <img src={imageUrl} alt={collectionName} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[9px] text-neutral-500">
                 —
@@ -4348,39 +3628,24 @@ function CancelListingSheet({
           </div>
         </div>
 
-        <div className="mt-3 text-[11px] text-[var(--text-muted)] leading-tight">
-          This will request OpenSea to cancel this listing. Depending on
-          the protocol, your wallet may be asked to sign an off-chain
-          message or send a small on-chain transaction.
+        <div className="mt-3 text-[11px] leading-tight text-[var(--text-muted)]">
+          This will request OpenSea to cancel this listing. Depending on the protocol, your wallet
+          may be asked to sign an off-chain message or send a small on-chain transaction.
         </div>
 
-        {error && (
-          <div className="mt-2 text-[11px] text-red-500 leading-tight">
-            {error}
-          </div>
-        )}
+        {error && <div className="mt-2 text-[11px] leading-tight text-red-500">{error}</div>}
 
         {info && !error && (
-          <div className="mt-2 text-[11px] text-emerald-600 leading-tight">
-            {info}
-          </div>
+          <div className="mt-2 text-[11px] leading-tight text-emerald-600">{info}</div>
         )}
 
         <button
-  className="
-    mt-4 w-full rounded-xl py-2 text-[12px] font-semibold shadow-sm
-    bg-[var(--primary)]
-    text-[var(--primary-text)]
-    hover:bg-[var(--primary-hover)]
-    active:bg-[var(--primary-active)]
-    disabled:cursor-not-allowed disabled:opacity-60
-  "
-  disabled={submitting}
-  onClick={handleCancel}
->
-  {submitting ? "Cancelling…" : "Cancel listing"}
-</button>
-
+          className="mt-4 w-full rounded-xl bg-[var(--primary)] py-2 text-[12px] font-semibold text-[var(--primary-text)] shadow-sm hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={submitting}
+          onClick={handleCancel}
+        >
+          {submitting ? "Cancelling…" : "Cancel listing"}
+        </button>
 
         <button
           className="mt-2 w-full text-center text-[12px] text-neutral-500"
@@ -4404,24 +3669,16 @@ function CancelListingSheet({
             }}
           />
 
-          <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
-
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-              <span className="text-emerald-600 text-lg">✓</span>
+              <span className="text-lg text-emerald-600">✓</span>
             </div>
 
             <div className="text-center">
-              <h2 className="text-sm font-semibold text-neutral-900">
-                Listing cancelled
-              </h2>
-              <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-                This NFT is no longer listed on OpenSea. You can view the cancel
-                transaction on the block explorer.
+              <h2 className="text-sm font-semibold text-neutral-900">Listing cancelled</h2>
+              <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+                This NFT is no longer listed on OpenSea. You can view the cancel transaction on the
+                block explorer.
               </p>
             </div>
 
@@ -4429,12 +3686,7 @@ function CancelListingSheet({
               href={txExplorerUrl(chain, lastTxHash)}
               target="_blank"
               rel="noreferrer"
-              className="
-                mt-4 flex w-full items-center justify-center
-                rounded-xl border border-purple-500/70
-                bg-white py-2 text-[12px] font-semibold
-                text-purple-700 hover:bg-purple-50
-              "
+              className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
             >
               View on explorer
             </a>
@@ -4446,11 +3698,7 @@ function CancelListingSheet({
                 onCancelled();
                 onClose();
               }}
-              className="
-                mt-2 w-full rounded-xl border border-neutral-200
-                bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-                hover:bg-neutral-100
-              "
+              className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
             >
               Close
             </button>
@@ -4467,22 +3715,14 @@ function CancelListingSheet({
             onClick={() => setShowErrorModal(false)}
           />
 
-          <div className="
-  relative z-[90] w-full max-w-xs rounded-3xl
-  border border-[var(--border)]
-  bg-[var(--surface)]
-  px-5 py-5 shadow-2xl
-">
-
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5 shadow-2xl">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-              <span className="text-red-500 text-lg">!</span>
+              <span className="text-lg text-red-500">!</span>
             </div>
 
             <div className="text-center">
-              <h2 className="text-sm font-semibold text-neutral-900">
-                Cancel failed
-              </h2>
-              <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+              <h2 className="text-sm font-semibold text-neutral-900">Cancel failed</h2>
+              <p className="mt-1 text-[11px] leading-snug text-neutral-500">
                 {errorMessage ||
                   "We couldn&apos;t cancel this listing. Please try again in a moment."}
               </p>
@@ -4491,11 +3731,7 @@ function CancelListingSheet({
             <button
               type="button"
               onClick={() => setShowErrorModal(false)}
-              className="
-                mt-4 w-full rounded-xl border border-neutral-200
-                bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-                hover:bg-neutral-100
-              "
+              className="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
             >
               Close
             </button>
@@ -4505,4 +3741,3 @@ function CancelListingSheet({
     </div>
   );
 }
-
