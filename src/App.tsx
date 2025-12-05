@@ -2088,7 +2088,8 @@ setActionSuccess({
 
           <div className="flex min-w-0 flex-1 flex-col justify-between">
             <div>
-              <div className="text-sm font-semibold text-neutral-900">
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+
                 {nft.name || `Token #${nft.identifier}`}
               </div>
               <div className="mt-0.5 text-[11px] text-neutral-500">
@@ -2116,11 +2117,13 @@ setActionSuccess({
                 target="_blank"
                 rel="noreferrer"
                 className="
-                  w-full rounded-xl border border-neutral-200 bg-white
-                  px-2 py-1.5 text-center text-[11px] text-neutral-700
-                  transition-colors duration-150
-                  hover:border-purple-400/60 hover:bg-purple-50 hover:text-neutral-900
-                "
+  w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)]
+  px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)]
+  hover:bg-[var(--surface)]
+  hover:border-[var(--primary)]
+"
+
               >
                 View on OpenSea
               </a>
@@ -2132,11 +2135,13 @@ setActionSuccess({
                 target="_blank"
                 rel="noreferrer"
                 className="
-                  w-full rounded-xl border border-neutral-200 bg-white
-                  px-2 py-1.5 text-center text-[11px] text-neutral-700
-                  transition-colors duration-150
-                  hover:border-purple-400/60 hover:bg-purple-50 hover:text-neutral-900
-                "
+  w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)]
+  px-2 py-1.5 text-center text-[11px] text-[var(--text-primary)]
+  hover:bg-[var(--surface)]
+  hover:border-[var(--primary)]
+"
+
               >
                 View collection
               </a>
@@ -2158,7 +2163,11 @@ setActionSuccess({
 >
 
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <div className="
+  text-[11px] font-semibold uppercase tracking-wide
+  text-[var(--text-secondary)]
+">
+
               Traits
             </div>
             {traitsLoading && (
@@ -2211,7 +2220,11 @@ setActionSuccess({
 >
 
           <div className="mb-1 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <div className="
+  text-[11px] font-semibold uppercase tracking-wide
+  text-[var(--text-secondary)]
+">
+
               Listing
             </div>
             <span className="text-[10px] text-neutral-400">
@@ -2322,7 +2335,11 @@ setActionSuccess({
 >
 
           <div className="mb-1 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <div className="
+  text-[11px] font-semibold uppercase tracking-wide
+  text-[var(--text-secondary)]
+">
+
               Offers
             </div>
             <span className="text-[10px] text-neutral-400">
@@ -2399,7 +2416,11 @@ setActionSuccess({
 >
 
           <div className="mb-1 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <div className="
+  text-[11px] font-semibold uppercase tracking-wide
+  text-[var(--text-secondary)]
+">
+
               Sales
             </div>
           <span className="text-[10px] text-neutral-400">Last 3 sales</span>
@@ -2494,7 +2515,11 @@ setActionSuccess({
 >
 
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+            <div className="
+  text-[11px] font-semibold uppercase tracking-wide
+  text-[var(--text-secondary)]
+">
+
               Market
             </div>
             <span className="text-[10px] text-neutral-400">
@@ -3495,7 +3520,7 @@ function SellConfirmSheet({
           )}
 
           {!info && !error && (
-            <div className="mt-2 space-y-1 leading-tight text-[11px] text-neutral-500">
+            <div className="mt-2 space-y-1 leading-tight text-[11px] text-[var(--text-muted)]">
               <p>
                 For your safety, the transaction will only proceed if the
                 on-chain offer amount exactly matches the value shown here.
@@ -3992,7 +4017,7 @@ function ListNftSheet({
                 </span>
               </div>
 
-              <p className="mt-1 text-[10px] leading-snug text-neutral-500">
+              <p className="mt-1 text-[10px] leading-snug text-[var(--text-muted)]">
                 This is an estimate based on OpenSea marketplace fees
                 {COLLECTION_FEE_BPS > 0 && " and collection royalties"}.  
                 Actual proceeds may differ slightly on OpenSea.
@@ -4013,7 +4038,7 @@ function ListNftSheet({
           )}
 
           {!info && !error && (
-            <div className="mt-1 space-y-1 text-[11px] text-neutral-500 leading-tight">
+            <div className="mt-1 space-y-1 text-[11px] text-[var(--text-muted)] leading-tight">
               <p>
                 Your wallet may be asked to sign an off-chain Seaport order. The
                 backend will then call OpenSea&apos;s Create Listing API using
@@ -4323,7 +4348,7 @@ function CancelListingSheet({
           </div>
         </div>
 
-        <div className="mt-3 text-[11px] text-neutral-500 leading-tight">
+        <div className="mt-3 text-[11px] text-[var(--text-muted)] leading-tight">
           This will request OpenSea to cancel this listing. Depending on
           the protocol, your wallet may be asked to sign an off-chain
           message or send a small on-chain transaction.

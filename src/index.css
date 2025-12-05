@@ -44,9 +44,9 @@
   --surface-secondary: #1f1f1f;
   --border: #2a2a2a;
 
-  --text-primary: #ffffff;
-  --text-secondary: #a5a5a5;
-  --text-muted: #6f6f6f;
+  --text-primary: #ffffff;       /* true white */
+  --text-secondary: #f5f5f5;     /* slightly softer for labels / headings */
+  --text-muted: #a3a3ac;         /* for helper text */
 
   --primary: #866aff;
   --primary-hover: #9b84ff;
