@@ -829,29 +829,41 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
     <button
       type="button"
       onClick={() => onChange(isDark ? "base-light" : "farcaster-dark")}
-      className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-1 py-1 text-[10px] font-medium text-[var(--text-secondary)] shadow-sm backdrop-blur-sm"
+      className={
+        isDark
+          ? "inline-flex items-center rounded-full border border-neutral-700 bg-[#1f1f1f] px-1 py-1 text-[10px] font-medium shadow-sm"
+          : "inline-flex items-center rounded-full border border-neutral-200 bg-white px-1 py-1 text-[10px] font-medium shadow-sm"
+      }
     >
+      {/* Light */}
       <span
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
-          !isDark ? "bg-neutral-900 text-white" : "text-neutral-500",
+          !isDark
+            ? "bg-[#0052ff] text-white"      // SELECTED in light mode → Base Blue
+            : "text-neutral-500"             // unselected in dark mode
         ].join(" ")}
       >
         <span>☀️</span>
-        <span>Base</span>
+        <span>Light</span>
       </span>
+
+      {/* Dark */}
       <span
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
-          isDark ? "bg-purple-600 text-white" : "text-neutral-500",
+          isDark
+            ? "bg-[#866aff] text-white"      // SELECTED in dark mode → Farcaster Purple
+            : "text-neutral-500"             // unselected in light mode
         ].join(" ")}
       >
         <span>🌙</span>
-        <span>Farcaster</span>
+        <span>Dark</span>
       </span>
     </button>
   );
 }
+
 
 /**
  * Chain selector: multi-network with bottom sheet
