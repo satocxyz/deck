@@ -935,13 +935,16 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       onClick={() => connect({ connector })}
       className="
   w-full rounded-2xl 
-  bg-[var(--primary)] px-4 py-3
-  text-sm font-semibold text-[var(--primary-text)]
+  px-4 py-3
+  text-sm font-semibold
+  bg-[var(--primary)]
+  text-[var(--primary-text)]
   shadow-sm transition-all duration-150
   hover:bg-[var(--primary-hover)]
   active:bg-[var(--primary-active)]
   disabled:cursor-not-allowed disabled:opacity-60
 "
+
 
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
@@ -2060,11 +2063,14 @@ setActionSuccess({
 
       {/* Hero section */}
       <section
-        className="
-          flex flex-col gap-3 rounded-3xl border border-neutral-200
-          bg-white/95 p-3 shadow-sm
-        "
-      >
+  className="
+    flex flex-col gap-3 rounded-3xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
         <div className="flex gap-3">
           <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-neutral-100">
             {nft.image_url ? (
@@ -2143,11 +2149,14 @@ setActionSuccess({
       <section className="space-y-3">
         {/* Traits */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-2 flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Traits
@@ -2193,11 +2202,14 @@ setActionSuccess({
 
         {/* Listing – top 3 cheapest listings in this collection */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-1 flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Listing
@@ -2299,11 +2311,14 @@ setActionSuccess({
 
         {/* Offers – top 3 WETH offers */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-1 flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Offers
@@ -2371,11 +2386,14 @@ setActionSuccess({
 
         {/* Sales – last 3 sales for this collection */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-1 flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Sales
@@ -2461,11 +2479,14 @@ setActionSuccess({
 
         {/* Market: recent sale prices chart, with fallback */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-2 flex items-center justify-between">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
               Market
@@ -2518,11 +2539,14 @@ setActionSuccess({
 
                 {/* Price summary – bottom with actions + approval gating + listing info */}
         <div
-          className="
-            rounded-2xl border border-neutral-200 bg-white/95
-            p-3 shadow-sm
-          "
-        >
+  className="
+    rounded-2xl
+    border border-[var(--border)]
+    bg-[var(--surface)]
+    p-3 shadow-sm
+  "
+>
+
           <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
             Price
           </div>
@@ -2699,7 +2723,7 @@ setActionSuccess({
                 </div>
 
                 {/* Listing info card */}
-                <div className="rounded-xl bg-neutral-50 px-3 py-2 text-[11px]">
+                <div className="rounded-xl bg-[var(--surface-secondary)] px-3 py-2 text-[11px]">
                   {!contractAddress || !address ? (
                     <span className="text-neutral-500">
                       Connect wallet to see and manage your listing for
@@ -2844,7 +2868,13 @@ setActionSuccess({
       onClick={() => setActionSuccess(null)}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
         <span className="text-emerald-600 text-lg">✓</span>
       </div>
@@ -2895,7 +2925,13 @@ setActionSuccess({
       onClick={() => setActionError(null)}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
         <span className="text-red-500 text-lg">!</span>
       </div>
@@ -3400,7 +3436,13 @@ function SellConfirmSheet({
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+      <div className="
+  relative z-[70] w-full max-w-sm rounded-t-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-4 shadow-xl
+">
+
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
         <h2 className="text-center text-sm font-semibold text-neutral-900">
@@ -3502,7 +3544,13 @@ function SellConfirmSheet({
       }}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       {/* Success icon */}
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
         <span className="text-emerald-600 text-lg">✓</span>
@@ -3557,7 +3605,13 @@ function SellConfirmSheet({
       onClick={() => setShowErrorModal(false)}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       {/* Error icon */}
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
         <span className="text-red-500 text-lg">!</span>
@@ -3807,7 +3861,13 @@ function ListNftSheet({
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+      <div className="
+  relative z-[70] w-full max-w-sm rounded-t-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-4 shadow-xl
+">
+
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
         <h2 className="text-center text-sm font-semibold text-neutral-900">
@@ -3976,7 +4036,13 @@ function ListNftSheet({
       }}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       {/* Animated checkmark */}
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
         <span className="text-emerald-600 text-lg">✓</span>
@@ -4034,7 +4100,13 @@ function ListNftSheet({
       onClick={() => setShowErrorModal(false)}
     />
 
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+    <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
       {/* Error icon */}
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
         <span className="text-red-500 text-lg">!</span>
@@ -4183,7 +4255,13 @@ function CancelListingSheet({
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
       <button className="absolute inset-0 h-full w-full" onClick={onClose} />
 
-      <div className="relative z-[70] w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-5 py-4 shadow-xl">
+      <div className="
+  relative z-[70] w-full max-w-sm rounded-t-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-4 shadow-xl
+">
+
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300" />
 
         <h2 className="text-center text-sm font-semibold text-neutral-900">
@@ -4270,7 +4348,13 @@ function CancelListingSheet({
             }}
           />
 
-          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+          <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
               <span className="text-emerald-600 text-lg">✓</span>
             </div>
@@ -4327,7 +4411,13 @@ function CancelListingSheet({
             onClick={() => setShowErrorModal(false)}
           />
 
-          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+          <div className="
+  relative z-[90] w-full max-w-xs rounded-3xl
+  border border-[var(--border)]
+  bg-[var(--surface)]
+  px-5 py-5 shadow-2xl
+">
+
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
               <span className="text-red-500 text-lg">!</span>
             </div>
