@@ -2441,8 +2441,13 @@ function NftDetailPage({
             expirationTime: bestOffer.expirationTime,
           }}
           onClose={() => setShowSellSheet(false)}
+          onSold={() => {
+            setShowSellSheet(false); // close the sheet
+            onBack();                // go back to gallery
+          }}
         />
       )}
+
 
       {showListSheet && contractAddress && (
         <ListNftSheet
@@ -2836,6 +2841,7 @@ function SellConfirmSheet({
   protocolAddress,
   offer,
   onClose,
+  onSold,
 }: {
   chain: Chain;
   orderHash: string;
@@ -2848,7 +2854,9 @@ function SellConfirmSheet({
     expirationTime: number | null;
   };
   onClose: () => void;
+  onSold?: () => void;
 }) {
+
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -3073,7 +3081,11 @@ function SellConfirmSheet({
               className="absolute inset-0 h-full w-full"
               onClick={() => {
                 setShowSuccessModal(false);
-                onClose(); // close the sheet
+                if (onSold) {
+                  onSold();
+                } else {
+                  onClose();
+                }
               }}
             />
 
@@ -3084,7 +3096,7 @@ function SellConfirmSheet({
               </div>
 
               <div className="text-center">
-                <h2 className="text-sm font-semibold text-neutral-900">Offer accepted</h2>
+                <h2 className="text-sm font-semibold text-neutral-900">NFT sold</h2>
                 <p className="mt-1 text-[11px] leading-snug text-neutral-500">
                   You&apos;ve sold this NFT. You can view the transaction on the block explorer.
                 </p>
@@ -3103,7 +3115,11 @@ function SellConfirmSheet({
                 type="button"
                 onClick={() => {
                   setShowSuccessModal(false);
-                  onClose();
+                  if (onSold) {
+                    onSold();
+                  } else {
+                    onClose();
+                  }
                 }}
                 className="mt-2 w-full rounded-xl border border-[var(--border)]
   bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
