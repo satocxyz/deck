@@ -1851,7 +1851,11 @@ function NftDetailPage({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] text-neutral-700 shadow-sm hover:border-neutral-300 hover:bg-neutral-50"
+          className="
+    inline-flex items-center gap-1 rounded-full border border-neutral-200
+    bg-white px-3 py-1.5 text-[11px] text-neutral-700
+    shadow-sm hover:border-neutral-300 hover:bg-neutral-50
+  "
         >
           <span className="text-xs">←</span>
           <span>Back to gallery</span>
@@ -1923,38 +1927,47 @@ function NftDetailPage({
       {/* Traits + market sections */}
       <section className="space-y-3">
         {/* Traits */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
-              Traits
-            </div>
-            {traitsLoading && <div className="text-[10px] text-neutral-500">Loading…</div>}
+<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
+  <div className="mb-2 flex items-center justify-between">
+    <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
+      Traits
+    </div>
+    {traitsLoading && <div className="text-[10px] text-neutral-500">Loading…</div>}
+  </div>
+
+  {traitsError && !traitsLoading && (
+    <div className="text-[11px] text-neutral-500">
+      We can&apos;t show traits right now.
+    </div>
+  )}
+
+  {!traitsLoading && !traitsError && traits.length === 0 && (
+    <div className="text-[11px] text-neutral-500">No traits available for this NFT.</div>
+  )}
+
+  {!traitsLoading && !traitsError && traits.length > 0 && (
+    <div className="flex flex-wrap gap-1.5">
+      {traits.map((trait) => (
+        <div
+          key={`${trait.label}-${trait.value}`}
+          className="
+            rounded-xl border px-2 py-1 text-[10px]
+            bg-neutral-50 border-neutral-200 text-neutral-900
+            dark:bg-[var(--surface-secondary)] dark:border-[var(--border)] dark:text-[var(--text-primary)]
+          "
+        >
+          <div className="text-[9px] tracking-wide text-neutral-500 uppercase dark:text-[var(--text-muted)]">
+            {trait.label}
           </div>
-
-          {traitsError && !traitsLoading && (
-            <div className="text-[11px] text-neutral-500">We can&apos;t show traits right now.</div>
-          )}
-
-          {!traitsLoading && !traitsError && traits.length === 0 && (
-            <div className="text-[11px] text-neutral-500">No traits available for this NFT.</div>
-          )}
-
-          {!traitsLoading && !traitsError && traits.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {traits.map((trait) => (
-                <div
-                  key={`${trait.label}-${trait.value}`}
-                  className="rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px]"
-                >
-                  <div className="text-[9px] tracking-wide text-neutral-500 uppercase">
-                    {trait.label}
-                  </div>
-                  <div className="text-[11px] text-neutral-900">{trait.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="text-[11px] text-neutral-900 dark:text-[var(--text-primary)]">
+            {trait.value}
+          </div>
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         {/* Listing – top 3 cheapest listings in this collection */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
