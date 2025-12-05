@@ -2258,9 +2258,11 @@ setActionSuccess({
                   <div
                     key={listing.id}
                     className="
-                      flex items-center gap-2 rounded-xl
-                      bg-neutral-50 px-2 py-1.5
-                    "
+  flex items-center gap-2 rounded-xl
+  bg-[var(--surface-secondary)]
+  px-2 py-1.5
+"
+
                   >
                     {/* Thumbnail */}
                     <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-200">
@@ -2355,9 +2357,11 @@ setActionSuccess({
                   <div
                     key={offer.id}
                     className="
-                      flex items-center justify-between rounded-xl
-                      bg-neutral-50 px-2 py-1.5
-                    "
+  flex items-center justify-between rounded-xl
+  bg-[var(--surface-secondary)]
+  px-2 py-1.5
+"
+
                   >
                     <div className="flex flex-col">
                       <span className="text-emerald-600">
@@ -2443,9 +2447,11 @@ setActionSuccess({
                   <div
                     key={sale.id}
                     className="
-                      flex items-center justify-between rounded-xl
-                      bg-neutral-50 px-2 py-1.5
-                    "
+  flex items-center justify-between rounded-xl
+  bg-[var(--surface-secondary)]
+  px-2 py-1.5
+"
+
                   >
                     <div className="flex flex-col">
                       <span className="text-neutral-700">
@@ -3903,14 +3909,25 @@ function ListNftSheet({
             <label className="text-[11px] text-neutral-600">
               Price (ETH)
             </label>
-            <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5">
+            <div className="
+  flex items-center rounded-xl
+  border border-[var(--border)]
+  bg-[var(--surface-secondary)]
+  px-3 py-1.5
+"
+>
               <input
                 type="number"
                 min="0"
                 step="0.0001"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-transparent text-[12px] text-neutral-900 outline-none"
+                className="
+  w-full bg-transparent text-[12px]
+  text-[var(--text-primary)]
+  outline-none
+"
+
                 placeholder="0.05"
               />
               <span className="ml-2 text-[11px] text-neutral-500">ETH</span>
@@ -3921,14 +3938,24 @@ function ListNftSheet({
             <label className="text-[11px] text-neutral-600">
               Duration (days)
             </label>
-            <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5">
+            <div className="
+  flex items-center rounded-xl
+  border border-[var(--border)]
+  bg-[var(--surface-secondary)]
+  px-3 py-1.5
+">
               <input
                 type="number"
                 min="1"
                 step="1"
                 value={durationDays}
                 onChange={(e) => setDurationDays(e.target.value)}
-                className="w-full bg-transparent text-[12px] text-neutral-900 outline-none"
+                className="
+  w-full bg-transparent text-[12px]
+  text-[var(--text-primary)]
+  outline-none
+"
+
                 placeholder="7"
               />
               <span className="ml-2 text-[11px] text-neutral-500">
@@ -3937,7 +3964,11 @@ function ListNftSheet({
             </div>
           </div>
           {hasValidPrice && (
-            <div className="mt-2 space-y-1 rounded-xl bg-neutral-50 px-3 py-2 text-[11px] text-neutral-700">
+            <div className="
+    mt-2 space-y-1 rounded-xl
+    bg-[var(--surface-secondary)]
+    px-3 py-2 text-[11px] text-[var(--text-primary)]
+  ">
               <div className="flex justify-between">
                 <span>OpenSea fee ({(OPENSEA_FEE_BPS / 100).toFixed(2)}%)</span>
                 <span>-{formatEth(osFeeEth)} ETH</span>
