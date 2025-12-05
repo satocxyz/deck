@@ -1846,21 +1846,26 @@ function NftDetailPage({
 
   return (
     <div className="relative space-y-4 pb-20" style={{ opacity: isBusy ? 0.96 : 1 }}>
-      {/* Top bar */}
-      <div className="mb-1 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="
-    inline-flex items-center gap-1 rounded-full border border-neutral-200
-    bg-white px-3 py-1.5 text-[11px] text-neutral-700
-    shadow-sm hover:border-neutral-300 hover:bg-neutral-50
-  "
-        >
-          <span className="text-xs">←</span>
-          <span>Back to gallery</span>
-        </button>
-      </div>
+{/* Top bar */}
+<div className="mb-1 flex items-center justify-between">
+  <button
+    type="button"
+    onClick={onBack}
+    className="
+      inline-flex items-center gap-1 rounded-full border
+      border-[var(--border)]
+      bg-[var(--surface-secondary)]
+      px-3 py-1.5 text-[11px] font-medium
+      text-[var(--text-secondary)]
+      shadow-sm
+      hover:bg-[var(--surface)]
+    "
+  >
+    <span className="text-xs">←</span>
+    <span>Back to gallery</span>
+  </button>
+</div>
+
 
       {/* Hero section */}
       <section className="flex flex-col gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
