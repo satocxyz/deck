@@ -1971,17 +1971,21 @@ function NftDetailPage({
     <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
       Traits
     </div>
-    {traitsLoading && <div className="text-[10px] text-neutral-500">Loading…</div>}
+    {traitsLoading && (
+      <div className="text-[10px] text-[var(--text-muted)]">Loading…</div>
+    )}
   </div>
 
   {traitsError && !traitsLoading && (
-    <div className="text-[11px] text-neutral-500">
+    <div className="text-[11px] text-[var(--text-muted)]">
       We can&apos;t show traits right now.
     </div>
   )}
 
   {!traitsLoading && !traitsError && traits.length === 0 && (
-    <div className="text-[11px] text-neutral-500">No traits available for this NFT.</div>
+    <div className="text-[11px] text-[var(--text-muted)]">
+      No traits available for this NFT.
+    </div>
   )}
 
   {!traitsLoading && !traitsError && traits.length > 0 && (
@@ -1990,15 +1994,15 @@ function NftDetailPage({
         <div
           key={`${trait.label}-${trait.value}`}
           className="
-            rounded-xl border px-2 py-1 text-[10px]
-            bg-neutral-50 border-neutral-200 text-neutral-900
-            dark:bg-[var(--surface-secondary)] dark:border-[var(--border)] dark:text-[var(--text-primary)]
+            rounded-xl border border-[var(--border)]
+            bg-[var(--surface-secondary)]
+            px-2 py-1 text-[10px]
           "
         >
-          <div className="text-[9px] tracking-wide text-neutral-500 uppercase dark:text-[var(--text-muted)]">
+          <div className="text-[9px] tracking-wide text-[var(--text-muted)] uppercase">
             {trait.label}
           </div>
-          <div className="text-[11px] text-neutral-900 dark:text-[var(--text-primary)]">
+          <div className="text-[11px] text-[var(--text-primary)]">
             {trait.value}
           </div>
         </div>
