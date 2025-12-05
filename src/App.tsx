@@ -3333,6 +3333,13 @@ function ListNftSheet({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  function openErrorModal(message: string) {
+    setError(message);
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  }
   const openSeaUrl = `https://opensea.io/assets/${openSeaChainSlug(
   chain,
 )}/${contractAddress}/${tokenId}`;
@@ -3371,16 +3378,16 @@ function ListNftSheet({
         return;
       }
 
-      if (!walletClient) {
-        setError("Wallet client is not available for signing.");
+      if (!address) {
+        openErrorModal("Wallet is not connected.");
         return;
       }
 
-      const priceNum = Number(price);
-      if (!Number.isFinite(priceNum) || priceNum <= 0) {
-        setError("Please enter a valid price in ETH.");
+      if (!walletClient) {
+        openErrorModal("Wallet client is not available for signing.");
         return;
       }
+
 
       const durationNum = Number(durationDays);
       if (!Number.isFinite(durationNum) || durationNum <= 0) {
@@ -3439,13 +3446,14 @@ function ListNftSheet({
 
       const json: any = await res.json().catch(() => ({}));
 
-            if (!res.ok || json.ok === false) {
-        setError(
+      if (!res.ok || json.ok === false) {
+        openErrorModal(
           json?.message ||
-            "Backend rejected listing request. Check server logs.",
+            "We couldn't create this listing on OpenSea. Please try again in a moment.",
         );
         return;
       }
+
 
       const order = json?.openSea?.order;
       let mapped: Listing | null = null;
@@ -3460,10 +3468,11 @@ function ListNftSheet({
       onListed(mapped);
     } catch (err) {
       console.error("ListNftSheet error", err);
-      setError("Failed to create listing. Check console for details.");
+      openErrorModal("Failed to create listing. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
+
   }
 
 
@@ -3673,6 +3682,45 @@ function ListNftSheet({
         }}
         className="
           mt-2 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+{showErrorModal && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    {/* click outside to close */}
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => setShowErrorModal(false)}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      {/* Error icon */}
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+        <span className="text-red-500 text-lg">!</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Listing failed
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          {errorMessage ||
+            "We couldn't create this listing. Please try again in a moment."}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowErrorModal(false)}
+        className="
+          mt-4 w-full rounded-xl border border-neutral-200
           bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
           hover:bg-neutral-100
         "
