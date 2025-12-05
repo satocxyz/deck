@@ -3991,12 +3991,14 @@ function CancelListingSheet({
   onClose: () => void;
   onCancelled: () => void;
 }) {
-
   const { address } = useAccount();
-  const { data: walletClient } = useWalletClient(); // ✅ add this
+  const { data: walletClient } = useWalletClient();
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // NEW: modal + tx hash state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -4008,78 +4010,75 @@ function CancelListingSheet({
     setShowErrorModal(true);
   }
 
-async function handleCancel() {
-  setSubmitting(true);
-  setError(null);
-  setInfo(null);
+  async function handleCancel() {
+    setSubmitting(true);
+    setError(null);
+    setInfo(null);
 
-  try {
-    if (!address || !walletClient) {           // ✅ add walletClient check
-      setError("Wallet is not connected.");
-      return;
+    try {
+      if (!address || !walletClient) {
+        openErrorModal("Wallet is not connected.");
+        return;
+      }
+
+      // 1. fetch order components
+      const ocRes = await fetch("/api/opensea/order-components", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain,
+          orderId: listing.id,
+          expectedOfferer: address,
+        }),
+      });
+
+      const ocJson = await ocRes.json();
+
+      if (!ocJson.ok) {
+        openErrorModal(
+          ocJson.message || "Failed to fetch order components from backend.",
+        );
+        return;
+      }
+
+      const seaportAddress = ocJson.seaportAddress;
+      const orderComponents = ocJson.orderComponents;
+
+      if (!seaportAddress || !orderComponents) {
+        openErrorModal("Missing Seaport address or order components.");
+        return;
+      }
+
+      const data = encodeFunctionData({
+        abi: seaportCancelAbi,
+        functionName: "cancel",
+        args: [[orderComponents]],
+      });
+
+      const txHash = await walletClient.sendTransaction({
+        account: address as `0x${string}`,
+        chain: {
+          id: chainIdFromChain(chain),
+          name: "",
+          nativeCurrency: undefined,
+          rpcUrls: {},
+        } as any,
+        to: seaportAddress as `0x${string}`,
+        data,
+        value: 0n,
+      });
+
+      setInfo(`Cancel transaction submitted: ${txHash}`);
+      setLastTxHash(txHash);
+      setShowSuccessModal(true); // ✅ show success modal
+      // ❌ do NOT call onCancelled()/onClose() here – let the user close via modal
+    } catch (err) {
+      console.error("cancel tx error", err);
+      openErrorModal("Failed to submit cancel transaction. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    // 1. fetch order components
-    const ocRes = await fetch("/api/opensea/order-components", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chain,
-        orderId: listing.id,
-        expectedOfferer: address,
-      }),
-    });
-
-    const ocJson = await ocRes.json();
-
-    if (!ocJson.ok) {
-      setError(ocJson.message || "Failed to fetch order components.");
-      return;
-    }
-
-    const seaportAddress = ocJson.seaportAddress;
-    const orderComponents = ocJson.orderComponents;
-
-    if (!seaportAddress || !orderComponents) {
-      setError("Missing Seaport address or order components.");
-      return;
-    }
-
-    const data = encodeFunctionData({
-      abi: seaportCancelAbi,
-      functionName: "cancel",
-      args: [[orderComponents]],
-    });
-
-    const txHash = await walletClient.sendTransaction({
-    account: address as `0x${string}`,
-    chain: {
-      id: chainIdFromChain(chain),
-      name: "",
-      nativeCurrency: undefined,
-      rpcUrls: {},
-    } as any,
-    to: seaportAddress as `0x${string}`,
-    data,
-    value: 0n,
-  });
-
-  setInfo(`Cancel transaction submitted: ${txHash}`);
-  setLastTxHash(txHash);        // store hash for explorer link
-  setShowSuccessModal(true);    // show success modal
-  // ❌ DO NOT call onCancelled() or onClose() here
-
-
-  } catch (err) {
-  console.error("cancel tx error", err);
-  openErrorModal("Failed to submit cancel transaction. Please try again.");
-  } finally {
-    setSubmitting(false);
   }
-
-}
-
-
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/25 backdrop-blur-sm">
@@ -4149,84 +4148,107 @@ async function handleCancel() {
         >
           Close
         </button>
-        {showSuccessModal && lastTxHash && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => {
-        setShowSuccessModal(false);
-        onCancelled(); // ✅ tell parent to refresh & close
-        onClose();     // ✅ hide the sheet
-      }}
-    />
-
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
-      {/* ✓ icon etc... */}
-
-      <a
-        href={txExplorerUrl(chain, lastTxHash)}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
-      >
-        View on explorer
-      </a>
-
-      <button
-        type="button"
-        onClick={() => {
-          setShowSuccessModal(false);
-          onCancelled(); // ✅ here
-          onClose();     // ✅ here
-        }}
-        className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
-
-{showErrorModal && (
-  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <button
-      type="button"
-      className="absolute inset-0 h-full w-full"
-      onClick={() => setShowErrorModal(false)}
-    />
-
-    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-        <span className="text-red-500 text-lg">!</span>
       </div>
 
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Cancel failed
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          {errorMessage || "We couldn&apos;t cancel this listing. Please try again in a moment."}
-        </p>
-      </div>
+      {/* ✅ SUCCESS MODAL WITH ICON + EXPLORER BUTTON */}
+      {showSuccessModal && lastTxHash && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            onClick={() => {
+              setShowSuccessModal(false);
+              onCancelled(); // tell parent to refresh + hide sheet
+              onClose();
+            }}
+          />
 
-      <button
-        type="button"
-        onClick={() => setShowErrorModal(false)}
-        className="
-          mt-4 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+              <span className="text-emerald-600 text-lg">✓</span>
+            </div>
 
-      </div>
+            <div className="text-center">
+              <h2 className="text-sm font-semibold text-neutral-900">
+                Listing cancelled
+              </h2>
+              <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+                This NFT is no longer listed on OpenSea. You can view the cancel
+                transaction on the block explorer.
+              </p>
+            </div>
+
+            <a
+              href={txExplorerUrl(chain, lastTxHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="
+                mt-4 flex w-full items-center justify-center
+                rounded-xl border border-purple-500/70
+                bg-white py-2 text-[12px] font-semibold
+                text-purple-700 hover:bg-purple-50
+              "
+            >
+              View on explorer
+            </a>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowSuccessModal(false);
+                onCancelled();
+                onClose();
+              }}
+              className="
+                mt-2 w-full rounded-xl border border-neutral-200
+                bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+                hover:bg-neutral-100
+              "
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ❌ ERROR MODAL */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            onClick={() => setShowErrorModal(false)}
+          />
+
+          <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+              <span className="text-red-500 text-lg">!</span>
+            </div>
+
+            <div className="text-center">
+              <h2 className="text-sm font-semibold text-neutral-900">
+                Cancel failed
+              </h2>
+              <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+                {errorMessage ||
+                  "We couldn&apos;t cancel this listing. Please try again in a moment."}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowErrorModal(false)}
+              className="
+                mt-4 w-full rounded-xl border border-neutral-200
+                bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+                hover:bg-neutral-100
+              "
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
