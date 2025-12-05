@@ -703,7 +703,16 @@ function App() {
                       console.log("NFT object:", nft);
                       setSelectedNft(nft);
                     }}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white/95 p-2 shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:border-purple-400/40 hover:shadow-lg focus:ring-2 focus:ring-purple-400/60 focus:ring-offset-2 focus:ring-offset-neutral-50 focus:outline-none active:translate-y-0 active:shadow-sm"
+                            className="
+          group flex flex-col overflow-hidden rounded-2xl
+          border border-[var(--border)] bg-[var(--surface)]
+          p-2 shadow-sm transition-all duration-200
+          hover:-translate-y-[2px] hover:border-[var(--primary)] hover:shadow-lg
+          focus:outline-none focus:ring-2 focus:ring-[var(--primary)]
+          focus:ring-offset-2 focus:ring-offset-[var(--bg)]
+          active:translate-y-0 active:shadow-sm
+        "
+
                   >
                     {/* Inner image container */}
                     <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 pb-[100%]">
