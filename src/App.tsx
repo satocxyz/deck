@@ -1839,19 +1839,19 @@ function NftDetailPage({
           </div>
 
           {listingsLoading && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               Loading listings…
             </div>
           )}
 
           {!listingsLoading && listingsError && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               We can&apos;t show listings right now.
             </div>
           )}
 
           {!listingsLoading && !listingsError && listings.length === 0 && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               No active listings found for this collection.
             </div>
           )}
@@ -1933,19 +1933,19 @@ function NftDetailPage({
           </div>
 
           {offersLoading && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               Loading offers…
             </div>
           )}
 
           {!offersLoading && offersError && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               We can&apos;t show offers right now.
             </div>
           )}
 
           {!offersLoading && !offersError && offers.length === 0 && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               No active WETH offers for this NFT.
             </div>
           )}
@@ -1988,19 +1988,19 @@ function NftDetailPage({
           </div>
 
           {salesLoading && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               Loading sales…
             </div>
           )}
 
           {!salesLoading && salesError && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               We can&apos;t show sales right now.
             </div>
           )}
 
           {!salesLoading && !salesError && sales.length === 0 && (
-            <div className="rounded-xl bg-neutral-50 px-2 py-1.5 text-[11px] text-neutral-500">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-muted)]">
               No recent on-chain sales found for this collection.
             </div>
           )}
@@ -2324,20 +2324,14 @@ function NftDetailPage({
           collectionName={collectionName}
           onClose={() => setShowCancelSheet(false)}
           onCancelled={() => {
-            setShowCancelSheet(false);
+          setShowCancelSheet(false);
 
-            // Poll OpenSea until the listing is gone
-            let attempts = 0;
-            const poll = setInterval(() => {
-              attempts++;
+          // Single refresh after ~1.5s so OpenSea has time to update
+          setTimeout(() => {
+            setListingsRefreshNonce((n) => n + 1);
+          }, 1500);
+        }}
 
-              // trigger a refresh
-              setListingsRefreshNonce((n) => n + 1);
-
-              // stop after 10 seconds max
-              if (attempts > 10) clearInterval(poll);
-            }, 1000);
-          }}
         />
       )}
       {actionSuccess && (
