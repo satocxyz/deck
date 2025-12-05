@@ -1200,6 +1200,14 @@ function NftDetailPage({
   const [approving, setApproving] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [approvalErrorMsg, setApprovalErrorMsg] = useState<string | null>(null);
+  
+  const [actionSuccess, setActionSuccess] = useState<{
+  title: string;
+  message: string;
+  txHash: string;
+  } | null>(null);
+
+  const [actionError, setActionError] = useState<string | null>(null);
 
 
 
@@ -1818,19 +1826,26 @@ useEffect(() => {
       args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, true],
     });
 
-    await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: { id: chainId } as any,
-      to: contractAddress as `0x${string}`,
-      data: dataToSend as `0x${string}`,
-      value: 0n,
-    });
+    const txHash = await walletClient.sendTransaction({
+  account: address as `0x${string}`,
+  chain: { id: chainId } as any,
+  to: contractAddress as `0x${string}`,
+  data: dataToSend as `0x${string}`,
+  value: 0n,
+});
 
-    updateToast(loadingId, {
-      type: "success",
-      message: "NFT approved!",
-    });
-    setApprovalStatus("approved");
+updateToast(loadingId, {
+  type: "success",
+  message: "NFT approved!",
+});
+setApprovalStatus("approved");
+setActionSuccess({
+  title: "Collection approved",
+  message:
+    "This collection is now approved for trading via OpenSea Seaport. You can list and accept offers from Deck.",
+  txHash,
+});
+
   } catch (err) {
     console.error("Approval tx failed", err);
     updateToast(loadingId, {
@@ -1838,6 +1853,7 @@ useEffect(() => {
       message: "Approval failed.",
     });
     setApprovalStatus("error");
+    setActionError("Approval failed. Please check your wallet or network and try again.");
   } finally {
     setApproving(false);
   }
@@ -1872,19 +1888,26 @@ async function handleRevokeOpenSea() {
       args: [OPENSEA_SEAPORT_CONDUIT as `0x${string}`, false],
     });
 
-    await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: { id: chainId } as any,
-      to: contractAddress as `0x${string}`,
-      data: dataToSend as `0x${string}`,
-      value: 0n,
-    });
+    const txHash = await walletClient.sendTransaction({
+  account: address as `0x${string}`,
+  chain: { id: chainId } as any,
+  to: contractAddress as `0x${string}`,
+  data: dataToSend as `0x${string}`,
+  value: 0n,
+});
 
-    updateToast(loadingId, {
-      type: "success",
-      message: "Approval revoked",
-    });
-    setApprovalStatus("not-approved");
+updateToast(loadingId, {
+  type: "success",
+  message: "Approval revoked",
+});
+setApprovalStatus("not-approved");
+setActionSuccess({
+  title: "Approval revoked",
+  message:
+    "OpenSea Seaport approval for this collection has been revoked. You&apos;ll need to approve again before trading.",
+  txHash,
+});
+
   } catch (err) {
     console.error("Revoke tx failed", err);
     updateToast(loadingId, {
@@ -1892,6 +1915,7 @@ async function handleRevokeOpenSea() {
       message: "Revoke failed.",
     });
     setApprovalStatus("error");
+    setActionError("We couldn&apos;t revoke this approval. Please try again.");
   } finally {
     setRevoking(false);
   }
@@ -2729,6 +2753,94 @@ async function handleRevokeOpenSea() {
           }}
         />
       )}
+      {actionSuccess && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => setActionSuccess(null)}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+        <span className="text-emerald-600 text-lg">✓</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          {actionSuccess.title}
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          {actionSuccess.message}
+        </p>
+      </div>
+
+      <a
+        href={txExplorerUrl(chain, actionSuccess.txHash)}
+        target="_blank"
+        rel="noreferrer"
+        className="
+          mt-4 flex w-full items-center justify-center
+          rounded-xl border border-purple-500/70
+          bg-white py-2 text-[12px] font-semibold
+          text-purple-700 hover:bg-purple-50
+        "
+      >
+        View on explorer
+      </a>
+
+      <button
+        type="button"
+        onClick={() => setActionSuccess(null)}
+        className="
+          mt-2 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
+{actionError && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => setActionError(null)}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+        <span className="text-red-500 text-lg">!</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Action failed
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          {actionError}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setActionError(null)}
+        className="
+          mt-4 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
@@ -2994,6 +3106,20 @@ function chainIdFromChain(chain: Chain): number {
       return 1;
   }
 }
+function txExplorerUrl(chain: Chain, txHash: string): string {
+  switch (chain) {
+    case "base":
+      return `https://basescan.org/tx/${txHash}`;
+    case "ethereum":
+      return `https://etherscan.io/tx/${txHash}`;
+    case "arbitrum":
+      return `https://arbiscan.io/tx/${txHash}`;
+    case "optimism":
+      return `https://optimistic.etherscan.io/tx/${txHash}`;
+    default:
+      return `https://etherscan.io/tx/${txHash}`;
+  }
+}
 
 function AppContainer() {
   return (
@@ -3033,6 +3159,16 @@ function SellConfirmSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+
+  function openErrorModal(message: string) {
+    setError(message);
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  }
 
   const feePct = 2.5 / 100;
   const payout = offer.priceEth * (1 - feePct);
@@ -3164,13 +3300,17 @@ function SellConfirmSheet({
       });
 
       setInfo(`Transaction submitted: ${txHash}`);
-      onClose();
+      setLastTxHash(txHash);
+      setShowSuccessModal(true);  // show success modal
+      // don't call onClose() here; modal will close the sheet
+
     } catch (err) {
       console.error("Error while sending transaction", err);
-      setError("Failed to send transaction. Check console for details.");
+      openErrorModal("Failed to send transaction. Please check your wallet or network and try again.");
     } finally {
       setSubmitting(false);
     }
+
   }
 
   return (
@@ -3260,6 +3400,102 @@ function SellConfirmSheet({
         >
           Cancel
         </button>
+        {showSuccessModal && lastTxHash && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => {
+        setShowSuccessModal(false);
+        onClose(); // close the sheet
+      }}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      {/* Success icon */}
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+        <span className="text-emerald-600 text-lg">✓</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Offer accepted
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          You&apos;ve sold this NFT. You can view the transaction on the block explorer.
+        </p>
+      </div>
+
+      <a
+        href={txExplorerUrl(chain, lastTxHash)}
+        target="_blank"
+        rel="noreferrer"
+        className="
+          mt-4 flex w-full items-center justify-center
+          rounded-xl border border-purple-500/70
+          bg-white py-2 text-[12px] font-semibold
+          text-purple-700 hover:bg-purple-50
+        "
+      >
+        View on explorer
+      </a>
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          onClose();
+        }}
+        className="
+          mt-2 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
+{showErrorModal && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => setShowErrorModal(false)}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      {/* Error icon */}
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+        <span className="text-red-500 text-lg">!</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Accept offer failed
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          {errorMessage || "We couldn&apos;t complete this trade. Please try again in a moment."}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowErrorModal(false)}
+        className="
+          mt-4 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
@@ -3761,6 +3997,16 @@ function CancelListingSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+
+  function openErrorModal(message: string) {
+    setError(message);
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  }
 
 async function handleCancel() {
   setSubmitting(true);
@@ -3806,27 +4052,31 @@ async function handleCancel() {
     });
 
     const txHash = await walletClient.sendTransaction({
-      account: address as `0x${string}`,
-      chain: {
-        id: chainIdFromChain(chain),
-        name: "",
-        nativeCurrency: undefined,
-        rpcUrls: {},
-      } as any,
-      to: seaportAddress as `0x${string}`,
-      data,
-      value: 0n,
-    });
+    account: address as `0x${string}`,
+    chain: {
+      id: chainIdFromChain(chain),
+      name: "",
+      nativeCurrency: undefined,
+      rpcUrls: {},
+    } as any,
+    to: seaportAddress as `0x${string}`,
+    data,
+    value: 0n,
+  });
 
-    setInfo(`Cancel transaction submitted: ${txHash}`);
-    onCancelled();
-    onClose();
+  setInfo(`Cancel transaction submitted: ${txHash}`);
+  setLastTxHash(txHash);
+  onCancelled();
+  setShowSuccessModal(true); // show success
+  // don't call onClose() here; let modal close it
+
   } catch (err) {
-    console.error("cancel tx error", err);
-    setError("Failed to submit cancel transaction.");
+  console.error("cancel tx error", err);
+  openErrorModal("Failed to submit cancel transaction. Please try again.");
   } finally {
     setSubmitting(false);
   }
+
 }
 
 
@@ -3899,6 +4149,100 @@ async function handleCancel() {
         >
           Close
         </button>
+        {showSuccessModal && lastTxHash && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => {
+        setShowSuccessModal(false);
+        onClose();
+      }}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+        <span className="text-emerald-600 text-lg">✓</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Listing cancelled
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          This NFT is no longer listed on OpenSea. You can view the cancel transaction on the block explorer.
+        </p>
+      </div>
+
+      <a
+        href={txExplorerUrl(chain, lastTxHash)}
+        target="_blank"
+        rel="noreferrer"
+        className="
+          mt-4 flex w-full items-center justify-center
+          rounded-xl border border-purple-500/70
+          bg-white py-2 text-[12px] font-semibold
+          text-purple-700 hover:bg-purple-50
+        "
+      >
+        View on explorer
+      </a>
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowSuccessModal(false);
+          onClose();
+        }}
+        className="
+          mt-2 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
+{showErrorModal && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <button
+      type="button"
+      className="absolute inset-0 h-full w-full"
+      onClick={() => setShowErrorModal(false)}
+    />
+
+    <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+        <span className="text-red-500 text-lg">!</span>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-sm font-semibold text-neutral-900">
+          Cancel failed
+        </h2>
+        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
+          {errorMessage || "We couldn&apos;t cancel this listing. Please try again in a moment."}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowErrorModal(false)}
+        className="
+          mt-4 w-full rounded-xl border border-neutral-200
+          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
+          hover:bg-neutral-100
+        "
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
