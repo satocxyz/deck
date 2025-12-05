@@ -575,6 +575,7 @@ function App() {
   });
   const [selectedNft, setSelectedNft] = useState<OpenSeaNft | null>(null);
   const [fcUser, setFcUser] = useState<MiniAppUser | null>(null);
+  const [hiddenNftKeys, setHiddenNftKeys] = useState<string[]>([]);
 
   // Persist chain selection
   useEffect(() => {
@@ -613,10 +614,17 @@ function App() {
     })();
   }, []);
 
-  const { isConnected } = useAccount();
+    const { isConnected } = useAccount();
   const { data, loading, error } = useMyNfts(chain);
 
-  const nfts = useMemo(() => data?.nfts ?? [], [data]);
+  const rawNfts = useMemo(() => data?.nfts ?? [], [data]);
+
+  const nfts = useMemo(() => {
+    if (!hiddenNftKeys.length) return rawNfts;
+    const hiddenSet = new Set(hiddenNftKeys);
+    return rawNfts.filter((nft) => !hiddenSet.has(makeNftKey(chain, nft)));
+  }, [rawNfts, hiddenNftKeys, chain]);
+
 
   const showGrid = isConnected && !loading && !error && nfts.length > 0;
   const showEmpty = isConnected && !loading && !error && nfts.length === 0;
@@ -697,7 +705,7 @@ function App() {
               <div className="grid grid-cols-2 gap-3 pb-10">
                 {nfts.map((nft) => (
                   <button
-                    key={`${getCollectionSlug(nft) ?? "unknown"}-${nft.identifier}`}
+                    key={makeNftKey(chain, nft)}
                     type="button"
                     onClick={() => {
                       console.log("NFT object:", nft);
@@ -753,8 +761,21 @@ function App() {
         )}
 
         {isDetailView && selectedNft && (
-          <NftDetailPage chain={chain} nft={selectedNft} onBack={() => setSelectedNft(null)} />
+          <NftDetailPage
+            chain={chain}
+            nft={selectedNft}
+            onBack={() => setSelectedNft(null)}
+            onSold={() => {
+              if (!selectedNft) return;
+              const key = makeNftKey(chain, selectedNft);
+              setHiddenNftKeys((prev) =>
+                prev.includes(key) ? prev : [...prev, key],
+              );
+              setSelectedNft(null); // go back to gallery
+            }}
+          />
         )}
+
       </main>
     </div>
   );
@@ -767,6 +788,16 @@ function shortenAddress(addr?: string | null) {
   if (!addr) return "";
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
+
+function makeNftKey(chain: Chain, nft: OpenSeaNft): string {
+  const contractAddress =
+    nft && typeof nft.contract === "string"
+      ? nft.contract.toLowerCase()
+      : "no-contract";
+
+  return `${chain}:${contractAddress}:${nft.identifier}`;
+}
+
 
 /**
  * Wallet connect pill / button with Farcaster user
@@ -1085,11 +1116,14 @@ function NftDetailPage({
   chain,
   nft,
   onBack,
+  onSold,
 }: {
   chain: Chain;
   nft: OpenSeaNft;
   onBack: () => void;
+  onSold?: () => void;
 }) {
+
   const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
   const [offers, setOffers] = useState<SimpleOffer[]>([]);
   const [floor, setFloor] = useState<FloorInfo>({
@@ -2429,24 +2463,29 @@ function NftDetailPage({
       </section>
 
       {showSellSheet && bestOffer && contractAddress && (
-        <SellConfirmSheet
-          chain={chain}
-          orderHash={bestOffer.id}
-          contractAddress={contractAddress}
-          tokenId={String(nft.identifier)}
-          protocolAddress={bestOffer.protocolAddress ?? ""}
-          offer={{
-            priceEth: bestOffer.priceEth,
-            priceFormatted: bestOffer.priceFormatted,
-            expirationTime: bestOffer.expirationTime,
-          }}
-          onClose={() => setShowSellSheet(false)}
-          onSold={() => {
-            setShowSellSheet(false); // close the sheet
-            onBack();                // go back to gallery
-          }}
-        />
-      )}
+  <SellConfirmSheet
+    chain={chain}
+    orderHash={bestOffer.id}
+    contractAddress={contractAddress}
+    tokenId={String(nft.identifier)}
+    protocolAddress={bestOffer.protocolAddress ?? ""}
+    offer={{
+      priceEth: bestOffer.priceEth,
+      priceFormatted: bestOffer.priceFormatted,
+      expirationTime: bestOffer.expirationTime,
+    }}
+    onClose={() => setShowSellSheet(false)}
+    onSold={() => {
+      setShowSellSheet(false);
+      if (onSold) {
+        onSold();
+      } else {
+        onBack();
+      }
+    }}
+  />
+)}
+
 
 
       {showListSheet && contractAddress && (
