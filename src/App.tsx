@@ -2196,38 +2196,39 @@ function NftDetailPage({
         </div>
 
         {/* Market: recent sale prices chart, with fallback */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
-              Market
-            </div>
-            <span className="text-[10px] text-neutral-400">Recent collection sales</span>
-          </div>
+<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
+  <div className="mb-2 flex items-center justify-between">
+    <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
+      Market
+    </div>
+    <span className="text-[10px] text-[var(--text-muted)]">Recent collection sales</span>
+  </div>
 
-          <div className="flex h-32 items-center justify-center rounded-2xl bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50 px-2">
-            {(marketLoading || (salesLoading && !chartPoints.length)) && !chartPoints.length && (
-              <div className="text-[11px] text-neutral-500">Loading market data…</div>
-            )}
+  <div className="flex h-32 items-center justify-center rounded-2xl bg-[var(--surface-secondary)] px-2">
+    {(marketLoading || (salesLoading && !chartPoints.length)) && !chartPoints.length && (
+      <div className="text-[11px] text-neutral-500">Loading market data…</div>
+    )}
 
-            {!marketLoading && !salesLoading && marketError && chartPoints.length === 0 && (
-              <div className="px-4 text-center text-[11px] text-neutral-500">
-                We can&apos;t show market data right now.
-              </div>
-            )}
+    {!marketLoading && !salesLoading && marketError && chartPoints.length === 0 && (
+      <div className="px-4 text-center text-[11px] text-neutral-500">
+        We can&apos;t show market data right now.
+      </div>
+    )}
 
-            {!marketLoading && !salesLoading && !marketError && chartPoints.length === 0 && (
-              <div className="px-4 text-center text-[11px] text-neutral-500">
-                We don&apos;t have enough historical data to draw a chart yet.
-              </div>
-            )}
+    {!marketLoading && !salesLoading && !marketError && chartPoints.length === 0 && (
+      <div className="px-4 text-center text-[11px] text-neutral-500">
+        We don&apos;t have enough historical data to draw a chart yet.
+      </div>
+    )}
 
-            {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
-          </div>
+    {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
+  </div>
 
-          <p className="mt-2 text-[10px] text-neutral-400">
-            Based on recent collection sales from OpenSea.
-          </p>
-        </div>
+  <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+    Based on recent collection sales from OpenSea.
+  </p>
+</div>
+
 
         {/* Price summary – bottom with actions + approval gating + listing info */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
