@@ -2693,14 +2693,24 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
               transform: `translateX(${(activeCoord.x / width) * 100}%)`,
             }}
           >
-            <div className="translate-x-[-50%] rounded-md border border-neutral-200 bg-white px-2 py-[2px] text-[10px] text-neutral-800 shadow-sm">
+            <div
+              className="translate-x-[-50%] rounded-md border px-2 py-[2px] text-[10px] shadow-sm"
+              style={{
+                background: "var(--surface-secondary)",
+                color: "var(--text-primary)",
+                borderColor: "var(--border)",
+              }}
+            >
               {formatEth(activePoint.priceEth)} ETH{" "}
-              <span className="text-neutral-400">• {formatShortDate(activePoint.timestamp)}</span>
+              <span className="opacity-70">
+                • {formatShortDate(activePoint.timestamp)}
+              </span>
             </div>
           </div>
         )}
       </div>
     </div>
+
   );
 }
 
