@@ -480,6 +480,13 @@ type MiniAppUser = {
   pfpUrl?: string;
 };
 
+type Theme = "base-light" | "farcaster-dark";
+
+function isDarkTheme(theme: Theme) {
+  return theme === "farcaster-dark";
+}
+
+
 function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const hideTimers = React.useRef<Record<string, number>>({});
@@ -604,6 +611,16 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
 
 
 function App() {
+  // Theme: Base (light) vs Farcaster (dark)
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "base-light";
+    const stored = window.localStorage.getItem("deck:theme");
+    if (stored === "base-light" || stored === "farcaster-dark") {
+      return stored as Theme;
+    }
+    return "base-light";
+  });
+
   // Remember last chain from localStorage, default to base
   const [chain, setChain] = useState<Chain>(() => {
     if (typeof window === "undefined") return "base";
@@ -619,6 +636,7 @@ function App() {
     return "base";
   });
 
+
   const [safeArea, setSafeArea] = useState<SafeArea>({
     top: 0,
     bottom: 0,
@@ -633,6 +651,12 @@ function App() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("deck:chain", chain);
   }, [chain]);
+
+  // Persist theme selection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("deck:theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     (async () => {
@@ -669,9 +693,13 @@ function App() {
 
   const isDetailView = !!selectedNft;
 
-  return (
+    return (
     <div
-      className="min-h-screen bg-neutral-50 text-neutral-900"
+      className={
+        isDarkTheme(theme)
+          ? "min-h-screen bg-[#0D0D0F] text-neutral-50"
+          : "min-h-screen bg-neutral-50 text-neutral-900"
+      }
       style={{
         paddingTop: 16 + safeArea.top,
         paddingBottom: 16 + safeArea.bottom,
@@ -680,7 +708,9 @@ function App() {
         fontFamily:
           "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
+      data-theme={theme}
     >
+
 
       <header className="mb-4 space-y-3">
         {/* Row 1: Logo + profile */}
@@ -704,19 +734,9 @@ function App() {
           </div>
         </div>
 
-        {/* Row 2: Powered by OpenSea + chain selector */}
+                {/* Row 2: Theme toggle + chain selector */}
         <div className="flex items-center gap-2">
-          <div
-            className="
-              inline-flex items-center gap-1 rounded-full 
-              bg-neutral-900 px-3 py-1
-              text-[10px] font-medium text-white
-              shadow-sm
-            "
-          >
-            <span className="text-[11px]">🌊</span>
-            <span>Powered by OpenSea</span>
-          </div>
+          <ThemeToggle theme={theme} onChange={setTheme} />
 
           <div className="flex flex-1 justify-end items-center">
             <div className="w-fit max-w-[240px]">
@@ -728,6 +748,7 @@ function App() {
             </div>
           </div>
         </div>
+
       </header>
 
       {/* Soft fade separator between header and content */}
@@ -925,6 +946,52 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
       "
     >
       {isPending ? "Connecting…" : "Connect Farcaster wallet"}
+    </button>
+  );
+}
+function ThemeToggle({
+  theme,
+  onChange,
+}: {
+  theme: Theme;
+  onChange: (t: Theme) => void;
+}) {
+  const isDark = isDarkTheme(theme);
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        onChange(isDark ? "base-light" : "farcaster-dark")
+      }
+      className="
+        inline-flex items-center rounded-full border border-neutral-200
+        bg-white/80 px-1 py-1 text-[10px] font-medium text-neutral-700
+        shadow-sm backdrop-blur-sm
+      "
+    >
+      <span
+        className={[
+          "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
+          !isDark
+            ? "bg-neutral-900 text-white"
+            : "text-neutral-500",
+        ].join(" ")}
+      >
+        <span>☀️</span>
+        <span>Base</span>
+      </span>
+      <span
+        className={[
+          "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
+          isDark
+            ? "bg-purple-600 text-white"
+            : "text-neutral-500",
+        ].join(" ")}
+      >
+        <span>🌙</span>
+        <span>Farcaster</span>
+      </span>
     </button>
   );
 }
