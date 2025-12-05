@@ -4,40 +4,6 @@ import { useAccount, useConnect, useWalletClient, usePublicClient } from "wagmi"
 import { encodeFunctionData, type TypedDataDomain, getAddress } from "viem";
 
 import { useMyNfts, type Chain, type OpenSeaNft } from "./hooks/useMyNfts";
-// --- Toast System v2 ---------------------------------------------------------
-
-type ToastType = "success" | "loading" | "error";
-
-type ToastItem = {
-  id: string;
-  type: ToastType;
-  message: string;
-};
-
-type ToastContextValue = {
-  showToast: (type: ToastType, message: string) => string;
-  hideToast: (id: string) => void;
-  updateToast: (id: string, patch: Partial<Omit<ToastItem, "id">>) => void;
-};
-
-const ToastContext = React.createContext<ToastContextValue | null>(null);
-
-export function useToast() {
-  const ctx = React.useContext(ToastContext);
-  if (!ctx) throw new Error("ToastContext missing from App");
-  return ctx;
-}
-
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.innerHTML = `
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  `;
-  document.head.appendChild(style);
-}
 
 // Minimal Seaport 1.6 ABI for matchAdvancedOrders
 const seaportMatchAdvancedOrdersAbi = [
@@ -441,106 +407,6 @@ function isDarkTheme(theme: Theme) {
   return theme === "farcaster-dark";
 }
 
-function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = React.useState<ToastItem[]>([]);
-  const hideTimers = React.useRef<Record<string, number>>({});
-
-  function scheduleAutoHide(id: string, duration = 3000) {
-    if (typeof window === "undefined") return;
-
-    const existing = hideTimers.current[id];
-    if (existing) {
-      window.clearTimeout(existing);
-      delete hideTimers.current[id];
-    }
-
-    const timer = window.setTimeout(() => {
-      setItems((prev) => prev.filter((i) => i.id !== id));
-      delete hideTimers.current[id];
-    }, duration);
-
-    hideTimers.current[id] = timer;
-  }
-
-  function showToast(type: ToastType, message: string) {
-    const id = Math.random().toString(36).slice(2);
-    const toast: ToastItem = { id, type, message };
-
-    setItems((prev) => [...prev.slice(-2), toast]);
-
-    // Non-loading toasts auto-hide
-    if (type !== "loading") {
-      scheduleAutoHide(id);
-    }
-
-    return id;
-  }
-
-  function hideToast(id: string) {
-    if (typeof window !== "undefined") {
-      const existing = hideTimers.current[id];
-      if (existing) {
-        window.clearTimeout(existing);
-        delete hideTimers.current[id];
-      }
-    }
-
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  }
-
-  function updateToast(id: string, patch: Partial<Omit<ToastItem, "id">>) {
-    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-
-    // If type is changed and becomes non-loading, auto-hide it
-    if (patch.type && patch.type !== "loading") {
-      scheduleAutoHide(id);
-    }
-  }
-
-  return (
-    <ToastContext.Provider value={{ showToast, hideToast, updateToast }}>
-      {children}
-
-      {/* ToastHost UI */}
-      <div className="pointer-events-none fixed top-3 right-0 left-0 z-[9999] flex flex-col items-center space-y-2 px-4">
-        {items.map((t) => (
-          <div
-            key={t.id}
-            className="pointer-events-auto flex w-full max-w-sm animate-[fadeInUp_0.25s_ease-out] items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-lg"
-          >
-            {t.type === "success" && <span className="text-lg text-emerald-600">✓</span>}
-            {t.type === "error" && <span className="text-lg text-red-500">⚠</span>}
-            {t.type === "loading" && (
-              <svg className="h-4 w-4 animate-spin text-neutral-500" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-            )}
-            <span className="flex-1 text-[13px] text-neutral-800">{t.message}</span>
-
-            {t.type === "loading" && (
-              <button onClick={() => hideToast(t.id)} className="text-[11px] text-neutral-500">
-                Hide
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
-  );
-}
-
 function App() {
   // Theme: Base (light) vs Farcaster (dark)
   const [theme, setTheme] = useState<Theme>(() => {
@@ -614,7 +480,7 @@ function App() {
     })();
   }, []);
 
-    const { isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const { data, loading, error } = useMyNfts(chain);
 
   const rawNfts = useMemo(() => data?.nfts ?? [], [data]);
@@ -624,7 +490,6 @@ function App() {
     const hiddenSet = new Set(hiddenNftKeys);
     return rawNfts.filter((nft) => !hiddenSet.has(makeNftKey(chain, nft)));
   }, [rawNfts, hiddenNftKeys, chain]);
-
 
   const showGrid = isConnected && !loading && !error && nfts.length > 0;
   const showEmpty = isConnected && !loading && !error && nfts.length === 0;
@@ -669,7 +534,12 @@ function App() {
 
           <div className="flex flex-1 items-center justify-end">
             <div className="w-fit max-w-[240px]">
-              <ChainSelector chain={chain} onChange={setChain} disabled={isDetailView} theme={theme} />
+              <ChainSelector
+                chain={chain}
+                onChange={setChain}
+                disabled={isDetailView}
+                theme={theme}
+              />
             </div>
           </div>
         </div>
@@ -711,16 +581,7 @@ function App() {
                       console.log("NFT object:", nft);
                       setSelectedNft(nft);
                     }}
-                            className="
-          group flex flex-col overflow-hidden rounded-2xl
-          border border-[var(--border)] bg-[var(--surface)]
-          p-2 shadow-sm transition-all duration-200
-          hover:-translate-y-[2px] hover:border-[var(--primary)] hover:shadow-lg
-          focus:outline-none focus:ring-2 focus:ring-[var(--primary)]
-          focus:ring-offset-2 focus:ring-offset-[var(--bg)]
-          active:translate-y-0 active:shadow-sm
-        "
-
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:border-[var(--primary)] hover:shadow-lg focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] focus:outline-none active:translate-y-0 active:shadow-sm"
                   >
                     {/* Inner image container */}
                     <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 pb-[100%]">
@@ -768,14 +629,11 @@ function App() {
             onSold={() => {
               if (!selectedNft) return;
               const key = makeNftKey(chain, selectedNft);
-              setHiddenNftKeys((prev) =>
-                prev.includes(key) ? prev : [...prev, key],
-              );
+              setHiddenNftKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
               setSelectedNft(null); // go back to gallery
             }}
           />
         )}
-
       </main>
     </div>
   );
@@ -791,13 +649,10 @@ function shortenAddress(addr?: string | null) {
 
 function makeNftKey(chain: Chain, nft: OpenSeaNft): string {
   const contractAddress =
-    nft && typeof nft.contract === "string"
-      ? nft.contract.toLowerCase()
-      : "no-contract";
+    nft && typeof nft.contract === "string" ? nft.contract.toLowerCase() : "no-contract";
 
   return `${chain}:${contractAddress}:${nft.identifier}`;
 }
-
 
 /**
  * Wallet connect pill / button with Farcaster user
@@ -839,7 +694,6 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
             )}
           </div>
         </div>
-
       </div>
     );
   }
@@ -875,8 +729,8 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
           !isDark
-            ? "bg-[#0052ff] text-white"      // SELECTED in light mode → Base Blue
-            : "text-neutral-500"             // unselected in dark mode
+            ? "bg-[#0052ff] text-white" // SELECTED in light mode → Base Blue
+            : "text-neutral-500", // unselected in dark mode
         ].join(" ")}
       >
         <span>☀️</span>
@@ -888,8 +742,8 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
         className={[
           "flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors",
           isDark
-            ? "bg-[#866aff] text-white"      // SELECTED in dark mode → Farcaster Purple
-            : "text-neutral-500"             // unselected in light mode
+            ? "bg-[#866aff] text-white" // SELECTED in dark mode → Farcaster Purple
+            : "text-neutral-500", // unselected in light mode
         ].join(" ")}
       >
         <span>🌙</span>
@@ -899,7 +753,6 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
   );
 }
 
-
 /**
  * Chain selector: multi-network with bottom sheet
  */
@@ -907,12 +760,12 @@ function ChainSelector({
   chain,
   onChange,
   disabled,
-  theme,     // ← add this
+  theme, // ← add this
 }: {
   chain: Chain;
   onChange: (c: Chain) => void;
   disabled?: boolean;
-  theme: Theme;   // ← add this
+  theme: Theme; // ← add this
 }) {
   const [open, setOpen] = useState(false);
 
@@ -967,13 +820,12 @@ function ChainSelector({
           />
 
           <div
-  className={
-    isDarkTheme(theme)
-      ? "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-700 bg-[#181818] px-4 pt-3 pb-4 shadow-xl"
-      : "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pt-3 pb-4 shadow-xl"
-  }
->
-
+            className={
+              isDarkTheme(theme)
+                ? "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-700 bg-[#181818] px-4 pt-3 pb-4 shadow-xl"
+                : "relative z-40 w-full max-w-sm rounded-t-3xl border border-neutral-200 bg-white px-4 pt-3 pb-4 shadow-xl"
+            }
+          >
             <div className="mx-auto mb-3 h-1 w-8 rounded-full bg-neutral-300" />
             <div className="mb-2 text-center text-[12px] font-semibold text-neutral-900">
               Select network
@@ -991,16 +843,15 @@ function ChainSelector({
                       setOpen(false);
                     }}
                     className={[
-                    "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
-                    isDarkTheme(theme)
-                      ? active
-                        ? "bg-[#262626] text-white"                        // active item in dark
-                        : "bg-[#1f1f1f] text-neutral-300 hover:bg-[#2a2a2a]" // inactive item in dark
-                      : active
-                        ? "bg-neutral-900 text-white"                      // active item in light
-                        : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100", // inactive in light
-                  ].join(" ")}
-
+                      "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
+                      isDarkTheme(theme)
+                        ? active
+                          ? "bg-[#262626] text-white" // active item in dark
+                          : "bg-[#1f1f1f] text-neutral-300 hover:bg-[#2a2a2a]" // inactive item in dark
+                        : active
+                          ? "bg-neutral-900 text-white" // active item in light
+                          : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100", // inactive in light
+                    ].join(" ")}
                   >
                     <div className="flex items-center gap-2">
                       <img src={opt.icon} className="h-4 w-4" alt="" />
@@ -1127,7 +978,6 @@ function NftDetailPage({
   onBack: () => void;
   onSold?: () => void;
 }) {
-
   const [bestOffer, setBestOffer] = useState<SimpleOffer | null>(null);
   const [offers, setOffers] = useState<SimpleOffer[]>([]);
   const [floor, setFloor] = useState<FloorInfo>({
@@ -1164,7 +1014,6 @@ function NftDetailPage({
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const { showToast, updateToast } = useToast();
 
   // Approval state
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("unknown");
@@ -1730,18 +1579,17 @@ function NftDetailPage({
 
   async function handleApproveOpenSea() {
     if (!walletClient || !address) {
-      showToast("error", "Wallet not connected.");
+      setActionError("Wallet not connected.");
       return;
     }
 
     const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
 
     if (!contractAddress) {
-      showToast("error", "Missing NFT contract.");
+      setActionError("Missing NFT contract.");
       return;
     }
 
-    const loadingId = showToast("loading", "Sending approval…");
     setApproving(true);
     setApprovalErrorMsg(null);
 
@@ -1762,10 +1610,6 @@ function NftDetailPage({
         value: 0n,
       });
 
-      updateToast(loadingId, {
-        type: "success",
-        message: "NFT approved!",
-      });
       setApprovalStatus("approved");
       setActionSuccess({
         title: "Collection approved",
@@ -1775,10 +1619,6 @@ function NftDetailPage({
       });
     } catch (err) {
       console.error("Approval tx failed", err);
-      updateToast(loadingId, {
-        type: "error",
-        message: "Approval failed.",
-      });
       setApprovalStatus("error");
       setActionError("Approval failed. Please check your wallet or network and try again.");
     } finally {
@@ -1788,18 +1628,17 @@ function NftDetailPage({
 
   async function handleRevokeOpenSea() {
     if (!walletClient || !address) {
-      showToast("error", "Wallet not connected.");
+      setActionError("Wallet not connected.");
       return;
     }
 
     const contractAddress = nft && typeof nft.contract === "string" ? nft.contract : undefined;
 
     if (!contractAddress) {
-      showToast("error", "Missing NFT contract.");
+      setActionError("Missing NFT contract.");
       return;
     }
 
-    const loadingId = showToast("loading", "Revoking approval…");
     setRevoking(true);
     setApprovalErrorMsg(null);
 
@@ -1820,25 +1659,17 @@ function NftDetailPage({
         value: 0n,
       });
 
-      updateToast(loadingId, {
-        type: "success",
-        message: "Approval revoked",
-      });
       setApprovalStatus("not-approved");
       setActionSuccess({
         title: "Approval revoked",
         message:
-          "OpenSea Seaport approval for this collection has been revoked. You&apos;ll need to approve again before trading.",
+          "OpenSea Seaport approval for this collection has been revoked. You’ll need to approve again before trading.",
         txHash,
       });
     } catch (err) {
       console.error("Revoke tx failed", err);
-      updateToast(loadingId, {
-        type: "error",
-        message: "Revoke failed.",
-      });
       setApprovalStatus("error");
-      setActionError("We couldn&apos;t revoke this approval. Please try again.");
+      setActionError("We couldn’t revoke this approval. Please try again.");
     } finally {
       setRevoking(false);
     }
@@ -1884,26 +1715,17 @@ function NftDetailPage({
 
   return (
     <div className="relative space-y-4 pb-20" style={{ opacity: isBusy ? 0.96 : 1 }}>
-{/* Top bar */}
-<div className="mb-1 flex items-center justify-between">
-  <button
-    type="button"
-    onClick={onBack}
-    className="
-      inline-flex items-center gap-1 rounded-full border
-      border-[var(--border)]
-      bg-[var(--surface-secondary)]
-      px-3 py-1.5 text-[11px] font-medium
-      text-[var(--text-secondary)]
-      shadow-sm
-      hover:bg-[var(--surface)]
-    "
-  >
-    <span className="text-xs">←</span>
-    <span>Back to gallery</span>
-  </button>
-</div>
-
+      {/* Top bar */}
+      <div className="mb-1 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] shadow-sm hover:bg-[var(--surface)]"
+        >
+          <span className="text-xs">←</span>
+          <span>Back to gallery</span>
+        </button>
+      </div>
 
       {/* Hero section */}
       <section className="flex flex-col gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
@@ -1970,51 +1792,42 @@ function NftDetailPage({
       {/* Traits + market sections */}
       <section className="space-y-3">
         {/* Traits */}
-<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
-  <div className="mb-2 flex items-center justify-between">
-    <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
-      Traits
-    </div>
-    {traitsLoading && (
-      <div className="text-[10px] text-[var(--text-muted)]">Loading…</div>
-    )}
-  </div>
-
-  {traitsError && !traitsLoading && (
-    <div className="text-[11px] text-[var(--text-muted)]">
-      We can&apos;t show traits right now.
-    </div>
-  )}
-
-  {!traitsLoading && !traitsError && traits.length === 0 && (
-    <div className="text-[11px] text-[var(--text-muted)]">
-      No traits available for this NFT.
-    </div>
-  )}
-
-  {!traitsLoading && !traitsError && traits.length > 0 && (
-    <div className="flex flex-wrap gap-1.5">
-      {traits.map((trait) => (
-        <div
-          key={`${trait.label}-${trait.value}`}
-          className="
-            rounded-xl border border-[var(--border)]
-            bg-[var(--surface-secondary)]
-            px-2 py-1 text-[10px]
-          "
-        >
-          <div className="text-[9px] tracking-wide text-[var(--text-muted)] uppercase">
-            {trait.label}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
+              Traits
+            </div>
+            {traitsLoading && <div className="text-[10px] text-[var(--text-muted)]">Loading…</div>}
           </div>
-          <div className="text-[11px] text-[var(--text-primary)]">
-            {trait.value}
-          </div>
+
+          {traitsError && !traitsLoading && (
+            <div className="text-[11px] text-[var(--text-muted)]">
+              We can&apos;t show traits right now.
+            </div>
+          )}
+
+          {!traitsLoading && !traitsError && traits.length === 0 && (
+            <div className="text-[11px] text-[var(--text-muted)]">
+              No traits available for this NFT.
+            </div>
+          )}
+
+          {!traitsLoading && !traitsError && traits.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {traits.map((trait) => (
+                <div
+                  key={`${trait.label}-${trait.value}`}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-1 text-[10px]"
+                >
+                  <div className="text-[9px] tracking-wide text-[var(--text-muted)] uppercase">
+                    {trait.label}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-primary)]">{trait.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
-    </div>
-  )}
-</div>
-
 
         {/* Listing – top 3 cheapest listings in this collection */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
@@ -2238,39 +2051,38 @@ function NftDetailPage({
         </div>
 
         {/* Market: recent sale prices chart, with fallback */}
-<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
-  <div className="mb-2 flex items-center justify-between">
-    <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
-      Market
-    </div>
-    <span className="text-[10px] text-[var(--text-muted)]">Recent collection sales</span>
-  </div>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold tracking-wide text-[var(--text-secondary)] uppercase">
+              Market
+            </div>
+            <span className="text-[10px] text-[var(--text-muted)]">Recent collection sales</span>
+          </div>
 
-  <div className="flex h-32 items-center justify-center rounded-2xl bg-[var(--surface-secondary)] px-2">
-    {(marketLoading || (salesLoading && !chartPoints.length)) && !chartPoints.length && (
-      <div className="text-[11px] text-neutral-500">Loading market data…</div>
-    )}
+          <div className="flex h-32 items-center justify-center rounded-2xl bg-[var(--surface-secondary)] px-2">
+            {(marketLoading || (salesLoading && !chartPoints.length)) && !chartPoints.length && (
+              <div className="text-[11px] text-neutral-500">Loading market data…</div>
+            )}
 
-    {!marketLoading && !salesLoading && marketError && chartPoints.length === 0 && (
-      <div className="px-4 text-center text-[11px] text-neutral-500">
-        We can&apos;t show market data right now.
-      </div>
-    )}
+            {!marketLoading && !salesLoading && marketError && chartPoints.length === 0 && (
+              <div className="px-4 text-center text-[11px] text-neutral-500">
+                We can&apos;t show market data right now.
+              </div>
+            )}
 
-    {!marketLoading && !salesLoading && !marketError && chartPoints.length === 0 && (
-      <div className="px-4 text-center text-[11px] text-neutral-500">
-        We don&apos;t have enough historical data to draw a chart yet.
-      </div>
-    )}
+            {!marketLoading && !salesLoading && !marketError && chartPoints.length === 0 && (
+              <div className="px-4 text-center text-[11px] text-neutral-500">
+                We don&apos;t have enough historical data to draw a chart yet.
+              </div>
+            )}
 
-    {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
-  </div>
+            {chartPoints.length > 0 && <MarketChart points={chartPoints} />}
+          </div>
 
-  <p className="mt-2 text-[10px] text-[var(--text-muted)]">
-    Based on recent collection sales from OpenSea.
-  </p>
-</div>
-
+          <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+            Based on recent collection sales from OpenSea.
+          </p>
+        </div>
 
         {/* Price summary – bottom with actions + approval gating + listing info */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm">
@@ -2434,15 +2246,7 @@ function NftDetailPage({
                   <>
                     <button
                       type="button"
-                      className="
-                        w-full rounded-xl
-                        border border-[var(--border)]
-                        bg-[var(--surface-secondary)]
-                        px-3 py-1.5 text-[11px] font-medium
-                        text-[var(--text-secondary)]
-                        hover:bg-[var(--surface)]
-                        disabled:cursor-not-allowed disabled:opacity-60
-                      "
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={revoking || hasMyListing}
                       onClick={handleRevokeOpenSea}
                     >
@@ -2456,7 +2260,6 @@ function NftDetailPage({
                     )}
                   </>
                 )}
-
               </>
             )}
 
@@ -2471,30 +2274,28 @@ function NftDetailPage({
       </section>
 
       {showSellSheet && bestOffer && contractAddress && (
-  <SellConfirmSheet
-    chain={chain}
-    orderHash={bestOffer.id}
-    contractAddress={contractAddress}
-    tokenId={String(nft.identifier)}
-    protocolAddress={bestOffer.protocolAddress ?? ""}
-    offer={{
-      priceEth: bestOffer.priceEth,
-      priceFormatted: bestOffer.priceFormatted,
-      expirationTime: bestOffer.expirationTime,
-    }}
-    onClose={() => setShowSellSheet(false)}
-    onSold={() => {
-      setShowSellSheet(false);
-      if (onSold) {
-        onSold();
-      } else {
-        onBack();
-      }
-    }}
-  />
-)}
-
-
+        <SellConfirmSheet
+          chain={chain}
+          orderHash={bestOffer.id}
+          contractAddress={contractAddress}
+          tokenId={String(nft.identifier)}
+          protocolAddress={bestOffer.protocolAddress ?? ""}
+          offer={{
+            priceEth: bestOffer.priceEth,
+            priceFormatted: bestOffer.priceFormatted,
+            expirationTime: bestOffer.expirationTime,
+          }}
+          onClose={() => setShowSellSheet(false)}
+          onSold={() => {
+            setShowSellSheet(false);
+            if (onSold) {
+              onSold();
+            } else {
+              onBack();
+            }
+          }}
+        />
+      )}
 
       {showListSheet && contractAddress && (
         <ListNftSheet
@@ -2571,10 +2372,7 @@ function NftDetailPage({
             <button
               type="button"
               onClick={() => setActionSuccess(null)}
-              className="mt-2 w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
-  text-[var(--text-secondary)] hover:bg-[var(--surface)]
-  disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] py-2 text-[12px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Close
             </button>
@@ -2774,15 +2572,12 @@ function MarketChart({ points }: { points: MarketPoint[] }) {
               }}
             >
               {formatEth(activePoint.priceEth)} ETH{" "}
-              <span className="opacity-70">
-                • {formatShortDate(activePoint.timestamp)}
-              </span>
+              <span className="opacity-70">• {formatShortDate(activePoint.timestamp)}</span>
             </div>
           </div>
         )}
       </div>
     </div>
-
   );
 }
 
@@ -2871,11 +2666,7 @@ function txExplorerUrl(chain: Chain, txHash: string): string {
 }
 
 function AppContainer() {
-  return (
-    <ToastProvider>
-      <App />
-    </ToastProvider>
-  );
+  return <App />;
 }
 
 export default AppContainer;
@@ -2903,7 +2694,6 @@ function SellConfirmSheet({
   onClose: () => void;
   onSold?: () => void;
 }) {
-
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -3168,10 +2958,7 @@ function SellConfirmSheet({
                     onClose();
                   }
                 }}
-                className="mt-2 w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
-  text-[var(--text-secondary)] hover:bg-[var(--surface)]
-  disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] py-2 text-[12px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Close
               </button>
@@ -3589,10 +3376,7 @@ function ListNftSheet({
                   setShowSuccessModal(false);
                   onClose();
                 }}
-                className="mt-2 w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
-  text-[var(--text-secondary)] hover:bg-[var(--surface)]
-  disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] py-2 text-[12px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Close
               </button>
@@ -3841,10 +3625,7 @@ function CancelListingSheet({
                 onCancelled();
                 onClose();
               }}
-              className="mt-2 w-full rounded-xl border border-[var(--border)]
-  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
-  text-[var(--text-secondary)] hover:bg-[var(--surface)]
-  disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)] py-2 text-[12px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Close
             </button>
