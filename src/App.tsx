@@ -935,11 +935,16 @@ function ChainSelector({
                       setOpen(false);
                     }}
                     className={[
-                      "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
-                      active
-                        ? "bg-neutral-900 text-white"
-                        : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100",
-                    ].join(" ")}
+                    "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-[12px]",
+                    isDarkTheme(theme)
+                      ? active
+                        ? "bg-[#262626] text-white"                        // active item in dark
+                        : "bg-[#1f1f1f] text-neutral-300 hover:bg-[#2a2a2a]" // inactive item in dark
+                      : active
+                        ? "bg-neutral-900 text-white"                      // active item in light
+                        : "bg-neutral-50 text-neutral-800 hover:bg-neutral-100", // inactive in light
+                  ].join(" ")}
+
                   >
                     <div className="flex items-center gap-2">
                       <img src={opt.icon} className="h-4 w-4" alt="" />
