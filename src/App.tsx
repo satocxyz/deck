@@ -661,7 +661,7 @@ function App() {
 
           <div className="flex flex-1 items-center justify-end">
             <div className="w-fit max-w-[240px]">
-              <ChainSelector chain={chain} onChange={setChain} disabled={isDetailView} />
+              <ChainSelector chain={chain} onChange={setChain} disabled={isDetailView} theme={theme} />
             </div>
           </div>
         </div>
@@ -851,10 +851,12 @@ function ChainSelector({
   chain,
   onChange,
   disabled,
+  theme,     // ← add this
 }: {
   chain: Chain;
   onChange: (c: Chain) => void;
   disabled?: boolean;
+  theme: Theme;   // ← add this
 }) {
   const [open, setOpen] = useState(false);
 
