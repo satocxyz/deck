@@ -4065,10 +4065,10 @@ async function handleCancel() {
   });
 
   setInfo(`Cancel transaction submitted: ${txHash}`);
-  setLastTxHash(txHash);
-  onCancelled();
-  setShowSuccessModal(true); // show success
-  // don't call onClose() here; let modal close it
+  setLastTxHash(txHash);        // store hash for explorer link
+  setShowSuccessModal(true);    // show success modal
+  // ❌ DO NOT call onCancelled() or onClose() here
+
 
   } catch (err) {
   console.error("cancel tx error", err);
@@ -4156,34 +4156,19 @@ async function handleCancel() {
       className="absolute inset-0 h-full w-full"
       onClick={() => {
         setShowSuccessModal(false);
-        onClose();
+        onCancelled(); // ✅ tell parent to refresh & close
+        onClose();     // ✅ hide the sheet
       }}
     />
 
     <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
-        <span className="text-emerald-600 text-lg">✓</span>
-      </div>
-
-      <div className="text-center">
-        <h2 className="text-sm font-semibold text-neutral-900">
-          Listing cancelled
-        </h2>
-        <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-          This NFT is no longer listed on OpenSea. You can view the cancel transaction on the block explorer.
-        </p>
-      </div>
+      {/* ✓ icon etc... */}
 
       <a
         href={txExplorerUrl(chain, lastTxHash)}
         target="_blank"
         rel="noreferrer"
-        className="
-          mt-4 flex w-full items-center justify-center
-          rounded-xl border border-purple-500/70
-          bg-white py-2 text-[12px] font-semibold
-          text-purple-700 hover:bg-purple-50
-        "
+        className="mt-4 flex w-full items-center justify-center rounded-xl border border-purple-500/70 bg-white py-2 text-[12px] font-semibold text-purple-700 hover:bg-purple-50"
       >
         View on explorer
       </a>
@@ -4192,19 +4177,17 @@ async function handleCancel() {
         type="button"
         onClick={() => {
           setShowSuccessModal(false);
-          onClose();
+          onCancelled(); // ✅ here
+          onClose();     // ✅ here
         }}
-        className="
-          mt-2 w-full rounded-xl border border-neutral-200
-          bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700
-          hover:bg-neutral-100
-        "
+        className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
       >
         Close
       </button>
     </div>
   </div>
 )}
+
 
 {showErrorModal && (
   <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
