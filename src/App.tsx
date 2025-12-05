@@ -825,17 +825,21 @@ function ConnectMenu({ user }: { user: MiniAppUser | null }) {
 
         {/* Avatar on the far right */}
         <div className="relative h-9 w-9 flex-shrink-0">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-400 to-purple-500" />
-          <div className="absolute inset-[2px] overflow-hidden rounded-full bg-neutral-900">
+          {/* Outer ring: uses theme primary color (Base blue in light, Farcaster purple in dark) */}
+          <div className="absolute inset-0 rounded-full bg-[var(--primary)]" />
+
+          {/* Inner circle: uses surface so it looks right in both themes */}
+          <div className="absolute inset-[2px] overflow-hidden rounded-full bg-[var(--surface)]">
             {user?.pfpUrl ? (
               <img src={user.pfpUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-200">
+              <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-500">
                 ?
               </div>
             )}
           </div>
         </div>
+
       </div>
     );
   }
