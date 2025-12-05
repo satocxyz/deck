@@ -2519,7 +2519,10 @@ function NftDetailPage({
             <button
               type="button"
               onClick={() => setActionSuccess(null)}
-              className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              className="mt-2 w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
+  text-[var(--text-secondary)] hover:bg-[var(--surface)]
+  disabled:cursor-not-allowed disabled:opacity-60"
             >
               Close
             </button>
@@ -3102,7 +3105,10 @@ function SellConfirmSheet({
                   setShowSuccessModal(false);
                   onClose();
                 }}
-                className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+                className="mt-2 w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
+  text-[var(--text-secondary)] hover:bg-[var(--surface)]
+  disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Close
               </button>
@@ -3520,7 +3526,10 @@ function ListNftSheet({
                   setShowSuccessModal(false);
                   onClose();
                 }}
-                className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+                className="mt-2 w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
+  text-[var(--text-secondary)] hover:bg-[var(--surface)]
+  disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Close
               </button>
@@ -3769,7 +3778,10 @@ function CancelListingSheet({
                 onCancelled();
                 onClose();
               }}
-              className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+              className="mt-2 w-full rounded-xl border border-[var(--border)]
+  bg-[var(--surface-secondary)] py-2 text-[12px] font-medium
+  text-[var(--text-secondary)] hover:bg-[var(--surface)]
+  disabled:cursor-not-allowed disabled:opacity-60"
             >
               Close
             </button>
