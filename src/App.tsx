@@ -28,7 +28,6 @@ export function useToast() {
   return ctx;
 }
 
-
 if (typeof document !== "undefined") {
   const style = document.createElement("style");
   style.innerHTML = `
@@ -289,15 +288,6 @@ type SeaportTypedData = {
   parameters: SeaportOrderParameters;
 };
 
-/**
- * Build a very simple Seaport 1.6 fixed-price listing:
- *  - ERC721
- *  - 1 unit
- *  - all proceeds to the seller (no fees yet)
- *
- * This is enough to get a correct EIP-712 payload for signing.
- * We still keep the actual OpenSea listing call on the backend stub.
- */
 /**
  * Build a Seaport 1.6 fixed-price listing:
  *  - ERC721
@@ -678,7 +668,7 @@ function App() {
       </header>
 
       {/* Soft fade separator between header and content */}
-      <div className="pointer-events-none -mt-1 mb-2 h-[12px] bg-gradient-to-b from-neutral-100 to-transparent" />
+      <div className="pointer-events-none -mt-1 mb-2 h-[12px] bg-gradient-to-b from-[var(--surface-secondary)] to-transparent" />
 
       <main className={isDetailView ? "mt-2" : "mt-4"}>
         {!isDetailView && (
@@ -830,7 +820,7 @@ function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
     <button
       type="button"
       onClick={() => onChange(isDark ? "base-light" : "farcaster-dark")}
-      className="inline-flex items-center rounded-full border border-neutral-200 bg-white/80 px-1 py-1 text-[10px] font-medium text-neutral-700 shadow-sm backdrop-blur-sm"
+      className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-1 py-1 text-[10px] font-medium text-[var(--text-secondary)] shadow-sm backdrop-blur-sm"
     >
       <span
         className={[
@@ -895,7 +885,7 @@ function ChainSelector({
         type="button"
         onClick={() => !disabled && setOpen(true)}
         disabled={disabled}
-        className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 active:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-primary)] shadow-sm hover:bg-[var(--surface-secondary)] active:bg-[var(--surface-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {/* Icon + label + Change all in one row, tight spacing */}
         <div className="flex min-w-0 items-center gap-1.5">
