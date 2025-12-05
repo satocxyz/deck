@@ -2631,12 +2631,14 @@ setActionSuccess({
                 type="button"
                 className="
   w-full rounded-xl py-2
+  text-[12px] font-semibold shadow-sm
   bg-[var(--primary)]
-  text-[12px] font-semibold text-[var(--primary-text)] shadow-sm
+  text-[var(--primary-text)]
   hover:bg-[var(--primary-hover)]
   active:bg-[var(--primary-active)]
   disabled:cursor-not-allowed disabled:opacity-60
 "
+
 
                 disabled={
                   approving ||
@@ -2666,6 +2668,7 @@ setActionSuccess({
     : "cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 opacity-60",
 ].join(" ")}
 
+
                   >
                     {canAcceptBestOffer
                       ? "Accept best offer"
@@ -2688,6 +2691,7 @@ setActionSuccess({
   hover:bg-[var(--surface-secondary)]
   disabled:cursor-not-allowed disabled:opacity-60
 "
+
 
                   >
                     {hasMyListing ? "Cancel listing" : "List on OpenSea"}
