@@ -92,10 +92,12 @@ export default async function handler(
     const parsed = bodySchema.safeParse(req.body);
     if (!parsed.success) {
       const msg =
-        parsed.error.errors.map((e) => e.message).join(", ") ||
-        "Invalid request body.";
+        parsed.error.issues
+          .map((issue) => issue.message)
+          .join(", ") || "Invalid request body.";
       return res.status(400).json({ ok: false, message: msg });
     }
+
 
     const { chain, orderId, expectedOfferer } = parsed.data;
 

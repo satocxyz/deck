@@ -90,10 +90,12 @@ export default async function handler(
     const parsed = querySchema.safeParse(req.query);
     if (!parsed.success) {
       const msg =
-        parsed.error.errors.map((e) => e.message).join(", ") ||
-        "Invalid query params.";
+        parsed.error.issues
+          .map((issue) => issue.message)
+          .join(", ") || "Invalid query params.";
       return res.status(400).json({ ok: false, message: msg });
     }
+
 
     const { chain, contract, tokenId, limit } = parsed.data;
     const apiKey = process.env.OPENSEA_API_KEY;

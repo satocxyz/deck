@@ -24,6 +24,7 @@
     "@tailwindcss/vite": "^4.1.17",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
+    "@vercel/node": "^5.5.15",
     "@vitejs/plugin-react": "^4.2.1",
     "@wagmi/cli": "latest",
     "prettier": "^3.7.4",
