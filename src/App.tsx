@@ -3643,11 +3643,10 @@ function ListNftSheet({
 
     <div className="relative z-[90] w-full max-w-xs rounded-3xl border border-neutral-200 bg-white px-5 py-5 shadow-2xl">
       {/* Animated checkmark */}
-      <img
-        src="/checkmark-animated.webp"
-        alt="Success"
-        className="mx-auto mb-3 h-12 w-12"
-      />
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+        <span className="text-emerald-600 text-lg">✓</span>
+      </div>
+
 
       <div className="text-center">
         <h2 className="text-sm font-semibold text-neutral-900">
